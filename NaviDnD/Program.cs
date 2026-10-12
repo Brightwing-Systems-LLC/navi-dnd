@@ -37,9 +37,11 @@ class Program
             catch { /* the crash logger must not crash the crash handler itself */ }
         };
 
+        // macOS/Linux: take over the terminal (raw input, mouse, alternate screen) before anything is drawn.
+        UnixTerminal.Start();
         // Windows creates and shows the console window BEFORE the first line of Main() — hide it right away,
         // configure everything (borderless, map-sized, font/colours) invisibly and show it when ready.
-        Console.CursorVisible = false;
+        Term.CursorVisible = false;
         ConsoleSetup.BlockConsoleFullscreen();
         ConsoleSetup.LoadBundledFonts();   // fonts from the Fonts folder — before configuring the console font
         ConsoleSetup.EnableAnsiSupport();
@@ -90,6 +92,9 @@ class Program
         Sound.TypingEnabled = config.TypingSoundEnabled;
         Music.Enabled = config.MusicEnabled;
         Music.AmbienceEnabled = config.AmbienceEnabled;
+        // NAVIDND_MUTE=1: silence for development runs (fixture runs skip the player's settings, so sounds are on there).
+        if (Environment.GetEnvironmentVariable("NAVIDND_MUTE") == "1")
+            Sound.Enabled = Sound.TypingEnabled = Music.Enabled = Music.AmbienceEnabled = false;
         Music.Volume = config.MusicVolume / 100f;
 
         var storage = new Storage { SaveExploredCells = config.SaveExploredCells };
@@ -143,7 +148,7 @@ class Program
 
         // Warm up the theme background/frame BEFORE showing the window — otherwise the user sees a frame with the default
         // black background/white text instead of our styling at the moment the window appears.
-        Console.CursorVisible = false;
+        Term.CursorVisible = false;
         Console.BackgroundColor = ConsoleColor.Black;
         ColorHelper.ClearScreen(display.MainBackground, display.MainForeground);
         ColorHelper.SetBackgroundColor(display.MainBackground);
@@ -254,12 +259,12 @@ class Program
                 var startTask = aiClient.StartNewGame("");
                 // Waiting gets its own screen: a frame, a title and a centred message (rather than in a corner of the previous screen).
                 ColorHelper.ClearScreen(display.MainBackground, display.MainForeground);
-                Console.SetCursorPosition(0, 0);
+                Term.SetCursorPosition(0, 0);
                 borderDrawer.DrawTopBorder();
                 borderDrawer.DrawContentLine(() => MouseUiHelper.WriteColoredTitle(L.T(" NEW GAME"), display));
                 borderDrawer.DrawSeparator();
                 // The frame reaches the window's last row, as on other screens: top, title, divider and bottom — 4 rows.
-                int waitRows = Math.Max(3, Console.WindowHeight - 4);
+                int waitRows = Math.Max(3, Term.WindowHeight - 4);
                 for (int r = 0; r < waitRows; r++) borderDrawer.DrawContentLine(() => { });
                 borderDrawer.DrawBottomBorder();
                 await Helpers.Spinner.WhileCentered(startTask, L.T("Creating the world"), 3 + waitRows / 2,
@@ -278,7 +283,7 @@ class Program
             }
 
             ConsoleSetup.SetConsoleConfig(settings);
-            Console.CursorVisible = false;
+            Term.CursorVisible = false;
             Console.BackgroundColor = ConsoleColor.Black;
             ColorHelper.ClearScreen(display.MainBackground, display.MainForeground);
             ColorHelper.SetBackgroundColor(display.MainBackground);
@@ -639,7 +644,7 @@ class Program
                 {
                     var ng = state.NewGame;
                     if (ng?.Wizard == null || ng.WorldId == null) { state.CurrentScreen = Screen.NewGame; break; }
-                    Console.SetCursorPosition(0, ng.Wizard.StartTop);
+                    Term.SetCursorPosition(0, ng.Wizard.StartTop);
                     // Came back and picked a world in another language — the sheet and hero start over (options and names are in the world's language).
                     if (ng.Form is { } old && old.Language != L.World) { ng.Form = null; ng.HeroReady = false; }
                     var form = ng.Form ??= new NewGameDisplay(settings, display, screen, aiClient);

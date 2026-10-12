@@ -38,4 +38,17 @@ internal static class AiActionTools
         if (withToolFilter) args.AddRange(["--tools", string.Join(",", ToolsFor(action).DefaultIfEmpty("none"))]);
         return args;
     }
+
+    // Extra environment for the MCP server; empty on Windows. On macOS/Linux its apphost has to find the .NET runtime, which
+    // may live outside the default folder (DOTNET_ROOT), and Codex starts MCP servers with a cleared environment.
+    public static Dictionary<string, string> McpEnvironment()
+    {
+        var environment = new Dictionary<string, string>();
+        if (OperatingSystem.IsWindows()) return environment;
+        string? root = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+        if (string.IsNullOrEmpty(root) && Path.GetDirectoryName(typeof(object).Assembly.Location) is { Length: > 0 } runtime)
+            root = Path.GetFullPath(Path.Combine(runtime, "..", "..", ".."));   // <root>/shared/Microsoft.NETCore.App/<version>
+        if (!string.IsNullOrEmpty(root) && Directory.Exists(Path.Combine(root, "shared"))) environment["DOTNET_ROOT"] = root;
+        return environment;
+    }
 }

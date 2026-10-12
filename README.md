@@ -9,11 +9,12 @@ This is an English translation fork of [NaviDnD](https://github.com/AlexandrNema
 
 - The whole project — code, AI prompts and documentation — has been translated to English. English is now the source and default language; Russian is kept as an optional translation (`NaviDnD.Data/Localization/ru.json`), selectable in Settings.
 - The game remains under the original author's non-commercial license: [LICENSE](LICENSE) (governing, in Russian) and [LICENSE.en.md](LICENSE.en.md) (unofficial English translation).
+- The game also runs on macOS (built from source, in a terminal) alongside Windows: see [docs/development.md](docs/development.md#macos-and-linux).
 - Remaining limitation: in the bestiary (`GameData/DnD5e_monsters_BD.dtn`) only monster names have English versions; the lore and stat-block text (traits, actions) is still Russian-only.
 
 ### [⬇️ Download the latest version](https://gitlab.com/navitalevich/navi-dnd/-/releases/permalink/latest)
 
-[All releases](https://gitlab.com/navitalevich/navi-dnd/-/releases) · [What's new](RELEASE_NOTES.md) · Windows x64
+[All releases](https://gitlab.com/navitalevich/navi-dnd/-/releases) · [What's new](RELEASE_NOTES.md) · Windows x64 · macOS from source ([how](docs/development.md#macos-and-linux))
 
 ![A combat turn: the hero tries to intimidate goblins, rolls the d20 on screen, the DM narrates the result](docs/media/en/combat_turn.gif)
 

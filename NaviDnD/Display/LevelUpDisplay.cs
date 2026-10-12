@@ -59,7 +59,7 @@ public class LevelUpDisplay
         }
 
         MouseUiHelper.SetDefaultImage(_display, hero.Image, hero.Color);
-        int startTop = Console.CursorTop, panelTop = startTop;
+        int startTop = Term.CursorTop, panelTop = startTop;
         if (!s.PlanLoaded && _planTask == null) _planTask = _ai.LevelUpOptions(s);
         Task<string?>? customTask = null;
         Task<Hero?>? applyTask = null;
@@ -112,10 +112,10 @@ public class LevelUpDisplay
                 {
                     heroDisplay.PreviewBase = hero;
                     heroDisplay.Preview = s.Preview();
-                    Console.CursorVisible = false;
-                    Console.SetCursorPosition(0, startTop);
+                    Term.CursorVisible = false;
+                    Term.SetCursorPosition(0, startTop);
                     heroDisplay.DrawHeroCard();
-                    panelTop = Console.CursorTop;
+                    panelTop = Term.CursorTop;
                     cardDirty = false;
                 }
 
@@ -386,8 +386,8 @@ public class LevelUpDisplay
         string request, string? busy, bool inputActive, int leftW, int rightW)
     {
         _hits.Clear();
-        Console.CursorVisible = false;
-        Console.SetCursorPosition(0, top);
+        Term.CursorVisible = false;
+        Term.SetCursorPosition(0, top);
         int leftX = DisplayConfig.LeftMargin + 1;
         int rowsN = _display.MaxHistoryLines;
 
@@ -428,9 +428,9 @@ public class LevelUpDisplay
                     bool thumb = barMarks[r];
                     leftContent = () =>
                     {
-                        int start = Console.CursorLeft;
+                        int start = Term.CursorLeft;
                         inner();
-                        int pad = leftW - 1 - (Console.CursorLeft - start);
+                        int pad = leftW - 1 - (Term.CursorLeft - start);
                         if (pad > 0) Console.Write(new string(' ', pad));
                         ColorHelper.WriteColored(thumb ? "┃" : "│", thumb ? Bright : Dim);
                     };
@@ -494,7 +494,7 @@ public class LevelUpDisplay
         // Input line: asking the DM for an option of your own; while the DM is thinking it shows its status and typing is disabled.
         string prompt = " " + L.T("Input: ");
         int inputW = _display.InnerWidth(_display.ViewCols(_settings.Map)) - prompt.Length - 2;
-        int inputY = Console.CursorTop;
+        int inputY = Term.CursorTop;
         _hits.Add((inputY, DisplayConfig.LeftMargin + 1, _display.InnerWidth(_display.ViewCols(_settings.Map)), "input"));
         string visible = request.Length > inputW - 1 ? "…" + request[^(inputW - 2)..] : request;
         _border.DrawContentLine(() =>
@@ -509,8 +509,8 @@ public class LevelUpDisplay
         _border.DrawBottomBorder();
         // The typing cursor is in the input line when it has focus (clicked or typed into).
         bool typing = inputActive && busy == null && !_frozen;
-        if (typing) Console.SetCursorPosition(DisplayConfig.LeftMargin + 1 + prompt.Length + visible.Length, inputY);
-        Console.CursorVisible = typing;
+        if (typing) Term.SetCursorPosition(DisplayConfig.LeftMargin + 1 + prompt.Length + visible.Length, inputY);
+        Term.CursorVisible = typing;
     }
 
     // Picture block: a spell shows its compendium card, an item with a description shows its name and text, otherwise the hero's portrait.

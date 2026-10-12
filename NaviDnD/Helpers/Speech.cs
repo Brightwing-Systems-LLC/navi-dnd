@@ -217,7 +217,7 @@ internal static class Speech
                     value => { if (!item.Warmup || config.SpeechEnabled) status = value; }, token);
                 if (item.Warmup) { if (config!.SpeechEnabled) status = L.T("Ready"); continue; }
                 using var reader = new WaveFileReader(wav);
-                using var output = new WaveOutEvent();
+                using var output = AudioOutput.Create();
                 // Volume is applied in the stream itself: WaveOutEvent.Volume (waveOutSetVolume) changes the whole application's volume,
                 // and the music stayed at the speech volume.
                 var volume = new VolumeSampleProvider(reader.ToSampleProvider())

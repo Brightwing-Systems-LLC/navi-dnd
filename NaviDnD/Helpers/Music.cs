@@ -1,4 +1,3 @@
-using NAudio.Vorbis;
 using NAudio.Wave;
 using NAudio.Wave.SampleProviders;
 
@@ -23,7 +22,7 @@ internal static class Music
 
     private static readonly WaveFormat Format = WaveFormat.CreateIeeeFloatWaveFormat(44100, 2);
     private static readonly object _lock = new();
-    private static WaveOutEvent? _output;
+    private static IWavePlayer? _output;
     private static bool _paused;
 
     public static void SetPaused(bool paused)
@@ -62,7 +61,7 @@ internal static class Music
                 _layers[id] = layer;
                 _mixer!.AddMixerInput(layer);
             }
-            catch { /* the file cannot be read — do without it */ }
+            catch (Exception ex) { AudioOutput.Log(ex); /* the file cannot be read — do without it */ }
         }
     }
 
@@ -95,12 +94,12 @@ internal static class Music
         try
         {
             _mixer = new MixingSampleProvider(Format) { ReadFully = true };   // with no tracks it plays silence; the device stays open
-            _output = new WaveOutEvent { DesiredLatency = 200 };
+            _output = AudioOutput.Create(200);
             _output.Init(new Ducking(_mixer));
             if (!_paused) _output.Play();
             return true;
         }
-        catch { _output = null; _mixer = null; return false; }
+        catch (Exception ex) { AudioOutput.Log(ex); _output = null; _mixer = null; return false; }
     }
 
     // Ducking the whole mixer for speech: down fast, back up slowly.
@@ -141,9 +140,7 @@ internal static class Music
         {
             _loop = loop;
             _ambience = ambience;
-            ISampleProvider s;
-            if (path.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase)) { var v = new VorbisWaveReader(path); _reader = v; s = v; }
-            else { var a = new AudioFileReader(path); _reader = a; s = a; }
+            _reader = AudioOutput.Open(path, out var s);
             if (s.WaveFormat.Channels == 1) s = new MonoToStereoSampleProvider(s);
             if (s.WaveFormat.SampleRate != Format.SampleRate) s = new WdlResamplingSampleProvider(s, Format.SampleRate);
             _source = s;

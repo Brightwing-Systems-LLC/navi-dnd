@@ -18,9 +18,12 @@ internal static class GameUpdates
     internal sealed record Asset(string Name, string Url);
     internal sealed record Release(string Version, string Page, Asset[] Assets);
 
+    // The updater is the Windows installer: elsewhere there is no background check, and the Updates screen points to git.
+    internal static bool Supported => OperatingSystem.IsWindows();
+
     internal static void Initialize()
     {
-        if (Environment.GetEnvironmentVariable("NAVIDND_TEST_WORLDSTATE") == null)
+        if (Supported && Environment.GetEnvironmentVariable("NAVIDND_TEST_WORLDSTATE") == null)
             pending = CheckAsync();
     }
 
@@ -59,6 +62,11 @@ internal static class GameUpdates
     internal static async Task<bool> ShowAsync(UpdateDisplay view)
     {
         view.Open();
+        if (!Supported)
+        {
+            await view.ConfirmAsync(L.F("Automatic updates are available only on Windows. You have version {0}: to update, use git pull and rebuild.", CurrentVersion), false);
+            return false;
+        }
         using var cancellation = new CancellationTokenSource();
         try
         {
