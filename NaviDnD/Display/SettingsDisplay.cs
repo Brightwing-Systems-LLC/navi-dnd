@@ -69,11 +69,11 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         Speech.WarmUp(both: true);   // sample phrases for both voices, with no delay for model loading
         BuildItems();
         var border = new BorderDrawer(settings, display);
-        _titleRow = Console.CursorTop - 1;
-        _bodyTop = Console.CursorTop + 1;
+        _titleRow = Term.CursorTop - 1;
+        _bodyTop = Term.CursorTop + 1;
         border.DrawSeparator();
         _width = display.InnerWidth(display.ViewCols(settings.Map));
-        _height = Math.Max(24, Console.WindowHeight - _bodyTop - 1);
+        _height = Math.Max(24, Term.WindowHeight - _bodyTop - 1);
         _x0 = DisplayConfig.LeftMargin + 1;
         for (int r = 0; r < _height; r++) border.DrawContentLine(() => { });
         border.DrawBottomBorder();
@@ -242,36 +242,40 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
             },
             Group = L.T("INTERFACE"),
         });
-        Toggle(L.T("SCREEN"), L.T("Full screen: the game at the same size centered on the monitor with the game background around it (taskbar hidden). Windowed — as usual, the window can be dragged."),
-            () => config.Fullscreen, v => { config.Fullscreen = v; ApplyScreen(); },
-            on: L.T("FULL SCREEN"), off: L.T("WINDOWED"));
-        string[] faces = ConsoleSetup.FontFaces;
-        _items.Add(new Item(L.T("FONT FACE"), Kind.Choice,
-            L.T("Game font: Consolas — regular, DejaVu Sans Mono — smooth (from the game's Fonts folder, crisp even at sizes above 16)."))
+        // Window mode and the console font exist only on Windows; a terminal on macOS/Linux has its own.
+        if (OperatingSystem.IsWindows())
         {
-            Get = () => config.FontFace,
-            Step = dir =>
+            Toggle(L.T("SCREEN"), L.T("Full screen: the game at the same size centered on the monitor with the game background around it (taskbar hidden). Windowed — as usual, the window can be dragged."),
+                () => config.Fullscreen, v => { config.Fullscreen = v; ApplyScreen(); },
+                on: L.T("FULL SCREEN"), off: L.T("WINDOWED"));
+            string[] faces = ConsoleSetup.FontFaces;
+            _items.Add(new Item(L.T("FONT FACE"), Kind.Choice,
+                L.T("Game font: Consolas — regular, DejaVu Sans Mono — smooth (from the game's Fonts folder, crisp even at sizes above 16)."))
             {
-                int i = Math.Max(0, Array.IndexOf(faces, config.FontFace));
-                config.FontFace = faces[(i + dir + faces.Length) % faces.Length];
-                ConsoleSetup.FontFace = config.FontFace;
-                // The font has its own sizes; if the selected one isn't among them: auto.
-                if (!ConsoleSetup.FontSizes(config.FontFace).Contains(config.FullscreenFontSize)) config.FullscreenFontSize = 0;
-                ApplyScreen();
-            },
-        });
-        _items.Add(new Item(L.T("FONT SIZE"), Kind.Choice,
-            L.T("Font size in full screen sets the size of the whole game: auto — the largest that fits the monitor; a number — that size (or as large as fits). Only crisp sizes are offered: Consolas 14/16, DejaVu 16–22. Windowed is always 16."))
-        {
-            Get = () => config.FullscreenFontSize <= 0 ? L.T("auto") : config.FullscreenFontSize.ToString(),
-            Step = dir =>
+                Get = () => config.FontFace,
+                Step = dir =>
+                {
+                    int i = Math.Max(0, Array.IndexOf(faces, config.FontFace));
+                    config.FontFace = faces[(i + dir + faces.Length) % faces.Length];
+                    ConsoleSetup.FontFace = config.FontFace;
+                    // The font has its own sizes; if the selected one isn't among them: auto.
+                    if (!ConsoleSetup.FontSizes(config.FontFace).Contains(config.FullscreenFontSize)) config.FullscreenFontSize = 0;
+                    ApplyScreen();
+                },
+            });
+            _items.Add(new Item(L.T("FONT SIZE"), Kind.Choice,
+                L.T("Font size in full screen sets the size of the whole game: auto — the largest that fits the monitor; a number — that size (or as large as fits). Only crisp sizes are offered: Consolas 14/16, DejaVu 16–22. Windowed is always 16."))
             {
-                int[] fonts = [0, .. ConsoleSetup.FontSizes(config.FontFace)];   // auto + this font's sizes
-                int i = Math.Max(0, Array.IndexOf(fonts, config.FullscreenFontSize));
-                config.FullscreenFontSize = fonts[(i + dir + fonts.Length) % fonts.Length];
-                ApplyScreen();
-            },
-        });
+                Get = () => config.FullscreenFontSize <= 0 ? L.T("auto") : config.FullscreenFontSize.ToString(),
+                Step = dir =>
+                {
+                    int[] fonts = [0, .. ConsoleSetup.FontSizes(config.FontFace)];   // auto + this font's sizes
+                    int i = Math.Max(0, Array.IndexOf(fonts, config.FullscreenFontSize));
+                    config.FullscreenFontSize = fonts[(i + dir + fonts.Length) % fonts.Length];
+                    ApplyScreen();
+                },
+            });
+        }
         Toggle(L.T("KEY HINTS"), L.T("Key hints [F1]…[F10], [Esc] on tabs and sub-tabs. Off — they are hidden, the keys still work."),
             () => config.ShowKeyHints, v => { config.ShowKeyHints = v; display.ShowKeyHints = v; },
             on: L.T("SHOW"), off: L.T("HIDE"));
@@ -372,7 +376,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         Text(L.T("CLAUDE TOKEN"), L.T("Claude OAuth token (claude setup-token). Stored only on your computer in Storage/settings.json."),
             () => config.ClaudeOAuthToken, v => config.ClaudeOAuthToken = v, secret: true);
         OnlyFor("claude");
-        Text(L.T("CLAUDE PATH"), L.T("Path to claude.exe (Claude CLI), which the game uses to reach the Dungeon Master."),
+        Text(L.T("CLAUDE PATH"), OperatingSystem.IsWindows() ? L.T("Path to claude.exe (Claude CLI), which the game uses to reach the Dungeon Master.") : L.T("Path to claude (Claude CLI), which the game uses to reach the Dungeon Master."),
             () => config.ClaudeCliPath, v => config.ClaudeCliPath = v);
         OnlyFor("claude");
         Model(L.T("GAME MODEL"), L.T("Codex model for game turns: actions, combat, triggers. Sol — balanced, Astra — complex tasks, Luna — simple ones. Availability depends on your account."),
@@ -398,7 +402,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
             },
         });
         OnlyFor("codex");
-        Text(L.T("CODEX PATH"), L.T("Path to Codex CLI. \"codex\" — look it up in PATH (for the npm package the game picks codex.exe itself)."),
+        Text(L.T("CODEX PATH"), OperatingSystem.IsWindows() ? L.T("Path to Codex CLI. \"codex\" — look it up in PATH (for the npm package the game picks codex.exe itself).") : L.T("Path to Codex CLI. \"codex\" — look it up in PATH."),
             () => config.CodexCliPath, v => config.CodexCliPath = v.Trim().Length > 0 ? v.Trim() : "codex");
         OnlyFor("codex");
 
@@ -439,7 +443,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         _titleTabs = MouseUiHelper.ComputeTitleTabs(_title);
         _drawnChars = null;
         _drawnFg = null;
-        Console.SetCursorPosition(0, _titleRow);
+        Term.SetCursorPosition(0, _titleRow);
         new BorderDrawer(settings, display).DrawContentLine(() => MouseUiHelper.WriteColoredTitle(_title, display));
     }
 
@@ -567,7 +571,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         string footer = _editing ? L.T("[Enter]SAVE   [Esc]CANCEL") : L.T("[↑↓]ITEM   [←→]CHANGE");
         CenterIn(top + boxHeight + 1, _left, total, footer, Dim);
 
-        Console.CursorVisible = false;
+        Term.CursorVisible = false;
         for (int r = 0; r < _height; r++)
             if (RowChanged(r)) WriteRow(r);
         _drawnChars = _chars;
@@ -668,7 +672,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
 
     private void WriteRow(int row)
     {
-        Console.SetCursorPosition(_x0, _bodyTop + row);
+        Term.SetCursorPosition(_x0, _bodyTop + row);
         int c = 0;
         while (c < _width)
         {

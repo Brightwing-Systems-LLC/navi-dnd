@@ -594,12 +594,15 @@
   "three-quarters": "три четверти",
   "Claude Code and Codex CLI were not found.\n\nThe game needs one of these clients:\n": "Claude Code и Codex CLI не найдены.\n\nДля игры нужен один из этих клиентов:\n",
   "Install a client and sign in. If it is already installed, set the path to its exe in the game settings.\n\nPress OK to open the settings.": "Установите клиент и войдите в аккаунт. Если он уже установлен, укажите путь к его exe в настройках игры.\n\nНажмите ОК, чтобы открыть настройки.",
+  "Install a client and sign in. If it is already installed, set the full path to the claude or codex executable in the game settings (find it with: which claude).\n\nPress OK to open the settings.": "Установите клиент и войдите в аккаунт. Если он уже установлен, укажите полный путь к исполняемому файлу claude или codex в настройках игры (найти его: which claude).\n\nНажмите ОК, чтобы открыть настройки.",
   "NaviDnD — AI setup": "NaviDnD — настройка нейронки",
   "The DM is thinking": "Мастер думает",
   "Could not load the icon. Check the path and format (.ico required).": "Не удалось загрузить иконку. Проверьте путь и формат (требуется .ico).",
   "Installing Silero and PyTorch": "Установка Silero и PyTorch",
   "Could not start Silero installation": "Не удалось начать установку Silero",
   "Silero installation failed. Python 3.10–3.12 x64 is required; check the Python path and your internet connection.": "Установка Silero не удалась. Нужен Python 3.10–3.12 x64; проверь путь к Python и интернет.",
+  "Silero installation failed. Python 3.10–3.12 is required (for example: brew install python@3.12); check the Python path and your internet connection.": "Установка Silero не удалась. Нужен Python 3.10–3.12 (например: brew install python@3.12); проверь путь к Python и интернет.",
+  "Automatic updates are available only on Windows. You have version {0}: to update, use git pull and rebuild.": "Автообновление доступно только в Windows. У вас версия {0}: чтобы обновиться, выполните git pull и пересоберите игру.",
   "Loading the Silero model": "Загрузка модели Silero",
   "Could not start Silero": "Не удалось запустить Silero",
   "Silero did not load the model": "Silero не загрузил модель",
@@ -922,5 +925,10 @@
   "by road": "по дороге",
   "partly by road": "частью по дороге",
   "off-road": "без дороги",
-  ", through {0}": ", через {0}"
+  ", through {0}": ", через {0}",
+  "The terminal window is too small for NaviDnD.": "Окно терминала слишком мало для NaviDnD.",
+  "It needs at least {0} × {1} characters; now it is {2} × {3}.": "Нужно не меньше {0} × {1} символов, сейчас {2} × {3}.",
+  "Enlarge the window or make the font smaller (Cmd and minus).": "Увеличьте окно или уменьшите шрифт (Cmd и минус).",
+  "Path to claude (Claude CLI), which the game uses to reach the Dungeon Master.": "Путь к claude (Claude CLI), через который игра обращается к мастеру.",
+  "Path to Codex CLI. \"codex\" — look it up in PATH.": "Путь к Codex CLI. «codex» — искать в PATH."
 }

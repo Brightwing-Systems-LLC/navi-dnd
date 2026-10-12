@@ -84,13 +84,13 @@ public class LegendDisplay
             bool? on = bar?[i];
             lines.Add(() =>
             {
-                int start = Console.CursorLeft;
+                int start = Term.CursorLeft;
                 line();
                 if (on is not { } isThumb) return;
                 // The bar is in the legend's last column (the CaptureOutput snapshot writes into a string, so the cursor doesn't move).
                 if (Console.Out is not StringWriter)
                 {
-                    int used = Console.CursorLeft - start;
+                    int used = Term.CursorLeft - start;
                     if (used < legendWidth - 1) Console.Write(new string(' ', legendWidth - 1 - used));
                 }
                 ColorHelper.WriteColored(isThumb ? "┃" : "│", isThumb ? thumb : frame, _display.MainBackground);
@@ -498,7 +498,7 @@ public class LegendDisplay
             // initiative
             () =>
             {
-                int lineStart = Console.CursorLeft;
+                int lineStart = Term.CursorLeft;
                 Console.Write(" ");
                 ColorHelper.WriteColored(label1, dim, bg);
                 var combat = _storage.WorldState.Combat;
@@ -514,7 +514,7 @@ public class LegendDisplay
                     // On the right, the end-turn button (instead of typing "I end my turn" to the DM), if it fits.
                     // The legend snapshot (MapDisplay.CaptureOutput) writes into a string, so the cursor doesn't move; width is by the text.
                     int used = Console.Out is StringWriter ? 1 + label1.Length + 5 * combat.Initiative.Count(e => e.Deleted != true)
-                                                           : Console.CursorLeft - lineStart;
+                                                           : Term.CursorLeft - lineStart;
                     int at = width - EndTurnText.Length - 1;
                     if (IsHeroTurn && used < at)
                     {

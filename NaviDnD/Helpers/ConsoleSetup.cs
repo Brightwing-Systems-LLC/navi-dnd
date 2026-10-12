@@ -1,3 +1,4 @@
+using NaviDnD.Helpers;
 using NaviDnD.Data;
 using NaviDnD.Data.Models;
 using System.Runtime.InteropServices;
@@ -142,6 +143,11 @@ internal static class ConsoleSetup
     // window itself sometimes lingers — an explicit WM_CLOSE before exiting reliably closes it.
     internal static void CloseConsoleAndExit()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            UnixTerminal.Current?.Restore();
+            Environment.Exit(0);
+        }
         var consoleWindow = GetConsoleWindow();
         if (consoleWindow != IntPtr.Zero)
             SendMessage(consoleWindow, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
@@ -173,14 +179,14 @@ internal static class ConsoleSetup
         Console.Title = "NaviDnD";
         Console.OutputEncoding = Encoding.UTF8;
 
-        var display = new DisplayConfig();
-        // frame(2) + guard against auto-wrap on the right(1) + DisplayConfig.LeftMargin on the left.
-        int width = display.InnerWidth(display.ViewCols(settings.Map)) + 3 + DisplayConfig.LeftMargin;
-        // The character/abilities card stretches to at least FixedMapContentHigh
-        // (see DisplayConfig.MaxHigh) — the window must be at least as tall, otherwise
-        // there is no room for the dialogue box and the picture block below the card.
-        int cardHigh = Math.Max(display.ViewRows(settings.Map) * 2, DisplayConfig.FixedMapContentHigh);
-        int height = cardHigh + display.MaxHistoryLines + 18;
+        var (width, height) = WindowSize(settings);
+        if (!OperatingSystem.IsWindows())
+        {
+            // The terminal keeps its font; ask it for the same grid (xterm-compatible terminals honour this) and wait
+            // until it is at least that big.
+            UnixTerminal.Current?.EnsureSize(Math.Min(width, MaxWidth), Math.Min(Math.Max(1, height - 1), MaxHeight));
+            return;
+        }
 
         // EnableAnsiSupport strips WS_CAPTION BEFORE this point, but conhost computes the pixels for
         // N rows as if the title bar were still there — an empty strip remains at the bottom of the window. A buffer
@@ -192,8 +198,6 @@ internal static class ConsoleSetup
         // was played only by Console.LargestWindowWidth/Height (the most that fits on the current
         // monitor) — so on a higher-resolution monitor the window became taller/wider
         // than on the old one, even though the map was the same. The numbers match Window Size in the shortcut properties.
-        const int MaxWidth = 150;
-        const int MaxHeight = 63;
         if (width > MaxWidth) width = MaxWidth;
         if (windowHeight > MaxHeight) windowHeight = MaxHeight;
 
@@ -226,6 +230,22 @@ internal static class ConsoleSetup
         NaviDnD.Helpers.FullscreenBackdrop.Recenter();   // full screen — after a resize the window is centred again
     }
 
+    private const int MaxWidth = 150;
+    private const int MaxHeight = 63;
+
+    // The grid the game is laid out for: the map view plus the frame, the card and the dialogue below it.
+    internal static (int width, int height) WindowSize(WorldState settings)
+    {
+        var display = new DisplayConfig();
+        // frame(2) + guard against auto-wrap on the right(1) + DisplayConfig.LeftMargin on the left.
+        int width = display.InnerWidth(display.ViewCols(settings.Map)) + 3 + DisplayConfig.LeftMargin;
+        // The character/abilities card stretches to at least FixedMapContentHigh
+        // (see DisplayConfig.MaxHigh) — the window must be at least as tall, otherwise
+        // there is no room for the dialogue box and the picture block below the card.
+        int cardHigh = Math.Max(display.ViewRows(settings.Map) * 2, DisplayConfig.FixedMapContentHigh);
+        return (width, cardHigh + display.MaxHistoryLines + 18);
+    }
+
     // The console window can be slightly taller than a whole number of rows (the title bar is gone but conhost counts pixels with it) — below
     // the bottom frame a strip of a few pixels remained, painted by the console with the current background (water from
     // the world map, or some other colour). Trim the window height to exactly the rows; leave the width alone (adjusting it broke
@@ -240,7 +260,7 @@ internal static class ConsoleSetup
             var font = new CONSOLE_FONT_INFOEX();
             font.cbSize = (uint)Marshal.SizeOf(font);
             if (!GetCurrentConsoleFontEx(GetStdHandle(STD_OUTPUT_HANDLE), false, ref font) || font.FontSizeY <= 0) return;
-            int extra = (client.Bottom - client.Top) - Console.WindowHeight * font.FontSizeY;
+            int extra = (client.Bottom - client.Top) - Term.WindowHeight * font.FontSizeY;
             if (extra <= 0 || extra >= font.FontSizeY || !GetWindowRect(hwnd, out var win)) return;
             const uint SWP_NOMOVE = 0x0002, SWP_NOZORDER = 0x0004, SWP_NOACTIVATE = 0x0010;
             SetWindowPos(hwnd, IntPtr.Zero, 0, 0, win.Right - win.Left, win.Bottom - win.Top - extra, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -384,6 +404,7 @@ internal static class ConsoleSetup
 
     internal static void DisableQuickEdit()
     {
+        if (!OperatingSystem.IsWindows()) return;
         IntPtr handle = GetStdHandle(STD_INPUT_HANDLE);
         GetConsoleMode(handle, out uint mode);
         mode &= ~ENABLE_QUICK_EDIT;
@@ -412,6 +433,7 @@ internal static class ConsoleSetup
 
     internal static void ShowWindow()
     {
+        if (!OperatingSystem.IsWindows()) return;
         IntPtr hWnd = GetConsoleWindow();
         if (hWnd == IntPtr.Zero) return;
 
@@ -426,6 +448,7 @@ internal static class ConsoleSetup
     // the resize has already been applied to the window in its normal state and everything is ready to show the user.
     internal static void RevealWindow()
     {
+        if (!OperatingSystem.IsWindows()) return;
         IntPtr hWnd = GetConsoleWindow();
         if (hWnd == IntPtr.Zero) return;
 

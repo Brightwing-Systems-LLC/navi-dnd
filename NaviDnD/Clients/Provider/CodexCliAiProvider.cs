@@ -78,7 +78,7 @@ public class CodexCliAiProvider(AppConfig config, AiLogger? logger = null) : IAi
                 throw new AiSetupException(L.F("Codex CLI not found ({0}): install it (npm i -g @openai/codex), sign in (codex login) and set the path in the settings (\"CODEX PATH\") if needed.",
                     config.CodexCliPath));
             }
-            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 5)
+            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == (OperatingSystem.IsWindows() ? 5 : 13))   // access denied / EACCES
             {
                 throw new AiSetupException(L.T("Codex CLI can't be started.\nCheck permissions, antivirus blocking and \"CODEX PATH\" in the settings."));
             }
@@ -153,6 +153,8 @@ public class CodexCliAiProvider(AppConfig config, AiLogger? logger = null) : IAi
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding = Encoding.UTF8,
         };
+        // macOS/Linux: the npm launcher (codex.js) needs `node`, which may be missing from the game's PATH.
+        if (!OperatingSystem.IsWindows()) psi.Environment["PATH"] = AiCliDiscovery.ChildPath(psi.FileName);
         foreach (string a in new[] { "exec", "--json", "--ephemeral", "--ignore-user-config", "--skip-git-repo-check", "--sandbox", "read-only", "--cd", workDir,
                      "--output-last-message", lastMessagePath })
             psi.ArgumentList.Add(a);
@@ -172,6 +174,8 @@ public class CodexCliAiProvider(AppConfig config, AiLogger? logger = null) : IAi
             Config(psi, "mcp_servers.navidnd.command", TomlLiteral(config.McpServerPath));
             Config(psi, "mcp_servers.navidnd.args", "[" + string.Join(",", args.Select(TomlLiteral)) + "]");
             Config(psi, "mcp_servers.navidnd.required", "true");
+            foreach (var (key, value) in AiActionTools.McpEnvironment())
+                Config(psi, $"mcp_servers.navidnd.env.{key}", TomlLiteral(value));
             // The player has already allowed the DM to use the game's tools; the CLI runs without the approvals dialog.
             foreach (string tool in AiActionTools.ToolsFor(action))
                 Config(psi, $"mcp_servers.navidnd.tools.{tool}.approval_mode", "'approve'");
