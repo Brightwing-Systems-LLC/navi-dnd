@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      # releases/ holds ~600 MB of installer parts and patches that nothing here needs.
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /*
+            !/releases/
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Build game and MCP server
+        run: dotnet build NaviDnD.McpServer/NaviDnD.McpServer.csproj
+
+      - name: Build test projects
+        run: |
+          dotnet build NaviDnD.UiTests/NaviDnD.UiTests.csproj
+          dotnet build NaviDnD.PromptTests/NaviDnD.PromptTests.csproj
+
+      - name: Build installer
+        if: runner.os == 'Windows'
+        run: dotnet build NaviDnD.Installer/NaviDnD.Installer.csproj
+
+      # UI tests drive a real Windows console and prompt tests call real models — neither runs in CI.
+      - name: Unit tests
+        run: dotnet test NaviDnD.Tests/NaviDnD.Tests.csproj

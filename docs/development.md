@@ -23,6 +23,24 @@
 
 The storage folders and the settings file are created automatically on first launch; saves, worlds and heroes as you play. Data lives in `NaviDnD/Storage/`, logs in `NaviDnD/logs/`. Both folders are excluded from Git. Close the game before rebuilding. To update the sources, `git pull` and build again.
 
+### macOS (and Linux)
+
+The game runs in a terminal. Use iTerm2, Ghostty, kitty or WezTerm: they report mouse movement, which hover cards and paths need. Apple's Terminal.app works for keyboard play.
+
+```bash
+brew install --cask dotnet-sdk        # or the .NET 9 SDK installer from Microsoft
+dotnet build NaviDnD.McpServer/NaviDnD.McpServer.csproj
+dotnet NaviDnD/bin/Debug/net9.0/NaviDnD.dll
+```
+
+- **Window size.** The layout is a fixed grid of about 150 × 63 characters. The game asks the terminal to resize itself; if it can't, it waits with a message until the window is big enough — enlarge it or make the font smaller (Cmd −).
+- **Function keys.** F1–F12 switch tabs. On a Mac keyboard hold Fn, or turn on System Settings → Keyboard → "Use F1, F2, etc. keys as standard function keys". In iTerm2 also make sure the keys aren't bound to anything else.
+- **Option as Alt.** Alt+arrows page through cards and scroll the dialog: set the Option key to send Esc+ ("Use Option as Meta key" in Terminal.app).
+- **Not on macOS:** the window buttons (minimise / full screen / close), console font settings and auto-updates — the terminal owns its window and font, and updates are `git pull` plus a rebuild.
+- `NAVIDND_MUTE=1` silences all audio — handy for development runs, especially with `NAVIDND_TEST_WORLDSTATE`, which skips the player's settings.
+
+On macOS/Linux `UnixTerminal` takes over the terminal (raw input, SGR mouse, the alternate screen) and produces the same input records the Windows console does, so the screens share one input path; the rest of the game reaches the terminal through `Term`. Audio uses AudioToolbox on macOS (`AudioQueuePlayer`), pictures are drawn with SkiaSharp on every OS.
+
 ### Finding the clients
 
 On every launch the game looks for the clients in the background: PATH, standard folders, npm and the VS Code, Cursor and Windsurf extensions. Stale paths are fixed automatically, working manual paths are kept; the menu doesn't wait for the search to finish. If only Codex is found, it is selected automatically. Initial models: Codex — Sol 6.1 with medium reasoning, Claude — Opus 5.5.
@@ -38,7 +56,7 @@ An API key from the Anthropic Console does not work here. The token is stored lo
 
 ## Silero voice-over
 
-In the release build Silero, the Russian model, Python and CPU PyTorch are included in the installer; the bundle lives in `Speech/silero/`. Running from source without the bundle requires Python 3.10–3.12 x64; to install: `powershell -NoProfile -ExecutionPolicy Bypass -File NaviDnD/Speech/setup-silero.ps1`. To build a standalone release, the Silero cache must use Python 3.12. [Silero v5.5](https://github.com/snakers4/silero-models) is used.
+In the release build Silero, the Russian model, Python and CPU PyTorch are included in the installer; the bundle lives in `Speech/silero/`. Running from source without the bundle requires Python 3.10–3.12 x64; to install: `powershell -NoProfile -ExecutionPolicy Bypass -File NaviDnD/Speech/setup-silero.ps1`. On macOS/Linux (Python 3.10–3.12, e.g. `brew install python@3.12`): `bash NaviDnD/Speech/setup-silero.sh`; the game runs it itself on first use. To build a standalone release, the Silero cache must use Python 3.12. [Silero v5.5](https://github.com/snakers4/silero-models) is used.
 
 With voice-over enabled, the DM sends a single `text` with SSML markup: on screen the game hides the tags, stress marks and emphasis, while Silero gets the pauses and intonation settings. The `speechEnabled:true/false` flag is passed as a single line in the context; with voice-over off the DM sends plain text. If the markup is invalid, plain speech is used. When the game starts with voice-over enabled, the model is loaded and warmed up silently in the background. If there is no sound, check the status in the settings and `logs/speech.log`.
 

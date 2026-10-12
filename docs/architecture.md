@@ -1,6 +1,6 @@
 # NaviDnD architecture
 
-A Windows role-playing game with an AI Dungeon Master. The D&D 5e rules are defined by prompts; the engine is responsible for state, geometry, rendering and interaction with the player.
+A console role-playing game with an AI Dungeon Master for Windows and macOS (Linux from source). The D&D 5e rules are defined by prompts; the engine is responsible for state, geometry, rendering and interaction with the player.
 
 ## UI animations
 
