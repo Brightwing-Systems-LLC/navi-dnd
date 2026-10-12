@@ -67,6 +67,22 @@ public class AiCliDiscoveryTests
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
+    // A terminal's per-session wrapper (cmux) ahead on PATH is skipped in favour of the real CLI behind it.
+    [Fact]
+    public void TerminalShimIsSkippedForRealCli()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        string root = Path.Combine(Path.GetTempPath(), "discovery-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string shim = Path.Combine(root, ".cmuxterm", "cmux-cli-shims", "SESSION");
+            Fixture(Path.Combine(shim, "claude"));
+            string real = Fixture(Path.Combine(root, "bin", "claude"));
+            Assert.Equal(real, AiCliDiscovery.Find("claude", [shim, Path.Combine(root, "bin")], []));
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
     // A fixture file; outside Windows it is marked executable, as discovery requires there.
     private static string Fixture(string path)
     {
