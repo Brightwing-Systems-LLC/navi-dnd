@@ -13,7 +13,7 @@ public class CodexCliErrorTests
     public void AuthenticationFailureExplainsHowToLogIn(string raw)
     {
         var error = Assert.IsType<AiSetupException>(CodexCliAiProvider.CreateError(raw));
-        Assert.Contains("не авторизован", error.Message);
+        Assert.Contains("not signed in", error.Message);
         Assert.Contains("codex login", error.Message);
     }
 
@@ -24,8 +24,8 @@ public class CodexCliErrorTests
     public void AccessFailureIsDifferentFromMissingLogin(string raw)
     {
         var error = Assert.IsType<AiSetupException>(CodexCliAiProvider.CreateError(raw));
-        Assert.Contains("нет доступа", error.Message);
-        Assert.DoesNotContain("не авторизован", error.Message);
+        Assert.Contains("no access", error.Message);
+        Assert.DoesNotContain("not signed in", error.Message);
     }
 
     [Theory]

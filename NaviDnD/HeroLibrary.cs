@@ -5,10 +5,10 @@ using NaviDnD.Data.Models;
 
 namespace NaviDnD;
 
-// Библиотека героев (Storage/Heroes/*.json): герой целиком (HeroJson — статы, навыки, заклинания, способности,
-// раса, класс, уровень, снаряжение) + личность для анкеты. Обновляется из сохранённых игр (последнее состояние
-// героя — с прогрессом), остаётся, даже если игру удалили. Новая игра тем же героем: уровень и умения
-// сохраняются, снаряжение и состояние — заново (GameAiClient.ReuseHero).
+// The hero library (Storage/Heroes/*.json): the whole hero (HeroJson — stats, skills, spells, abilities,
+// race, class, level, equipment) + personality for the character sheet. Updated from saved games (the hero's latest
+// state, with progress), and stays even if the game is deleted. A new game with the same hero: level and abilities
+// are kept, equipment and condition start fresh (GameAiClient.ReuseHero).
 public static class HeroLibrary
 {
     public sealed class Card
@@ -17,7 +17,7 @@ public static class HeroLibrary
         public string Name { get; set; } = "";
         public string Symbol { get; set; } = "";
         public string Race { get; set; } = "";
-        public string Class { get; set; } = "";      // без уровня
+        public string Class { get; set; } = "";      // without the level
         public string Level { get; set; } = "";      // «3» — hero.level
         public string Description { get; set; } = "";
         public List<int>? Color { get; set; }
@@ -34,7 +34,7 @@ public static class HeroLibrary
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(System.Text.Unicode.UnicodeRanges.All),
     };
 
-    // Все герои, новые — первыми (перед этим — подтянуть героев из сохранённых игр).
+    // All heroes, newest first (pulling heroes in from saved games beforehand).
     public static List<Card> All()
     {
         for (int slot = 1; slot <= Storage.MaxGames; slot++)
@@ -50,11 +50,11 @@ public static class HeroLibrary
                     list.Add(c);
                 }
             }
-            catch { /* повреждённый файл — пропускаем */ }
+            catch { /* corrupt file — skip it */ }
         return list.OrderByDescending(c => c.SavedAt).ToList();
     }
 
-    // Описание героя из анкеты (внешность, характер, предыстория) — в его карточку.
+    // The hero's description from the character sheet (appearance, personality, backstory) — into their card.
     public static void SetDescription(string name, string description)
     {
         try
@@ -64,10 +64,10 @@ public static class HeroLibrary
             card.Description = description;
             File.WriteAllText(file, JsonSerializer.Serialize(card, _json), Encoding.UTF8);
         }
-        catch { /* не записалось — описание останется в этой игре */ }
+        catch { /* not written — the description stays in this game */ }
     }
 
-    // Герой сохранённой игры — в библиотеку (по имени; новее — перезаписывает).
+    // A saved game's hero — into the library (by name; a newer one overwrites).
     public static void SyncFromSave(string savePath)
     {
         try
@@ -88,14 +88,14 @@ public static class HeroLibrary
                 Name = name, Symbol = (string?)hero["symbol"] ?? "", Race = Stat(StatKeys.Race),
                 Class = cls,
                 Level = ((int?)hero["level"] ?? clsLevel ?? 1).ToString(),
-                // Описание (предыстория из анкеты) в сохранении игры не хранится — остаётся с карточки.
+                // The description (backstory from the character sheet) is not stored in the game save — it stays from the card.
                 Description = (string?)hero["description"] ?? old?.Description ?? "", Color = color is { Count: 3 } ? color : null,
                 Image = (string?)hero["image"], HeroJson = hero.ToJsonString(), SavedAt = savedAt,
             };
             Directory.CreateDirectory(Dir);
             File.WriteAllText(file, JsonSerializer.Serialize(card, _json), Encoding.UTF8);
         }
-        catch { /* не прочиталось — герой просто не появится в списке */ }
+        catch { /* could not be read — the hero just will not appear in the list */ }
     }
 
     public static void Delete(Card card)

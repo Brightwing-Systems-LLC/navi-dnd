@@ -2,20 +2,20 @@ using Xunit.Abstractions;
 
 namespace NaviDnD.UiTests;
 
-// E2E-регрессия: вне боя обычное свободное действие (не движение по сетке) само может продвинуть
-// раунд — герой тратит "Действие", AI патчит time.totalRounds+1 в том же ответе (см. SendAction
-// systemPrompt § ДЕЙСТВИЯ И РАУНДЫ). До фикса MapScreenLoop.RunAsync вызывал Storage.TakeRoundBundle()
-// только после движения по сетке (стрелками) — после свободного действия (SendAction) периодические
-// эффекты (hero.effects[].onRound) НЕ проверялись вообще, и ничего не напоминало AI применить тик
-// «Горящего» эффекта на этом раунде. Теперь TakeRoundBundle() проверяется и после SendAction —
-// это должно вызвать ВТОРОЙ вызов "SendAction" (FireRoundTransition использует тот же системный
-// промпт) с тиком эффекта.
+// E2E regression: outside combat an ordinary free-text action (not grid movement) can itself advance
+// the round — the hero spends the "Action", and the AI patches time.totalRounds+1 in the same response (see SendAction
+// systemPrompt § ACTIONS AND ROUNDS). Before the fix MapScreenLoop.RunAsync called Storage.TakeRoundBundle()
+// only after grid movement (arrow keys) — after a free-text action (SendAction) periodic
+// effects (hero.effects[].onRound) were NOT checked at all, and nothing reminded the AI to apply the
+// "Burning" effect tick for that round. Now TakeRoundBundle() is also checked after SendAction —
+// this must cause a SECOND "SendAction" call (FireRoundTransition uses the same system
+// prompt) with the effect tick.
 //
-// Fixtures/burning_effect_game.json: герой вне боя, hp 10/10, один активный эффект «Горящий» с
-// onRound (без onExpire/expiresAtRound — бессрочный, снимается только вручную). Мок SendAction:
-// response.json (1й вызов, действие игрока) тратит "Действие" и сам продвигает totalRounds → 2, БЕЗ
-// изменения HP — это доказывает, что AI-мок не обязан сам бить себя огнём, движок должен напомнить
-// отдельным вызовом; response2.json (2й вызов, FireRoundTransition) наносит 1 урон от «Горящего».
+// Fixtures/burning_effect_game.json: hero out of combat, hp 10/10, one active "Burning" effect with
+// onRound (no onExpire/expiresAtRound — indefinite, removed only manually). SendAction mock:
+// response.json (1st call, the player's action) spends the "Action" and itself advances totalRounds → 2, WITHOUT
+// changing HP — this proves the AI mock does not have to burn itself; the engine must remind it
+// with a separate call; response2.json (2nd call, FireRoundTransition) deals 1 damage from "Burning".
 public class BurningEffectRoundTransitionTests
 {
     private readonly ITestOutputHelper _output;
@@ -27,50 +27,50 @@ public class BurningEffectRoundTransitionTests
     {
         using var game = GameSession.Launch(
             fixtureFileName: "burning_effect_game.json", mockedActions: ["SendAction"], mockResponsesFolder: "BurningEffect");
-        _output.WriteLine($"Игра запущена (pid {game.Pid}).");
+        _output.WriteLine($"Game launched (pid {game.Pid}).");
         var failures = new List<string>();
 
-        Navigation.MenuSelect(game.Pid, "ПРОДОЛЖИТЬ");
+        Navigation.MenuSelect(game.Pid, "CONTINUE");
         Assert.True(
-            GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ КАРТА ←", 5000),
-            "Не дождались экрана Карты после [F1] в меню.");
-        _output.WriteLine("Экран Карты отрисован. Отправляю свободное действие игрока (1й вызов мока — тратит Действие и сам продвигает раунд, без урона)...");
+            GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ MAP ←", 5000),
+            "Map screen did not appear after [F1] in the menu.");
+        _output.WriteLine("Map screen rendered. Sending the player's free-text action (1st mock call — spends the Action and advances the round itself, no damage)...");
         TestPacing.Step();
 
-        GameConsole.SendText(game.Pid, "жду и осматриваюсь");
+        GameConsole.SendText(game.Pid, "I wait and look around");
         GameConsole.SendKey(game.Pid, ConsoleKey.Enter);
 
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Ожидание", 3000),
-            "Не дождались спиннера ожидания для действия игрока.");
-        _output.WriteLine("Действие обрабатывается. После него движок должен сам обнаружить смену раунда и напомнить об эффекте (2й вызов мока)...");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Waiting", 3000),
+            "Waiting spinner for the player's action did not appear.");
+        _output.WriteLine("Action is being processed. After it the engine must detect the round change itself and send an effect reminder (2nd mock call)...");
         TestPacing.Step();
 
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Раунд 2", 20000),
-            "Раунд не продвинулся до 2 — 1й мок-ответ (действие игрока) не применился как ожидалось.");
-        _output.WriteLine("Раунд продвинулся до 2.");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Round 2", 20000),
+            "The round did not advance to 2 — the 1st mock response (player's action) was not applied as expected.");
+        _output.WriteLine("Round advanced to 2.");
 
-        // Не ждать просто текст "Горящий" — он и так виден в легенде с самого начала (имя активного
-        // эффекта героя рисуется постоянно), это условие выполнилось бы мгновенно и ничего не
-        // доказало бы. Ждём именно текст ВТОРОГО мок-ответа (response2.json) — он появляется только
-        // если Storage.TakeRoundBundle() после SendAction реально сработал и вызвал FireRoundTransition.
+        // Don't just wait for the text "Burning" — it is visible in the legend from the very start (the name of the hero's active
+        // effect is always drawn), so that condition would be met instantly and prove
+        // nothing. Wait specifically for the text of the SECOND mock response (response2.json) — it appears only
+        // if Storage.TakeRoundBundle() after SendAction actually fired and called FireRoundTransition.
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "снова прихватывает кожу", 20000),
-            "Не дождались текста 2го мок-ответа (тик эффекта «Горящий») — Storage.TakeRoundBundle() не сработал после свободного действия.");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "sear your skin again", 20000),
+            "Text of the 2nd mock response (\"Burning\" effect tick) did not appear — Storage.TakeRoundBundle() did not fire after the free-text action.");
         TestPacing.Step();
 
         var rows = GameConsole.ReadRows(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth);
 
-        _output.WriteLine("Проверяю, что урон от эффекта реально применился к HP героя...");
+        _output.WriteLine("Checking that the effect damage was actually applied to the hero's HP...");
         if (!rows.Any(r => r.Contains("❤ 9/10")))
-            failures.Add("После тика «Горящего» HP героя не обновилось до «❤ 9/10» — round-transition патч не применился.");
+            failures.Add("After the \"Burning\" tick the hero's HP did not update to \"❤ 9/10\" — the round-transition patch was not applied.");
         TestPacing.Step();
 
         _output.WriteLine(failures.Count == 0
-            ? "Все проверки пройдены."
-            : $"Провалено проверок: {failures.Count}.");
+            ? "All checks passed."
+            : $"Failed checks: {failures.Count}.");
         TestPacing.Step();
-        Assert.True(failures.Count == 0, "UI-тест FAIL:\n" + string.Join("\n", failures.Select(f => "  - " + f)));
+        Assert.True(failures.Count == 0, "UI test FAIL:\n" + string.Join("\n", failures.Select(f => "  - " + f)));
     }
 }

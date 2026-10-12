@@ -34,15 +34,15 @@ internal static class ConsoleSetup
     private const uint LR_LOADFROMFILE = 0x0010;
     const int SW_RESTORE = 9;
 
-    // Только Windows 11 (build 22000+) — на более старых системах DwmSetWindowAttribute вернёт
-    // ошибку по неизвестному атрибуту, что безвредно (см. try/catch в SetRoundedCorners).
+    // Windows 11 only (build 22000+) — on older systems DwmSetWindowAttribute returns
+    // an unknown-attribute error, which is harmless (see the try/catch in SetRoundedCorners).
     private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
 
-    // DWMWA_CLOAK — недокументированный, но давно известный атрибут: убирает окно с композиции
-    // DWM НАПРЯМУЮ, независимо от его "положения" (свёрнуто/обычное). Это позволяет расцепить
-    // "перевести окно в обычное положение, чтобы resize сработал корректно" (SW_RESTORE) от
-    // "показать окно пользователю" — окно можно развернуть, оставаясь физически невидимым,
-    // применить SetConsoleConfig, и только потом снять cloak.
+    // DWMWA_CLOAK — undocumented but long-known: removes the window from DWM composition
+    // DIRECTLY, regardless of its "state" (minimised/normal). This decouples
+    // "put the window into its normal state so resizing works correctly" (SW_RESTORE) from
+    // "show the window to the user" — the window can be restored while staying physically invisible,
+    // SetConsoleConfig applied, and only then the cloak removed.
     private const int DWMWA_CLOAK = 13;
     private const int DWMWCP_ROUND = 2;
 
@@ -137,9 +137,9 @@ internal static class ConsoleSetup
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int pvAttribute, int cbAttribute);
 
-    // BlockConsoleFullscreen выше снимает WS_SYSMENU/WS_CAPTION у окна консоли — у него нет ни
-    // кнопки закрытия, ни системного меню. Обычный Environment.Exit(0) завершает процесс, но само
-    // окно консоли иногда остаётся висеть — явный WM_CLOSE перед выходом гарантированно его закрывает.
+    // BlockConsoleFullscreen above strips WS_SYSMENU/WS_CAPTION from the console window — it has neither
+    // a close button nor a system menu. A plain Environment.Exit(0) ends the process, but the console
+    // window itself sometimes lingers — an explicit WM_CLOSE before exiting reliably closes it.
     internal static void CloseConsoleAndExit()
     {
         var consoleWindow = GetConsoleWindow();
@@ -148,10 +148,10 @@ internal static class ConsoleSetup
         Environment.Exit(0);
     }
 
-    // Windows создаёт и сразу показывает окно консоли ДО того, как успевает выполниться хоть
-    // одна строчка Main() — со стандартным размером/чёрным фоном. Прячем окно первой же строкой
-    // и показываем только после того, как всё (стиль без рамки, размер под карту, цвета, шрифт)
-    // уже настроено — иначе пользователь видит мигание "обычная консоль → игра".
+    // Windows creates and immediately shows the console window BEFORE a single line of Main()
+    // runs — with the default size/black background. We hide the window on the very first line
+    // and show it only once everything (borderless style, map-sized dimensions, colours, font)
+    // is configured — otherwise the user sees a "plain console → game" flicker.
     internal static void HideWindow()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
@@ -174,62 +174,62 @@ internal static class ConsoleSetup
         Console.OutputEncoding = Encoding.UTF8;
 
         var display = new DisplayConfig();
-        // рамка(2) + предохранитель от автопереноса справа(1) + DisplayConfig.LeftMargin слева.
+        // frame(2) + guard against auto-wrap on the right(1) + DisplayConfig.LeftMargin on the left.
         int width = display.InnerWidth(display.ViewCols(settings.Map)) + 3 + DisplayConfig.LeftMargin;
-        // Карточка персонажа/способностей растягивается минимум до FixedMapContentHigh
-        // (см. DisplayConfig.MaxHigh) — окно должно быть высоким настолько же, иначе
-        // диалоговому окну и блоку картинки под карточкой не остаётся места.
+        // The character/abilities card stretches to at least FixedMapContentHigh
+        // (see DisplayConfig.MaxHigh) — the window must be at least as tall, otherwise
+        // there is no room for the dialogue box and the picture block below the card.
         int cardHigh = Math.Max(display.ViewRows(settings.Map) * 2, DisplayConfig.FixedMapContentHigh);
         int height = cardHigh + display.MaxHistoryLines + 18;
 
-        // EnableAnsiSupport снимает WS_CAPTION ДО этого места, но conhost пересчитывает пиксели под
-        // N строк так, будто заголовок никуда не делся — внизу окна остаётся пустая полоса. Буфер
-        // выше окна создавал скролл (недопустимо), а пиксельная подрезка через SetWindowPos задевала
-        // ширину. -2 строки обрезали реальный контент (пропала верхняя строка) — откат на -1.
+        // EnableAnsiSupport strips WS_CAPTION BEFORE this point, but conhost computes the pixels for
+        // N rows as if the title bar were still there — an empty strip remains at the bottom of the window. A buffer
+        // taller than the window caused scrolling (not allowed), and pixel trimming via SetWindowPos affected
+        // the width. -2 rows clipped real content (the top row vanished) — rolled back to -1.
         int windowHeight = Math.Max(1, height - 1);
 
-        // Фиксированный потолок размера окна — НЕ зависит от разрешения экрана. Раньше эту роль
-        // выполнял только Console.LargestWindowWidth/Height (максимум, что помещается на текущий
-        // монитор) — из-за этого на мониторе с более высоким разрешением окно становилось выше/шире,
-        // чем на старом, хотя карта та же самая. Числа совпадают с Window Size в свойствах ярлыка.
+        // A fixed window size ceiling — it does NOT depend on screen resolution. Previously this role
+        // was played only by Console.LargestWindowWidth/Height (the most that fits on the current
+        // monitor) — so on a higher-resolution monitor the window became taller/wider
+        // than on the old one, even though the map was the same. The numbers match Window Size in the shortcut properties.
         const int MaxWidth = 150;
         const int MaxHeight = 63;
         if (width > MaxWidth) width = MaxWidth;
         if (windowHeight > MaxHeight) windowHeight = MaxHeight;
 
-        // Шрифт: в окне — 16; весь экран — по масштабу (авто — самый крупный, при котором окно влезает в монитор).
-        // Сетка та же (строки/колонки), растёт клетка. Не влезло (ширина символа у шрифта не ровно половина
-        // высоты) — на шаг меньше.
+        // Font: 16 in windowed mode; in full screen by scale (auto — the largest at which the window fits the monitor).
+        // The grid stays the same (rows/columns), the cell grows. If it does not fit (the font's character width is not exactly half
+        // its height) — one step smaller.
         short font = FontSizeFor(width, windowHeight);
         SetConsoleFontSize(font);
         while ((Console.LargestWindowWidth < width || Console.LargestWindowHeight < windowHeight)
                && FontSizes(FontFace).Where(x => x < font).DefaultIfEmpty(0).Max() is var smaller and > 0)
-            SetConsoleFontSize(font = (short)smaller);   // не влезло — следующий размер этого шрифта
+            SetConsoleFontSize(font = (short)smaller);   // did not fit — the next size of this font
 
-        // Console.LargestWindowWidth/Height — аварийный барьер ТОЛЬКО на случай, если даже
-        // фиксированный потолок выше не помещается на экране (очень маленький монитор) — в обычных
-        // условиях срабатывать не должен.
+        // Console.LargestWindowWidth/Height is an emergency barrier ONLY for the case where even
+        // the fixed ceiling above does not fit on screen (a very small monitor) — under normal
+        // conditions it should never kick in.
         if (width > Console.LargestWindowWidth)
             width = Console.LargestWindowWidth;
         if (windowHeight > Console.LargestWindowHeight)
             windowHeight = Console.LargestWindowHeight;
 
-        // Ширину НЕ уменьшаем: "+3" в width (запас сверх border.InnerWidth) — не лишнее место,
-        // а предохранитель от автопереноса на последней колонке консоли. -1 к ширине съедал этот
-        // запас и вызывал перенос строк на самом краю (Windows console переносит текст, записанный
-        // ровно в последнюю колонку буфера).
+        // Do NOT reduce the width: the "+3" in width (margin beyond border.InnerWidth) is not wasted space
+        // but a guard against auto-wrap on the console's last column. -1 on the width ate this
+        // margin and caused lines to wrap at the very edge (the Windows console wraps text written
+        // exactly into the buffer's last column).
         Console.WindowWidth = width;
         Console.WindowHeight = windowHeight;
         Console.BufferWidth = Console.WindowWidth;
         Console.BufferHeight = Console.WindowHeight;
         TrimWindowToRows();
-        NaviDnD.Helpers.FullscreenBackdrop.Recenter();   // весь экран — после смены размера окно снова по центру
+        NaviDnD.Helpers.FullscreenBackdrop.Recenter();   // full screen — after a resize the window is centred again
     }
 
-    // Окно консоли бывает чуть выше целого числа строк (заголовок снят, а conhost считает пиксели с ним) — под
-    // нижней рамкой оставалась полоса в несколько пикселей, которую консоль красила текущим фоном (то вода с
-    // карты мира, то другой цвет). Подрезаем высоту окна ровно до строк; ширину не трогаем (её подгонка ломала
-    // перенос на последней колонке).
+    // The console window can be slightly taller than a whole number of rows (the title bar is gone but conhost counts pixels with it) — below
+    // the bottom frame a strip of a few pixels remained, painted by the console with the current background (water from
+    // the world map, or some other colour). Trim the window height to exactly the rows; leave the width alone (adjusting it broke
+    // wrapping on the last column).
     private static void TrimWindowToRows()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
@@ -245,16 +245,16 @@ internal static class ConsoleSetup
             const uint SWP_NOMOVE = 0x0002, SWP_NOZORDER = 0x0004, SWP_NOACTIVATE = 0x0010;
             SetWindowPos(hwnd, IntPtr.Zero, 0, 0, win.Right - win.Left, win.Bottom - win.Top - extra, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
         }
-        catch { /* не вышло — останется полоса, как раньше */ }
+        catch { /* did not work — the strip stays, as before */ }
     }
 
-    // Весь экран (настройка ЭКРАН) и размер шрифта в нём: 0 — авто, иначе размер (не влезает — сколько влезает).
+    // Full screen (the SCREEN setting) and its font size: 0 — auto, otherwise the size (if it does not fit — whatever fits).
     internal static bool Fullscreen;
-    // Шрифт консоли (настройка «ТИП ШРИФТА») и какие можно выбрать.
+    // Console font (the "FONT FACE" setting) and the choices available.
     internal static readonly string[] FontFaces = ["Consolas", "DejaVu Sans Mono"];
 
-    // Шрифты игры (папка Fonts: DejaVu Sans Mono) — подключаются на время работы игры, без установки в систему
-    // (AddFontResourceEx без FR_PRIVATE: консоль рисует в другом процессе и должна их видеть), при выходе — снимаются.
+    // The game's fonts (Fonts folder: DejaVu Sans Mono) — loaded while the game runs, without installing them system-wide
+    // (AddFontResourceEx without FR_PRIVATE: the console draws in another process and must see them), removed on exit.
     internal static void LoadBundledFonts()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
@@ -264,12 +264,12 @@ internal static class ConsoleSetup
             if (!Directory.Exists(dir)) return;
             var files = Directory.GetFiles(dir, "*.ttf");
             foreach (var f in files) AddFontResourceEx(f, 0, IntPtr.Zero);
-            // Уведомляем о шрифтах без ожидания остальных приложений: таймаут HWND_BROADCAST
-            // применяется к каждому окну отдельно и может задержать появление меню на секунды.
+            // Announce the fonts without waiting for other applications: the HWND_BROADCAST timeout
+            // applies to each window separately and can delay the menu by seconds.
             PostMessage((IntPtr)0xffff, 0x001D /* WM_FONTCHANGE */, IntPtr.Zero, IntPtr.Zero);
             AppDomain.CurrentDomain.ProcessExit += (_, _) => { foreach (var f in files) RemoveFontResourceEx(f, 0, IntPtr.Zero); };
         }
-        catch { /* не подключились — в списке останутся, консоль подставит свой шрифт */ }
+        catch { /* not loaded — they stay in the list, the console substitutes its own font */ }
     }
 
     [DllImport("gdi32.dll", CharSet = CharSet.Unicode)]
@@ -284,7 +284,7 @@ internal static class ConsoleSetup
     internal static int FullscreenFontSize;
     private const short BaseFontSize = 16;
 
-    // Размеры шрифта, на которых он смотрится ровно (клетка 1:2): Consolas — 14 и 16, DejaVu Sans Mono — 16–22.
+    // Font sizes at which it looks even (1:2 cell): Consolas — 14 and 16, DejaVu Sans Mono — 16–22.
     internal static int[] FontSizes(string face) => face switch
     {
         "Consolas" => [14, 16],
@@ -292,13 +292,13 @@ internal static class ConsoleSetup
         _ => [16],
     };
 
-    // В окне — 16; весь экран — выбранный размер шрифта или (авто) самый крупный из его размеров, при котором игра
-    // влезает в монитор; не влезает и самый мелкий — самый мелкий.
+    // 16 in windowed mode; in full screen — the chosen font size or (auto) the largest of its sizes at which the game
+    // fits the monitor; if even the smallest does not fit — the smallest.
     private static short FontSizeFor(int cols, int rows)
     {
         if (!Fullscreen) return BaseFontSize;
         var (mw, mh) = NaviDnD.Helpers.FullscreenBackdrop.MonitorSize();
-        int fit = Math.Min(mh / Math.Max(1, rows), mw * 2 / Math.Max(1, cols));   // клетка — ровно 1:2
+        int fit = Math.Min(mh / Math.Max(1, rows), mw * 2 / Math.Max(1, cols));   // the cell is exactly 1:2
         var sizes = FontSizes(FontFace);
         var fitting = sizes.Where(s => s <= fit && (FullscreenFontSize <= 0 || s <= FullscreenFontSize)).ToList();
         return (short)(fitting.Count > 0 ? fitting.Max() : sizes.Min());
@@ -311,8 +311,8 @@ internal static class ConsoleSetup
         var info = new CONSOLE_FONT_INFOEX();
         info.cbSize = (uint)Marshal.SizeOf(info);
         GetCurrentConsoleFontEx(handle, false, ref info);
-        // Ширина клетки — ровно половина высоты: у Consolas сама по себе она 1:2 только до 16 (24 → 11×24), и полублоки
-        // карты, браиль, рамки на крупном шрифте сплющивались; явная ширина консолью соблюдается (24 → 12×24).
+        // Cell width is exactly half the height: Consolas on its own is 1:2 only up to 16 (24 → 11×24), and the map's half-blocks,
+        // braille and frames got squashed at large sizes; an explicit width is honoured by the console (24 → 12×24).
         info.FontSizeX = (short)(size / 2);
         info.FontSizeY = size;
         info.FaceName = FontFace;
@@ -321,7 +321,7 @@ internal static class ConsoleSetup
 
     private static IntPtr KeyboardHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
-        // F11 (полноэкранный режим консоли ломает раскладку) глушим только в окне игры — не в других программах.
+        // F11 (the console's full-screen mode breaks the layout) is suppressed only in the game window — not in other programs.
         if (nCode >= 0 && Marshal.ReadInt32(lParam) == VK_F11 && GetForegroundWindow() == GetConsoleWindow())
         {
             if (wParam == (IntPtr)0x0100 || wParam == (IntPtr)0x0104) _ = Task.Run(Helpers.Speech.Stop);
@@ -364,8 +364,8 @@ internal static class ConsoleSetup
         int style = GetWindowLong(consoleWindow, GWL_STYLE);
         style &= ~(WS_THICKFRAME | WS_MAXIMIZEBOX | WS_CAPTION | WS_SYSMENU);
         SetWindowLong(consoleWindow, GWL_STYLE, style);
-        // Стиль не применится визуально без SWP_FRAMECHANGED — окно не перерисует
-        // неклиентскую область (заголовок/рамку) само по себе после SetWindowLong.
+        // The style will not visibly apply without SWP_FRAMECHANGED — the window does not redraw
+        // its non-client area (title bar/frame) by itself after SetWindowLong.
         SetWindowPos(consoleWindow, IntPtr.Zero, 0, 0, 0, 0,
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 
@@ -373,9 +373,9 @@ internal static class ConsoleSetup
         SetRoundedCorners(consoleWindow);
     }
 
-    // DWMWA_WINDOW_CORNER_PREFERENCE — доступен только начиная с Windows 11 (build 22000). На более
-    // старых системах DwmSetWindowAttribute вернёт ошибку по неизвестному атрибуту — безвредно,
-    // просто не скруглит углы.
+    // DWMWA_WINDOW_CORNER_PREFERENCE is only available from Windows 11 (build 22000). On older
+    // systems DwmSetWindowAttribute returns an unknown-attribute error — harmless,
+    // the corners just are not rounded.
     private static void SetRoundedCorners(IntPtr consoleWindow)
     {
         int preference = DWMWCP_ROUND;
@@ -405,7 +405,7 @@ internal static class ConsoleSetup
         }
         else
         {
-            Console.WriteLine(L.T("Не удалось загрузить иконку. Проверьте путь и формат (требуется .ico)."));
+            Console.WriteLine(L.T("Could not load the icon. Check the path and format (.ico required)."));
         }
     }
 
@@ -415,15 +415,15 @@ internal static class ConsoleSetup
         IntPtr hWnd = GetConsoleWindow();
         if (hWnd == IntPtr.Zero) return;
 
-        //// Cloak ДО восстановления положения — сам переход "свёрнуто → обычное" остаётся физически
-        //// невидимым, несмотря на то что технически окно уже в обычном положении и видимо для Windows.
+        //// Cloak BEFORE restoring the state — the "minimised → normal" transition itself stays physically
+        //// invisible, even though technically the window is already in its normal state and visible to Windows.
         //int cloak = 1;
         //DwmSetWindowAttribute(hWnd, DWMWA_CLOAK, ref cloak, sizeof(int));
         ShowWindow(hWnd, SW_RESTORE);
     }
 
-    // Снимает cloak, поставленный в ShowWindow() — вызывать ПОСЛЕ SetConsoleConfig(), когда
-    // resize уже применён к окну в обычном положении и всё готово к показу пользователю.
+    // Removes the cloak set in ShowWindow() — call AFTER SetConsoleConfig(), when
+    // the resize has already been applied to the window in its normal state and everything is ready to show the user.
     internal static void RevealWindow()
     {
         IntPtr hWnd = GetConsoleWindow();

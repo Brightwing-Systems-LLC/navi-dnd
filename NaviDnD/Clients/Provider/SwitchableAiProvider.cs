@@ -1,7 +1,7 @@
 namespace NaviDnD.Clients;
 
-// Нейронка из настроек (AppConfig.AiProvider) на каждый запрос: «НЕЙРОНКА» в настройках меняется сразу, без
-// перезапуска игры.
+// The AI from settings (AppConfig.AiProvider), resolved per request: changing "AI" in settings takes effect immediately,
+// without restarting the game.
 public class SwitchableAiProvider(AppConfig config, AiLogger? logger = null) : IAiProvider
 {
     private readonly ClaudeCliAiProvider _claude = new(config, logger);

@@ -3,10 +3,10 @@ using System.Runtime.InteropServices;
 
 namespace NaviDnD.Helpers;
 
-// Запросы к нейронке — отдельные процессы (Claude CLI, а он запускает свои: node, MCP-сервер). Чтобы они не
-// оставались висеть, когда игру закрыли (крестик, Esc из меню, падение), каждый такой процесс кладётся в
-// Windows Job Object с KILL_ON_JOB_CLOSE: игра завершилась как угодно — система закрывает её дескриптор job,
-// и всё дерево процессов запроса завершается само (их дочерние процессы попадают в job автоматически).
+// AI requests are separate processes (Claude CLI, which starts its own: node, the MCP server). So that they do not
+// linger after the game is closed (the X button, Esc from the menu, a crash), each such process is put into a
+// Windows Job Object with KILL_ON_JOB_CLOSE: however the game exits, the system closes its job handle
+// and the request's whole process tree ends by itself (child processes join the job automatically).
 public static class ChildProcessJob
 {
     private const int JobObjectExtendedLimitInformation = 9;
@@ -46,7 +46,7 @@ public static class ChildProcessJob
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
 
-    // Дескриптор job живёт до конца процесса игры (не закрываем — его закроет система при выходе).
+    // The job handle lives until the game process ends (we do not close it — the system closes it on exit).
     private static readonly Lazy<IntPtr> _job = new(Create);
 
     private static IntPtr Create()
@@ -60,13 +60,13 @@ public static class ChildProcessJob
         return job;
     }
 
-    // Процесс запроса — в job (не вышло — просто живёт как раньше).
+    // Put the request process into the job (if that fails, it just lives as before).
     public static void Add(Process process)
     {
         try
         {
             if (_job.Value != IntPtr.Zero) AssignProcessToJobObject(_job.Value, process.Handle);
         }
-        catch { /* процесс уже завершился или нет прав — не мешаем запросу */ }
+        catch { /* the process already exited or we lack rights — do not get in the request's way */ }
     }
 }

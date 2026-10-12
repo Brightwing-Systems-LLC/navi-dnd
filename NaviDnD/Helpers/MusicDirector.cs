@@ -2,16 +2,16 @@ using NaviDnD.Data.Models;
 
 namespace NaviDnD.Helpers;
 
-// Что звучит сейчас: раз в полсекунды смотрит на игру (экран, место героя, бой, время суток, путешествие) и выбирает
-// настроение музыки и звук окружения. Музыка — папка sound/music/<настроение> (любые wav/mp3/ogg: подложить свою
-// музыку — положить файлы в папку), окружение — sound/ambience/<вид> по кругу.
-//  - треки места играют с паузами (45–120 с одного окружения между ними) и не повторяют только что сыгранный;
-//    меню и бой — без пауз;
-//  - смена настроения — перекрёстное затухание; ждёт, пока новое продержится пару секунд (шаг через границу блока
-//    туда-обратно не дёргает музыку); бой — сразу.
+// What is playing now: every half second it looks at the game (screen, hero's location, combat, time of day, travel) and picks
+// the music mood and the ambient sound. Music is the folder sound/music/<mood> (any wav/mp3/ogg: to add your own
+// music, drop files into the folder), ambience is sound/ambience/<kind> on a loop.
+//  - place tracks play with pauses (45–120 s of ambience alone between them) and do not repeat the one just played;
+//    menu and combat have no pauses;
+//  - a mood change crossfades; it waits until the new mood has held for a couple of seconds (stepping back and forth across
+//    a block boundary does not jerk the music); combat switches immediately.
 internal static class MusicDirector
 {
-    // Мастер описывает путешествие (MapScreenLoop.StartTravel) — музыка дороги.
+    // The DM is narrating a journey (MapScreenLoop.StartTravel) — road music.
     public static volatile bool Traveling;
 
     private const float AmbienceVolume = 0.7f;
@@ -23,7 +23,7 @@ internal static class MusicDirector
     private static DateTime _pendingSince, _nextTrackAt;
     private static int _counter;
 
-    // Запуск (не в UI-тестах): первая музыка разгоняется с тишины.
+    // Start (not in UI tests): the first music fades in from silence.
     public static void Start(GameState state, WorldState ws)
     {
         _decide = () => Decide(state, ws);
@@ -36,7 +36,7 @@ internal static class MusicDirector
         while (true)
         {
             try { Tick(first); first = false; }
-            catch { /* состояние игры меняется в другом потоке — следующий такт */ }
+            catch { /* game state is changing on another thread — next tick */ }
             Thread.Sleep(500);
         }
     }
@@ -76,7 +76,7 @@ internal static class MusicDirector
 
     private static bool Continuous(string? mood) => mood is "menu" or "combat";
 
-    // Новый трек настроения (старый — затухает поверх).
+    // A new track for the mood (the old one fades out over it).
     private static void StartTrack(int fadeMs)
     {
         if (_trackId != null) Music.Stop(_trackId, 3000);
@@ -98,7 +98,7 @@ internal static class MusicDirector
             : [];
     }
 
-    // Настроение и окружение по состоянию игры. Меню, создание игры, настройки — главная тема.
+    // Mood and ambience from the game state. Menu, game creation, settings — the main theme.
     private static (string Mood, string? Ambience) Decide(GameState state, WorldState ws)
     {
         bool inGame = state.CurrentScreen is Screen.Map or Screen.World or Screen.Journal or Screen.Character or Screen.Abilities;
@@ -108,7 +108,7 @@ internal static class MusicDirector
         bool combat = ws.Combat?.Active == true;
         (string mood, string? ambience) place;
         if (Traveling || !GameWorld.HasLocation(ws))
-            place = (night ? "night" : "wild", night ? "night" : "wind");   // в пути, сцена без тактической карты
+            place = (night ? "night" : "wild", night ? "night" : "wind");   // travelling, a scene without a tactical map
         else
         {
             MapChunk? chunk = ws.Hero?.Position is { Count: >= 2 } p ? ws.Map.ChunkAt(p[0], p[1]) : null;
@@ -116,12 +116,12 @@ internal static class MusicDirector
             string? theme = chunk?.Theme;
             place = theme switch
             {
-                _ when chunk is { Z: < 0 } => ("dungeon", "dungeon"),                         // подвал
+                _ when chunk is { Z: < 0 } => ("dungeon", "dungeon"),                         // cellar
                 MapChunk.Building when chunk?.Style == "tavern" => ("tavern", "hearth"),
                 MapChunk.Building or MapChunk.Village => (night ? "night" : "town", indoor ? null : night ? "night" : "day"),
                 "desert" or "snow" or "mountain" => (night ? "night" : "wild", "wind"),
                 _ when MapChunk.IsOutdoorTheme(theme) => (night ? "night" : "wild", night ? "night" : "day"),
-                _ => ("dungeon", "dungeon"),                                                   // подземелье, пещера, старые карты
+                _ => ("dungeon", "dungeon"),                                                   // dungeon, cave, old maps
             };
         }
         return combat ? ("combat", place.ambience) : place;

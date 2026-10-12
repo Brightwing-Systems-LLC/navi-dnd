@@ -25,8 +25,8 @@ internal static class GameUpdates
     }
 
     private static string ErrorPath => Path.Combine(AppConfig.ProjectRoot, "Storage", "update-error.txt");
-    internal static string MenuLabel => File.Exists(ErrorPath) ? L.T("ОШИБКА ОБНОВЛЕНИЯ") : pending?.IsCompletedSuccessfully == true && pending.Result is { } release
-        ? L.F("ОБНОВЛЕНИЕ {0}", release.Version) : L.T("ОБНОВЛЕНИЯ");
+    internal static string MenuLabel => File.Exists(ErrorPath) ? L.T("UPDATE ERROR") : pending?.IsCompletedSuccessfully == true && pending.Result is { } release
+        ? L.F("UPDATE {0}", release.Version) : L.T("UPDATES");
 
     internal static bool IsNewer(string candidate, string current) =>
         Version.TryParse(candidate.TrimStart('v'), out var next) && Version.TryParse(current, out var installed) && next > installed;
@@ -66,7 +66,7 @@ internal static class GameUpdates
             {
                 string error = await File.ReadAllTextAsync(ErrorPath);
                 Log(error);
-                await view.ConfirmAsync(L.T("Предыдущее обновление: ") + error, false);
+                await view.ConfirmAsync(L.T("Previous update: ") + error, false);
                 File.Delete(ErrorPath);
                 return false;
             }
@@ -74,28 +74,28 @@ internal static class GameUpdates
             var release = await view.RunAsync(pending, cancellation);
             if (release == null)
             {
-                await view.ConfirmAsync(L.F("Установлена актуальная версия {0}.", CurrentVersion), false);
+                await view.ConfirmAsync(L.F("You have the latest version {0}.", CurrentVersion), false);
                 return false;
             }
-            if (!await view.ConfirmAsync(L.F("Доступна {0}. Сохранения и настройки сохранятся.", release.Version), true)) return false;
+            if (!await view.ConfirmAsync(L.F("Version {0} is available. Saves and settings will be kept.", release.Version), true)) return false;
             if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "release-version.txt")))
             {
-                await view.ConfirmAsync(L.T("Для исходников: git pull и пересборка. Обновляется установленная игра."), false);
+                await view.ConfirmAsync(L.T("Running from source: use git pull and rebuild. Only the installed game updates itself."), false);
                 return false;
             }
             string directory = Path.Combine(Path.GetTempPath(), "NaviDnD-update-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(directory);
             try
             {
-                // Релиз с описанием обновлений — патчами (и помощником в папке игры); иначе — прежняя полная установка.
+                // A release with an update description — via patches (and the helper in the game folder); otherwise the old full install.
                 var updates = release.Assets.FirstOrDefault(a => a.Name == UpdateManifest.FileName);
                 var (program, arguments) = updates != null
                     ? await PreparePatchesAsync(view, updates, directory, cancellation)
                     : await PrepareFullAsync(view, release, directory, cancellation);
                 var start = new ProcessStartInfo(program) { UseShellExecute = true };
-                view.Set(L.T("Загрузка завершена. Перезапуск игры…"), 1, L.T("Сохранения и настройки сохраняются"));
+                view.Set(L.T("Download complete. Restarting the game…"), 1, L.T("Saves and settings are kept"));
                 foreach (string argument in arguments) start.ArgumentList.Add(argument);
-                _ = Process.Start(start) ?? throw new IOException(L.T("Не удалось запустить установщик."));
+                _ = Process.Start(start) ?? throw new IOException(L.T("Could not start the installer."));
                 return true;
             }
             catch
@@ -111,35 +111,35 @@ internal static class GameUpdates
         catch (Exception error)
         {
             Log(error.Message);
-            await view.ConfirmAsync(L.T("Обновление не установлено: ") + error.Message, false);
+            await view.ConfirmAsync(L.T("Update not installed: ") + error.Message, false);
             return false;
         }
     }
 
-    // Прежний путь (релиз без NaviDnD-updates.json): установщик и все части полной сборки, установщик — --update-silent.
+    // The old path (a release without NaviDnD-updates.json): the installer and all parts of the full build, installer run with --update-silent.
     private static async Task<(string, string[])> PrepareFullAsync(UpdateDisplay view, Release release, string directory, CancellationTokenSource cancellation)
     {
         var sums = release.Assets.Single(a => a.Name == "SHA256SUMS.txt");
         string manifest = Path.Combine(directory, sums.Name);
-        view.Set(L.T("Получение списка файлов…"));
+        view.Set(L.T("Getting the file list…"));
         await view.RunAsync(DownloadAsync(sums, manifest, cancellation.Token), cancellation);
         var files = ParseChecksums(await File.ReadAllTextAsync(manifest));
         if (!files.ContainsKey(UpdateManifest.InstallerName) || !files.Keys.Any(n => n.StartsWith("NaviDnD-payload.")))
-            throw new InvalidDataException(L.T("В релизе отсутствуют файлы установщика."));
+            throw new InvalidDataException(L.T("The release has no installer files."));
         var list = files.Select(f => (release.Assets.Single(a => a.Name == f.Key), f.Value)).ToList();
         await DownloadVerifiedAsync(view, list, directory, cancellation);
         return (Path.Combine(directory, UpdateManifest.InstallerName),
             ["--update-silent", AppContext.BaseDirectory, Environment.ProcessId.ToString()]);
     }
 
-    // Патчи от установленной версии (небольшие ZIP), проверка базы; повреждённая база или версия вне цепочки — части
-    // полной сборки и все патчи от базы. Применяет помощник: установленный Updater/ (тот же, что в релизе) копируется во
-    // временную папку, иначе скачивается. Игра закрывается, помощник применяет всё с откатом и запускает её снова.
+    // Patches from the installed version (small ZIPs), with a base check; a corrupt base or a version outside the chain gets the parts
+    // of the full build and all patches from that base. The helper applies them: the installed Updater/ (the same as in the release) is copied to
+    // a temporary folder, otherwise downloaded. The game closes, the helper applies everything with rollback and starts it again.
     private static async Task<(string, string[])> PreparePatchesAsync(UpdateDisplay view, Asset updates, string directory, CancellationTokenSource cancellation)
     {
         var token = cancellation.Token;
         string manifestPath = Path.Combine(directory, updates.Name);
-        view.Set(L.T("Получение списка обновлений…"));
+        view.Set(L.T("Getting the update list…"));
         await view.RunAsync(DownloadAsync(updates, manifestPath, token), cancellation);
         var manifest = UpdateManifest.Parse(await File.ReadAllTextAsync(manifestPath, token));
         string root = AppContext.BaseDirectory;
@@ -154,19 +154,19 @@ internal static class GameUpdates
                 await view.RunAsync(Task.Run(() =>
                 {
                     using var archive = ZipFile.OpenRead(first);
-                    Patch.Read(archive).VerifyBase(root, full: true, f => view.Set(L.T("Проверка файлов игры…"), f));
+                    Patch.Read(archive).VerifyBase(root, full: true, f => view.Set(L.T("Checking game files…"), f));
                     return true;
                 }, token), cancellation);
             }
             catch (Exception error) when (error is InvalidDataException or IOException)
             {
-                Log("База не подходит для патча, полная установка: " + error.Message);
+                Log("Base does not match the patch, doing a full install: " + error.Message);
                 patches = null;
             }
         }
         if (patches == null)
         {
-            // Полная сборка: части неизменной базы и вся цепочка патчей от неё.
+            // Full build: the parts of the unchanged base and the whole patch chain from it.
             foreach (string patch in Directory.GetFiles(directory, "NaviDnD-patch-*.zip")) File.Delete(patch);
             var full = manifest.Base.Files.Select(f => (new Asset(f.Name, f.Url), f.Sha256))
                 .Concat(manifest.Patches.Select(p => (new Asset(p.Name, p.Url), p.Sha256))).ToList();
@@ -188,16 +188,16 @@ internal static class GameUpdates
         foreach (var (asset, sha) in files)
         {
             index++;
-            string label = L.F("Загрузка {0}/{1}: {2}", index, files.Count, asset.Name);
+            string label = L.F("Downloading {0}/{1}: {2}", index, files.Count, asset.Name);
             view.Set(label, 0);
             string target = Path.Combine(directory, asset.Name);
             await view.RunAsync(DownloadAsync(asset, target, cancellation.Token, (read, total) =>
-                view.Set(label, total > 0 ? (double)read / total : null, (total > 0 ? L.F("{0:F1} из {1:F1} МБ", read / 1048576.0, total / 1048576.0) : L.F("{0:F1} МБ скачано", read / 1048576.0)) + " • " + L.T("Esc — отменить"))), cancellation);
-            view.Set(L.T("Проверка контрольной суммы: ") + asset.Name, 1);
+                view.Set(label, total > 0 ? (double)read / total : null, (total > 0 ? L.F("{0:F1} of {1:F1} MB", read / 1048576.0, total / 1048576.0) : L.F("{0:F1} MB downloaded", read / 1048576.0)) + " • " + L.T("Esc — cancel"))), cancellation);
+            view.Set(L.T("Verifying checksum: ") + asset.Name, 1);
             await using var input = File.OpenRead(target);
             string hash = await view.RunAsync(HashAsync(input, cancellation.Token), cancellation);
             if (!hash.Equals(sha, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException(L.T("Не совпала контрольная сумма: ") + asset.Name);
+                throw new InvalidDataException(L.T("Checksum mismatch: ") + asset.Name);
         }
     }
 
@@ -208,7 +208,7 @@ internal static class GameUpdates
         {
             var match = Regex.Match(line.Trim(), @"^([a-fA-F0-9]{64})\s+(NaviDnD-Setup-win-x64\.exe|NaviDnD-payload\.\d{3})$");
             if (!match.Success || !files.TryAdd(match.Groups[2].Value, match.Groups[1].Value))
-                throw new InvalidDataException(L.T("Некорректный список контрольных сумм."));
+                throw new InvalidDataException(L.T("Invalid checksum list."));
         }
         return files;
     }
@@ -220,7 +220,7 @@ internal static class GameUpdates
         Action<long, long?>? progress = null)
     {
         var uri = new Uri(asset.Url);
-        if (uri.Scheme != "https" || uri.Host != "gitlab.com") throw new InvalidDataException(L.T("Некорректный адрес обновления."));
+        if (uri.Scheme != "https" || uri.Host != "gitlab.com") throw new InvalidDataException(L.T("Invalid update address."));
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
         timeout.CancelAfter(TimeSpan.FromMinutes(15));
         using var response = await Client.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, timeout.Token);

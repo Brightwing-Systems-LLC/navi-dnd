@@ -35,15 +35,15 @@ public sealed class MapGenTools(McpServerConfig config)
 
     [McpServerTool]
     [Description("""
-        Генерирует карту и записывает её в worldState (cols, rows, rooms, doors).
-        Возвращает JSON сгенерированной карты, чтобы ИИ мог расставить entities и objects по
-        комнатам, ориентируясь на их координаты и форму.
+        Generates a map and writes it to worldState (cols, rows, rooms, doors).
+        Returns the generated map's JSON so the AI can place entities and objects in
+        rooms based on their coordinates and shape.
 
-        Схема MapGenRequest:
-          type: "Cave" | "Dungeon" | "Building" | "OpenArea"  (по умолчанию: "Dungeon")
-          dungeon: {          ← обязателен только для type "Dungeon"
+        MapGenRequest schema:
+          type: "Cave" | "Dungeon" | "Building" | "OpenArea"  (default: "Dungeon")
+          dungeon: {          ← required only for type "Dungeon"
             rooms: [
-              { name: string,   ← ОБЯЗАТЕЛЬНО по-русски
+              { name: string,   ← REQUIRED, in the game's language
                 shape: "Rectangular"|"Circular"|"Irregular"|"LShaped",
                 size: "Small"|"Medium"|"Large"|"Huge", zone?: string }
             ]
@@ -59,28 +59,28 @@ public sealed class MapGenTools(McpServerConfig config)
             ]
           }
 
-        Формы комнат:
-          "Rectangular" — обычный прямоугольник
-          "Circular"    — эллипс, вписанный в габаритный прямоугольник
-          "Irregular"   — прямоугольник с органично неровными краями
-          "LShaped"     — Г-образная комната: один угол срезан (35–60% каждой стороны), края
-                          слегка неровные; хороша для караулок, боковых часовен и т.п.
+        Room shapes:
+          "Rectangular" — a plain rectangle
+          "Circular"    — an ellipse inscribed in the bounding rectangle
+          "Irregular"   — a rectangle with organically uneven edges
+          "LShaped"     — an L-shaped room: one corner cut off (35–60% of each side), edges
+                          slightly uneven; good for guardrooms, side chapels and the like.
 
-        Значения zone: "north", "south", "west", "east", "center",
-                       "north_west", "north_east", "south_west", "south_east"
+        zone values: "north", "south", "west", "east", "center",
+                     "north_west", "north_east", "south_west", "south_east"
 
-        transitions.edgePoint — координата за пределами сетки, задаёт сторону входа:
-          Запад [0, row]   Восток [21, row]
-          Север [col, 0]   Юг [col, 16]
+        transitions.edgePoint — a coordinate outside the grid; sets the entrance side:
+          West [0, row]    East [21, row]
+          North [col, 0]   South [col, 16]
 
-        Рекомендации: 3–6 комнат; хотя бы один transition для выхода с карты.
+        Recommendations: 3–6 rooms; at least one transition to exit the map.
 
-        Карта генерируется в сетке cols×rows (по умолчанию 20×15, к ней же относятся edgePoint выше),
-        а затем ставится в центр поля локации 100×100. Все координаты в ОТВЕТЕ (комнаты, двери) — уже
-        координаты поля: расставляй героя, существа и объекты именно по ним.
+        The map is generated on a cols×rows grid (default 20×15, which the edgePoints above refer to),
+        then placed in the center of the 100×100 location field. All coordinates in the RESPONSE (rooms, doors) are already
+        field coordinates: place the hero, creatures and objects by exactly those.
         """)]
     public string GenerateMap(
-        [Description("MapGenRequest в виде JSON-строки")]
+        [Description("MapGenRequest as a JSON string")]
         string requestJson)
     {
         Log($"→ GenerateMap: {requestJson}");
@@ -119,8 +119,8 @@ public sealed class MapGenTools(McpServerConfig config)
             return err;
         }
 
-        // Генератор рисует карту от (1,1) — ставим её в центр поля локации 100×100 (MapConfig.CenterInField),
-        // чтобы вокруг было место во все стороны. Ответ ниже — уже в координатах поля.
+        // The generator draws the map from (1,1) — place it in the center of the 100×100 location field (MapConfig.CenterInField)
+        // so there is room on every side. The response below is already in field coordinates.
         mapConfig.CenterInField();
 
         // Apply the new map into worldState and persist it
@@ -160,33 +160,33 @@ public sealed class MapGenTools(McpServerConfig config)
 
     [McpServerTool]
     [Description("""
-        План локации по сюжету: из каких блоков 20×15 она состоит и что в каждом. Движок сразу строит
-        геометрию всех блоков (комнаты, двери, переходы между соседними блоками) и ставит героя у входа
-        снаружи в первый блок. Возвращает стартовый блок (комнаты с id и клетками, двери) — его наполни в
-        ответе; остальные блоки наполнятся отдельно, когда герой к ним подойдёт.
+        A story-driven location plan: which 20×15 blocks it consists of and what is in each. The engine immediately builds
+        the geometry of all blocks (rooms, doors, passages between neighboring blocks) and places the hero at the entrance
+        outside the first block. Returns the starting block (rooms with ids and cells, doors) — populate it in your
+        response; the other blocks are populated separately when the hero approaches them.
 
         planJson: {"blocks": [{"x": 0, "y": 0, "z": 0, "terrain": "forest", "purpose": "..."}, ...], "startInside": false, "worldX": 12, "worldY": 34}
-          worldX/worldY — клетка карты мира места (из патча add_place), если герой ещё не там (начало игры); иначе не нужны.
-          startInside — true, если по сюжету игра начинается внутри стартового блока (в таверне, в доме): герой
-          встанет в первой комнате за входом; иначе — снаружи у входа.
-          blocks[0] — стартовый (вход снаружи); x — на восток, y — на север, соседние блоки отличаются на 1
-          по x или y; все блоки связаны сторонами в одну фигуру; 1–8 блоков, фигура не больше 5×6.
-          terrain — dungeon (рукотворное: склеп, руины, крепость, катакомбы — комнаты, коридоры, двери,
-          плиточный пол; по умолчанию) | cave (природная пещера: неровные залы, лазы, сталагмиты, без дверей)
-          | building (здание: фигурный корпус, комнаты с общими стенами, двери, окна, мебель; на z=0 — во дворе;
-            "building": tavern | house | shop | temple | manor | barracks | tower — планировка: у tavern/shop/
-            temple/manor/barracks на z=0 большой зал со стойкой/прилавком/алтарём и подсобки, выше — коридор с комнатами)
-          | village (поселение: 3–5 домов, улицы, площадь с колодцем, огороды; таверна/храм — отдельным building рядом)
-          | forest | plains | hills | mountain | swamp | desert | snow | taiga (открытая местность: рельеф без комнат; вид
-            местности и реку движок берёт с карты мира — клетки героя, указывай любой открытый). Местность рядом с dungeon-блоком
-          отделена скалой с проходом (вход в пещеру/подземелье из леса или с горы).
-          z — этаж (по умолчанию 0 — земля): верхние этажи здания — блоки с теми же x,y и z=1,2… (terrain building,
-          под каждым — building); подвал/подземелье под блоком — z=-1… (dungeon/cave/building). Этажи одной
-          клетки x,y связаны лестницей; blocks[0] — на z=0; соседи по x/y на одном z связаны проходом.
-          purpose — что в блоке по сюжету (кто/что там, роль в истории), одна фраза.
+          worldX/worldY — the place's world map cell (from the add_place patch) if the hero isn't there yet (start of the game); otherwise not needed.
+          startInside — true if the story starts the game inside the starting block (in a tavern, a house): the hero
+          stands in the first room past the entrance; otherwise outside at the entrance.
+          blocks[0] — the starting block, with the entrance from outside (exit from the location); x — east, y — north; neighboring blocks differ by 1
+          in x or y; all blocks are joined by their sides into one shape; 1–8 blocks, the shape no bigger than 5×6.
+          terrain — dungeon (man-made: crypt, ruins, fortress, catacombs — rooms, corridors, doors,
+          tiled floor; the default) | cave (a natural cave: uneven halls, crawlways, stalagmites, no doors)
+          | building (a building: a shaped hull, rooms with shared walls, doors, windows, furniture; at z=0 in a yard;
+            "building": tavern | house | shop | temple | manor | barracks | tower — the layout: tavern/shop/
+            temple/manor/barracks at z=0 have a large hall with a bar/counter/altar and back rooms; above — a corridor with rooms)
+          | village (a settlement: 3–5 houses, streets, a square with a well, gardens; a tavern/temple is a separate building nearby)
+          | forest | plains | hills | mountain | swamp | desert | snow | taiga (open terrain: relief without rooms; the kind
+            of terrain and the river are taken by the engine from the world map — the hero's cell; give any open one). Terrain next to a dungeon block
+          is separated by a rock wall with a passage (a cave/dungeon entrance from a forest or a mountain).
+          z — the floor (default 0 — ground): upper floors of a building are blocks with the same x,y and z=1,2… (terrain building,
+          with building under each); a cellar/dungeon under a block is z=-1… (dungeon/cave/building). Floors of the same
+          x,y cell are joined by stairs; blocks[0] is at z=0; x/y neighbors on the same z are joined by a passage.
+          purpose — what the block holds in the story (who/what is there, its role in the story), one sentence.
         """)]
     public string PlanLocation(
-        [Description("План локации в виде JSON-строки")]
+        [Description("The location plan as a JSON string")]
         string planJson)
     {
         Log($"→ PlanLocation: {planJson}");
@@ -203,7 +203,7 @@ public sealed class MapGenTools(McpServerConfig config)
         try
         {
             var storage = LoadStorage();
-            // Местность — по клетке карты мира, где герой (лес/горы/пустыня, река, берег).
+            // Terrain comes from the world map cell where the hero is (forest/mountains/desert, river, coast).
             LocationGrower.WorldSite? site = null;
             if (storage.WorldState.World is { } link)
             {
@@ -224,7 +224,7 @@ public sealed class MapGenTools(McpServerConfig config)
                 return $"{{\"error\": \"{error}\"}}";
             }
             SaveStorage(storage);
-            // Посреди игры (SendAction) игра держит состояние в памяти — метка: перечитать карту из сохранения.
+            // Mid-game (SendAction) the game keeps the state in memory — a flag: reread the map from the save.
             try { File.WriteAllText(Path.Combine(Path.GetDirectoryName(config.WorldStatePath) ?? ".", Storage.LocationPlannedFlag), ""); } catch { }
 
             var ctx = new AiContextBuilder(storage.WorldState);

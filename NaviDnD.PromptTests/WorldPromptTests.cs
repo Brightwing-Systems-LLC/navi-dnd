@@ -6,14 +6,14 @@ using Xunit.Abstractions;
 
 namespace NaviDnD.PromptTests;
 
-// Карта мира с реальной нейронкой (дорого — запускать осознанно, как и остальные тесты проекта):
-// StartNewGame на свежем мире (концепция мира/королевств, стартовое место через add_place, локация по клетке
-// мира), путешествие (TravelService + GameAiClient.Travel), вопрос о руинах (add_place по ходу игры).
-// Миры — в NaviDnD.PromptTests/Storage/Worlds (AppConfig.ProjectRoot этого проекта), боевые не трогаются.
+// The world map with a real model (expensive — run deliberately, like the rest of this project's tests):
+// StartNewGame on a fresh world (world/kingdom concept, starting place via add_place, a location from the world
+// cell), travel (TravelService + GameAiClient.Travel), a question about ruins (add_place during play).
+// Worlds live in NaviDnD.PromptTests/Storage/Worlds (this project's AppConfig.ProjectRoot); production ones are not touched.
 public class WorldPromptTests(ITestOutputHelper output)
 {
-    // GameAiClient читает промпты от AppConfig.ProjectRoot (у этого проекта — NaviDnD.PromptTests) — на время
-    // теста кладём туда копию боевых промптов.
+    // GameAiClient reads prompts from AppConfig.ProjectRoot (for this project, NaviDnD.PromptTests) — for the duration
+    // of the test we put a copy of the production prompts there.
     private static string CopyPrompts()
     {
         string src = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "NaviDnD", "Prompts"));
@@ -35,7 +35,7 @@ public class WorldPromptTests(ITestOutputHelper output)
         finally { try { Directory.Delete(prompts, recursive: true); } catch { } }
     }
 
-    // Мастер новой игры, шаг «Мир» → «ПРИДУМАТЬ»: концепция нового мира (название, суть, все королевства со столицами).
+    // New game wizard, "World" step → "INVENT": the concept of a new world (name, premise, every kingdom with its capital).
     [Fact]
     public async Task CreateWorld_GivesConceptForEveryKingdom()
     {
@@ -46,12 +46,12 @@ public class WorldPromptTests(ITestOutputHelper output)
             var storage = new Storage();
             var config = PromptScenario.TestConfig();
             var client = new GameAiClient(storage.WorldState, storage, new SwitchableAiProvider(config), config);
-            bool ok = await client.CreateWorld(world, "суровый север, викинги и древние руины на юге");
+            bool ok = await client.CreateWorld(world, "a harsh north, vikings and ancient ruins in the south");
             var chron = world.Chronicle;
             output.WriteLine($"{chron.Name}: {chron.Description} | {chron.DmNotes}");
             foreach (var k in chron.Kingdoms)
-                output.WriteLine($"  K{k.Id} {k.Name} (столица {chron.Places.FirstOrDefault(p => p.Slot == world.Kingdoms[k.Id].Capital)?.Name}): {k.Description} | {k.DmNotes}");
-            Assert.True(ok, "CreateWorld не применился");
+                output.WriteLine($"  K{k.Id} {k.Name} (capital {chron.Places.FirstOrDefault(p => p.Slot == world.Kingdoms[k.Id].Capital)?.Name}): {k.Description} | {k.DmNotes}");
+            Assert.True(ok, "CreateWorld was not applied");
             Assert.False(string.IsNullOrEmpty(chron.Name));
             Assert.Equal(world.Kingdoms.Count, chron.Kingdoms.Count);
             Assert.Equal(world.Kingdoms.Count, chron.Places.Count(p => p.Type == WorldPlaceTypes.Capital));
@@ -59,7 +59,7 @@ public class WorldPromptTests(ITestOutputHelper output)
         finally { try { Directory.Delete(prompts, recursive: true); } catch { } }
     }
 
-    // Новая игра героем из библиотеки: уровень/статы/заклинания те же, ХП полные, эффекты сняты, снаряжение — новое.
+    // New game with a hero from the library: same level/stats/spells, full HP, effects cleared, new gear.
     [Fact]
     public async Task ReuseHero_KeepsLevelAndSkills_RefitsGear()
     {
@@ -74,10 +74,10 @@ public class WorldPromptTests(ITestOutputHelper output)
             await client.ReuseHero(new NewGameData { Name = source.Name, Symbol = source.Symbol ?? "HRO", Description = "", Setting = "DnD 5e", SettingWish = "" }, heroJson);
             var hero = storage.WorldState.Hero!;
             string Stat(Data.Models.Hero h, string n) => h.Stats?.FirstOrDefault(s => s.Name == n)?.Value?.ToString() ?? "";
-            output.WriteLine($"было: {Stat(source, "Класс")}, HP {source.Hp}, предметы: {string.Join(", ", source.Inventory?.Select(i => i.Name) ?? [])}");
-            output.WriteLine($"стало: {Stat(hero, "Класс")}, HP {hero.Hp}, предметы: {string.Join(", ", hero.Inventory?.Where(i => i.Deleted != true).Select(i => i.Name) ?? [])}");
-            Assert.Equal(Stat(source, "Класс"), Stat(hero, "Класс"));
-            Assert.Equal(Stat(source, "Сила"), Stat(hero, "Сила"));
+            output.WriteLine($"before: {Stat(source, "Class")}, HP {source.Hp}, items: {string.Join(", ", source.Inventory?.Select(i => i.Name) ?? [])}");
+            output.WriteLine($"after: {Stat(hero, "Class")}, HP {hero.Hp}, items: {string.Join(", ", hero.Inventory?.Where(i => i.Deleted != true).Select(i => i.Name) ?? [])}");
+            Assert.Equal(Stat(source, "Class"), Stat(hero, "Class"));
+            Assert.Equal(Stat(source, "Strength"), Stat(hero, "Strength"));
             Assert.Equal(source.Spells?.Count ?? 0, hero.Spells?.Count ?? 0);
             Assert.Empty(hero.Effects ?? []);
         }
@@ -90,29 +90,29 @@ public class WorldPromptTests(ITestOutputHelper output)
         storage.NewGameData = new NewGameData
         {
             Name = storage.WorldState.Hero!.Name, Symbol = storage.WorldState.Hero.Symbol ?? "HRO", Description = "",
-            Setting = "DnD 5e", SettingWish = "Небольшое приключение: деревня у леса, рядом старые руины, мрачноватый тон.",
+            Setting = "DnD 5e", SettingWish = "A small adventure: a village by the forest, old ruins nearby, a somewhat grim tone.",
             WorldSize = WorldSizes.Small,
         };
         var config = PromptScenario.TestConfig();
         var client = new GameAiClient(storage.WorldState, storage, new SwitchableAiProvider(config), config);
         var ws = storage.WorldState;
 
-        // 1. Начало игры.
+        // 1. Start of the game.
         await client.StartNewGame("");
         var geo = GameWorld.Geo(ws)!;
-        output.WriteLine($"Мир: {geo.Chronicle.Name} — {geo.Chronicle.Description}");
+        output.WriteLine($"World: {geo.Chronicle.Name} — {geo.Chronicle.Description}");
         foreach (var k in geo.Chronicle.Kingdoms) output.WriteLine($"  K{k.Id} {k.Name}: {k.Description}");
-        foreach (var p in geo.Chronicle.Places) output.WriteLine($"  место {p.Name} ({p.Type}) [{p.X},{p.Y}] slot {p.Slot}: {p.Description} | {p.DmNotes}");
-        output.WriteLine($"Герой: place={ws.World?.Place} tile={GameWorld.HeroTile(ws)} known={string.Join(",", ws.World?.Known ?? [])}");
-        output.WriteLine($"Локация: {(GameWorld.HasLocation(ws) ? string.Join(",", ws.Map.Chunks?.Select(c => c.Theme) ?? []) : "нет")}");
-        if (GameWorld.HeroTile(ws) is { } ht) output.WriteLine($"Клетка мира: {WorldBiomes.Get(geo.BiomeAt(ht.x, ht.y)).Name}, сайт {GameWorld.SiteAt(geo, ht.x, ht.y)}");
+        foreach (var p in geo.Chronicle.Places) output.WriteLine($"  place {p.Name} ({p.Type}) [{p.X},{p.Y}] slot {p.Slot}: {p.Description} | {p.DmNotes}");
+        output.WriteLine($"Hero: place={ws.World?.Place} tile={GameWorld.HeroTile(ws)} known={string.Join(",", ws.World?.Known ?? [])}");
+        output.WriteLine($"Location: {(GameWorld.HasLocation(ws) ? string.Join(",", ws.Map.Chunks?.Select(c => c.Theme) ?? []) : "none")}");
+        if (GameWorld.HeroTile(ws) is { } ht) output.WriteLine($"World cell: {WorldBiomes.Get(geo.BiomeAt(ht.x, ht.y)).Name}, site {GameWorld.SiteAt(geo, ht.x, ht.y)}");
         foreach (var m in ws.History ?? []) output.WriteLine($"  > {m.Author}: {m.Text}");
-        Assert.False(string.IsNullOrEmpty(geo.Chronicle.Description), "мир без концепции");
+        Assert.False(string.IsNullOrEmpty(geo.Chronicle.Description), "world has no concept");
         Assert.NotEmpty(geo.Chronicle.Kingdoms);
         Assert.NotNull(ws.World?.Place);
         Assert.NotNull(GameWorld.HeroTile(ws));
 
-        // 2. Путешествие в столицу.
+        // 2. Travel to the capital.
         var world = GameWorld.ForMaster(ws)!;
         var capital = world.Places.First(p => p.Type == WorldPlaceTypes.Capital);
         var plan = TravelService.PlanTo(ws, (capital.X, capital.Y));
@@ -121,18 +121,18 @@ public class WorldPromptTests(ITestOutputHelper output)
         string report = TravelService.Go(ws, plan!, TravelService.Pace.Normal, new Random(11));
         output.WriteLine(report);
         await client.Travel(report);
-        output.WriteLine($"После пути: place={ws.World?.Place} tile={GameWorld.HeroTile(ws)} day={ws.Time.Day} {ws.Time.PartOfDay} loc={GameWorld.HasLocation(ws)}");
+        output.WriteLine($"After travel: place={ws.World?.Place} tile={GameWorld.HeroTile(ws)} day={ws.Time.Day} {ws.Time.PartOfDay} loc={GameWorld.HasLocation(ws)}");
         foreach (var m in (ws.History ?? []).Skip(historyBefore)) output.WriteLine($"  > {m.Author}: {m.Text}");
-        Assert.True((ws.History?.Count ?? 0) > historyBefore, "мастер не описал путь");
-        Assert.DoesNotContain(ws.History!.Skip(historyBefore), m => m.Text?.StartsWith("Ошибка") == true);
+        Assert.True((ws.History?.Count ?? 0) > historyBefore, "the DM did not describe the journey");
+        Assert.DoesNotContain(ws.History!.Skip(historyBefore), m => m.Text?.StartsWith("Error") == true);
 
-        // 3. Слух о месте — мастер добавляет его на карту.
+        // 3. A rumour about a place — the DM adds it to the map.
         int placesBefore = geo.Chronicle.Places.Count;
         historyBefore = ws.History!.Count;
-        await client.SendAction("Спрашиваю у первого встречного, где ближайшая деревня или городок, куда он сам держит путь, — как она называется и далеко ли.");
+        await client.SendAction("I ask the first person I meet where the nearest village or town is, the one they're heading to themselves — what it's called and how far it is.");
         foreach (var m in ws.History.Skip(historyBefore)) output.WriteLine($"  > {m.Author}: {m.Text}");
-        foreach (var p in geo.Chronicle.Places.Skip(placesBefore)) output.WriteLine($"  новое место {p.Name} ({p.Type}) [{p.X},{p.Y}] trail={p.Trail?.Count / 2}: {p.Description} | {p.DmNotes}");
-        output.WriteLine($"Знает: {string.Join(", ", ws.World!.Known)}");
-        Assert.True(geo.Chronicle.Places.Count > placesBefore, "мастер не добавил место на карту (add_place)");
+        foreach (var p in geo.Chronicle.Places.Skip(placesBefore)) output.WriteLine($"  new place {p.Name} ({p.Type}) [{p.X},{p.Y}] trail={p.Trail?.Count / 2}: {p.Description} | {p.DmNotes}");
+        output.WriteLine($"Knows: {string.Join(", ", ws.World!.Known)}");
+        Assert.True(geo.Chronicle.Places.Count > placesBefore, "the DM did not add a place to the map (add_place)");
     }
 }

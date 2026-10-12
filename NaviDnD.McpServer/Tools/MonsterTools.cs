@@ -5,24 +5,24 @@ using NaviDnD.Helpers;
 
 namespace NaviDnD.McpServer;
 
-// Справочник монстров DnD5e (NaviDnD.Helpers.MonsterDatabase, GameData/DnD5e_monsters_BD.dtn) — по
-// аналогии с SpellTools.FindSpell: ИИ ищет по АНГЛИЙСКОМУ названию при расстановке существ на карте
-// (StartNewGame), берёт русское имя буквально как map.entities[].monsterKey. Полные статы (КД/ХП/
-// атаки и т.д.) картa достаёт сама из той же базы по monsterKey — этот тул их не возвращает, только
-// имя, чтобы не тащить весь statblock через ИИ туда-обратно.
+// The D&D 5e monster catalog (NaviDnD.Helpers.MonsterDatabase, GameData/DnD5e_monsters_BD.dtn) — modelled
+// on SpellTools.FindSpell: the AI searches by ENGLISH name when placing creatures on the map
+// (StartNewGame) and takes the returned name literally as map.entities[].monsterKey. Full stats (AC/HP/
+// attacks, etc.) the map pulls itself from the same database by monsterKey — this tool doesn't return them, only
+// the name, so the whole stat block doesn't travel through the AI and back.
 [McpServerToolType]
 public sealed class MonsterTools(McpServerConfig config)
 {
 
     [McpServerTool]
     [Description("""
-        Ищет монстра D&D 5e в справочнике по АНГЛИЙСКОМУ названию — НЕ выдумывай статы сам, сначала
-        найди каноничного монстра здесь. query = английское название или его часть ("goblin",
+        Finds a D&D 5e monster in the catalog by its ENGLISH name — do NOT invent stats yourself, first
+        find the canonical monster here. query = the English name or part of it ("goblin",
         "skeleton warrior").
-        Возвращает через запятую названия совпадений на языке игры (lang) по убыванию релевантности —
-        возьмите лучшее и используйте БУКВАЛЬНО как map.entities[].monsterKey (полные статы движок достанет
-        сам по этому имени, отдельно указывать их не нужно). Пустая строка — монстра нет в
-        справочнике: тогда придумайте существо и его статы сами, monsterKey не указывайте.
+        Returns comma-separated names of matches in the game's language (lang), most relevant first —
+        take the best one and use it LITERALLY as map.entities[].monsterKey (the engine pulls the full stats
+        itself by that name; you don't need to specify them). An empty string means the monster isn't in
+        the catalog: then invent the creature and its stats yourself and leave monsterKey out.
         """)]
     public string FindMonster(string query)
     {

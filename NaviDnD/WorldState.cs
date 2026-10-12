@@ -4,10 +4,10 @@ namespace NaviDnD;
 
 public class WorldState
 {
-    // Версия формата файла (StorageFormat): старые сохранения переписываются при обновлении игры.
+    // File format version (StorageFormat): old saves are rewritten when the game updates.
     public int FormatVersion { get; set; } = StorageFormat.Current;
-    // Язык игры (L.Russian/L.English) — язык мира при создании: рассказ, история, названия; L.World при загрузке.
-    public string Language { get; set; } = L.Russian;
+    // The game's language (L.Russian/L.English) — the world language at creation: narration, history, names; L.World on load.
+    public string Language { get; set; } = L.English;
     public MapConfig Map { get; set; } = new MapConfig();
     public List<DialogMessage>? History { get; set; } = [];
     public Hero? Hero { get; set; }
@@ -17,17 +17,17 @@ public class WorldState
     public CombatState? Combat { get; set; }
     public List<WorldImage>? Images { get; set; }
     public string? ActiveImageKey { get; set; }
-    // Мир игры: геометрия — файл библиотеки миров (Storage/Worlds/<id>), лор и открытые места — здесь (GameWorld).
+    // The game's world: geometry is the world library file (Storage/Worlds/<id>), lore and discovered places are here (GameWorld).
     public GameWorldLink? World { get; set; }
 
-    // Сводка путешествия, которую мастер не получил (сервер не ответил): путь уже пройден — она уходит мастеру
-    // со следующим действием игрока, чтобы дорога, еда и встреча не потерялись.
+    // A travel summary the DM did not receive (the server did not respond): the journey is already done — it goes to the DM
+    // with the player's next action so the road, food and encounter are not lost.
     public string? PendingTravel { get; set; }
 }
 
-// Игра в мире: лор и места — общая хроника мира (WorldMap.Chronicle, переходит в другие игры этого мира);
-// у игры — что знает её герой (Known — имена мест хроники; столицы известны всем), где он (клетка X,Y мира и
-// место Place, если он в нём), где бывал (Visited).
+// A game in the world: lore and places are the world's shared chronicle (WorldMap.Chronicle, carried into other games in this world);
+// the game holds what its hero knows (Known — chronicle place names; capitals are known to everyone), where they are (world cell X,Y and
+// Place, if they are in one), and where they have been (Visited).
 public class GameWorldLink
 {
     public string Id { get; set; } = "";
@@ -53,18 +53,18 @@ public class WorldImage : IPatchable
 
 public class GameTime
 {
-    // Раунд с начала текущей части суток — ИИ сбрасывает на 1 при каждой смене PartOfDay
-    // (см. Prompts/Dnd5e/SendAction systemPrompt.md § Время), поэтому не монотонен по всей игре.
+    // Round since the start of the current part of the day — the AI resets it to 1 on every PartOfDay change
+    // (see Prompts/Dnd5e/SendAction systemPrompt.md § Time), so it is not monotonic across the game.
     public int TotalRounds { get; set; } = 1;
 
-    // Ключ PartsOfDay (night/morning/day/evening; см. Prompts/Dnd5e/SendAction systemPrompt.md § Время). Слово мастера
-    // на любом языке Storage приводит к ключу; незнакомое остаётся как есть (днём для света и музыки).
+    // A PartsOfDay key (night/morning/day/evening; see Prompts/Dnd5e/SendAction systemPrompt.md § Time). Storage maps the DM's word
+    // in any language to a key; an unknown one stays as is (treated as day for lighting and music).
     public string PartOfDay { get; set; } = PartsOfDay.Morning;
 
-    // Номер игрового дня — ИИ инкрементирует сам при переходе цикла через ночь (см. промпт).
+    // In-game day number — the AI increments it itself when the cycle passes through night (see the prompt).
     public int Day { get; set; } = 1;
 
-    // Часть суток для экрана — на языке интерфейса; незнакомое значение — как есть.
+    // Part of day for display — in the interface language; an unknown value is shown as is.
     public static string PartOfDayText(string? key) => L.T(PartsOfDay.Russian(key));
 }
 
@@ -80,6 +80,6 @@ public class InitiativeEntry : IPatchable
     public bool? Deleted { get; set; }
     public string Symbol { get; set; } = "";
     public int Score { get; set; }
-    // На стороне героя (дружелюбное существо вступило в бой): не бьёт героя атакой по возможности, враги — его цель.
+    // On the hero's side (a friendly creature joined the fight): makes no opportunity attacks on the hero; enemies are its targets.
     public bool? Ally { get; set; }
 }

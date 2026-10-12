@@ -30,15 +30,15 @@ public sealed class CalculateMovementTools(McpServerConfig config)
 
     [McpServerTool]
     [Description("""
-        Считает путь движения для одной сущности по приоритетному списку intent. Возвращает первый
-        достижимый intent с полным путём и триггерами вдоль него.
+        Computes a movement path for one entity from a prioritized intent list. Returns the first
+        reachable intent with the full path and the triggers along it.
 
-        Схема запроса:
-          entityId: int                   — индекс в map.entities
-          reachFt?: int                   — досягаемость героя в футах для определения атаки по возможности (по умолчанию 5)
-          fromPosition?: [col, row]       — переопределяет текущую позицию сущности (для повторного вызова после частичного пути)
-          speedFt?: int                   — переопределяет SpeedMax сущности (передай remainingSpeedFt из предыдущего вызова для повторного вызова)
-          skipOpportunityAttack?: bool    — true на втором вызове после того как атака по возможности уже разрешена (по умолчанию false)
+        Request schema:
+          entityId: int                   — index in map.entities
+          reachFt?: int                   — the hero's reach in feet, for detecting opportunity attacks (default 5)
+          fromPosition?: [col, row]       — overrides the entity's current position (for a repeat call after a partial path)
+          speedFt?: int                   — overrides the entity's SpeedMax (pass remainingSpeedFt from the previous call on a repeat call)
+          skipOpportunityAttack?: bool    — true on the second call after the opportunity attack has been resolved (default false)
           intents: [
             { intent: "approach",          target: "hero" }
             { intent: "maintain_distance", target: "hero", minFt: int, maxFt: int }
@@ -46,17 +46,17 @@ public sealed class CalculateMovementTools(McpServerConfig config)
             { intent: "stay" }
           ]
 
-        Всегда включай { intent: "stay" } последним элементом — он всегда достижим.
+        Always include { intent: "stay" } as the last element — it is always reachable.
 
-        Ответ:
-          usedIntent: string           — какой intent из списка использован
-          steps: [[col,row], ...]      — полный путь, включая стартовую позицию
-          remainingSpeedFt: int        — остаток скорости после этого хода (передай как speedFt для повторного вызова)
+        Response:
+          usedIntent: string           — which intent from the list was used
+          steps: [[col,row], ...]      — the full path, including the starting position
+          remainingSpeedFt: int        — speed left after this move (pass it as speedFt on a repeat call)
           triggers: [{ atStep, type, pausePosition?, objectName?, effect? }, ...]
             types: "opportunity_attack" | "onStep" | "area_enter"
         """)]
     public string CalculateMovement(
-        [Description("MovementRequest в виде JSON-строки")]
+        [Description("MovementRequest as a JSON string")]
         string requestJson)
     {
         Log($"calculate_movement → {requestJson}");
@@ -110,6 +110,6 @@ public sealed class CalculateMovementTools(McpServerConfig config)
     {
         if (config.LogPath is null) return;
         lock (_logLock)
-            File.AppendAllText(config.LogPath, $"  MCP сalculate_movement {message}\n", new UTF8Encoding(false));
+            File.AppendAllText(config.LogPath, $"  MCP calculate_movement {message}\n", new UTF8Encoding(false));
     }
 }

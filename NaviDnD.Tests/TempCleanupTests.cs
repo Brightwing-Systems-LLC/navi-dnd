@@ -2,8 +2,8 @@ using NaviDnD.Helpers;
 
 namespace NaviDnD.Tests;
 
-// Очистка %TEMP% при запуске: только свои папки/файлы игры и только старые — свежие может использовать вторая копия
-// игры или помощник обновления, чужие файлы не трогаются.
+// Cleaning %TEMP% at startup: only the game's own folders/files and only old ones — fresh ones may be in use by a second
+// copy of the game or the update helper; other files are left alone.
 public class TempCleanupTests
 {
     [Fact]

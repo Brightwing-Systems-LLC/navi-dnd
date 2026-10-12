@@ -1,4 +1,4 @@
-"""Локальный JSON-lines адаптер Silero. stdout содержит только ответы протокола."""
+"""Local JSON-lines adapter for Silero. stdout contains only protocol responses."""
 import json
 import sys
 import wave
@@ -15,7 +15,7 @@ for line in sys.stdin:
     try:
         request = json.loads(line)
         with torch.inference_mode():
-            # Частота — из запроса: английская v3 на 48 кГц синтезирует вдвое дольше, ей хватает 24 кГц.
+            # Sample rate comes from the request: the English v3 model takes twice as long at 48 kHz, and 24 kHz is enough for it.
             rate = int(request.get("sample_rate", 48000))
             kwargs = {"speaker": request["voice"], "sample_rate": rate}
             if request.get("ssml_text"):

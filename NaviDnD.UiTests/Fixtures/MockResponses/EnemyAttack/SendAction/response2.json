@@ -1,11 +1,11 @@
 {
   "history": [
     {
-      "text": "Гоблин с рычанием бросается на тебя с мечом. [Атака: d20(14)+4=18 vs КД14 — попадание, d8(4)+2=6. Тестер: hp 10→6]",
+      "text": "The goblin lunges at you with its sword, snarling. [Attack: d20(14)+4=18 vs AC14 — hit, d8(4)+2=6. Tester: hp 10→6]",
       "patch": { "hero": { "hp": "6/10" } }
     },
     {
-      "text": "Ход переходит к тебе.",
+      "text": "Your turn.",
       "patch": {
         "combat": { "currentTurn": "HRO" },
         "time": { "totalRounds": 2 },

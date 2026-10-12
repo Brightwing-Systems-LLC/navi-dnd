@@ -2,22 +2,22 @@ using Xunit.Abstractions;
 
 namespace NaviDnD.UiTests;
 
-// E2E: автоматический ход врага (MapScreenLoop.RunEnemyTurn → GameAiClient.FireEnemyTurn) — после
-// ЛЮБОГО свободного действия игрока движок сам вызывает ход того, чей CombatState.CurrentTurn
-// сейчас активен, если это существо (не герой). FireEnemyTurn использует тот же системный промпт
-// (Prompts/Dnd5e/SendAction), что и обычный SendAction — то есть оба вызова в рамках одного теста
-// перехватываются ОДНИМ мок-именем действия "SendAction". Различаем их через нумерованные файлы
-// ответа SelectiveMockProvider (response.json — 1й вызов, response2.json — 2й) — это даёт РЕАЛЬНО
-// РАЗНЫЙ, а не задублированный контент для "действия игрока" и для "автоматического хода врага".
+// E2E: the automatic enemy turn (MapScreenLoop.RunEnemyTurn → GameAiClient.FireEnemyTurn) — after
+// ANY free-text player action the engine itself calls the turn of whoever's CombatState.CurrentTurn
+// is now active, if it is a creature (not the hero). FireEnemyTurn uses the same system prompt
+// (Prompts/Dnd5e/SendAction) as an ordinary SendAction — so both calls within one test
+// are intercepted by ONE mock action name, "SendAction". They are told apart by the numbered
+// SelectiveMockProvider response files (response.json — 1st call, response2.json — 2nd) — this gives TRULY
+// DIFFERENT, not duplicated, content for the "player action" and for the "automatic enemy turn".
 //
-// response2.json в обеих папках (EnemyAttack/EnemyMove) написан строго по формату из
-// Prompts/Dnd5e/SendAction/systemPrompt.md § БОЙ "Структура history хода врага": патч НЕ корневой
-// ключ, а вложен в history[].patch, движение — через movePath, а финальная запись хода врагов
-// обязана передать ход обратно герою (combat.currentTurn=hero, totalRounds+1, hero.actions/
-// speedLeft сброшены) — самопроверка промпта, пункт 10.
+// response2.json in both folders (EnemyAttack/EnemyMove) is written strictly in the format from
+// Prompts/Dnd5e/SendAction/systemPrompt.md § COMBAT "Enemy turn history structure": the patch is NOT a root
+// key but nested in history[].patch, movement goes through movePath, and the final enemy turn entry
+// must pass the turn back to the hero (combat.currentTurn=hero, totalRounds+1, hero.actions/
+// speedLeft reset) — the prompt's self-check, item 10.
 //
-// Fixtures/enemy_turn_game.json: герой в [1,3] с УЖЕ потраченными действиями/скоростью (это и
-// есть причина, почему сейчас ход гоблина "GBL" в [5,3]), Combat.Active=true, CurrentTurn="GBL".
+// Fixtures/enemy_turn_game.json: the hero at [1,3] with ALREADY spent actions/speed (which is
+// exactly why it is now the turn of the goblin "GBL" at [5,3]), Combat.Active=true, CurrentTurn="GBL".
 public class EnemyTurnBehaviorScenarioTests
 {
     private readonly ITestOutputHelper _output;
@@ -29,63 +29,63 @@ public class EnemyTurnBehaviorScenarioTests
     {
         using var game = GameSession.Launch(
             fixtureFileName: "enemy_turn_game.json", mockedActions: ["SendAction"], mockResponsesFolder: "EnemyAttack");
-        _output.WriteLine($"Игра запущена (pid {game.Pid}).");
+        _output.WriteLine($"Game launched (pid {game.Pid}).");
         var failures = new List<string>();
 
-        Navigation.MenuSelect(game.Pid, "ПРОДОЛЖИТЬ");
+        Navigation.MenuSelect(game.Pid, "CONTINUE");
         Assert.True(
-            GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ КАРТА ←", 5000),
-            "Не дождались экрана Карты после [F1] в меню.");
-        _output.WriteLine("Экран Карты отрисован. Отправляю действие игрока (1й вызов мока — заглушка без патча)...");
+            GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ MAP ←", 5000),
+            "Map screen did not appear after [F1] in the menu.");
+        _output.WriteLine("Map screen rendered. Sending the player's action (1st mock call — a stub without a patch)...");
         TestPacing.Step();
 
-        GameConsole.SendText(game.Pid, "жду своего хода");
+        GameConsole.SendText(game.Pid, "I wait for my turn");
         GameConsole.SendKey(game.Pid, ConsoleKey.Enter);
 
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Ожидание", 3000),
-            "Не дождались спиннера ожидания для действия игрока.");
-        _output.WriteLine("Действие игрока обрабатывается. После него движок должен автоматически вызвать ход гоблина (2й вызов мока)...");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Waiting", 3000),
+            "Waiting spinner for the player's action did not appear.");
+        _output.WriteLine("The player's action is being processed. After it the engine must automatically call the goblin's turn (2nd mock call)...");
         TestPacing.Step();
 
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Атака: d20", 20000),
-            "Не дождались хода гоблина (2й вызов мока — атака) — автоматический вызов FireEnemyTurn не произошёл.");
-        _output.WriteLine("Гоблин атаковал. Жду передачу хода обратно герою (финальная запись хода врагов)...");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Attack: d20", 20000),
+            "The goblin's turn did not arrive (2nd mock call — attack) — the automatic FireEnemyTurn call did not happen.");
+        _output.WriteLine("The goblin attacked. Waiting for the turn to pass back to the hero (the final enemy turn entry)...");
         TestPacing.Step();
 
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Раунд 2", 5000),
-            "После хода врага раунд не продвинулся до «Раунд 2» — финальная запись хода не передала ход обратно герою.");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Round 2", 5000),
+            "After the enemy turn the round did not advance to \"Round 2\" — the final turn entry did not pass the turn back to the hero.");
         TestPacing.Step();
 
         var rows = GameConsole.ReadRows(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth);
 
-        _output.WriteLine("Проверяю урон герою, возврат хода герою и сброс скорости/действий...");
+        _output.WriteLine("Checking damage to the hero, the turn returning to the hero and the speed/action reset...");
         if (!rows.Any(r => r.Contains("❤ 6/10")))
-            failures.Add("После хода врага HP героя не обновилось до «❤ 6/10» — FireEnemyTurn не применил патч атаки.");
+            failures.Add("After the enemy turn the hero's HP did not update to \"❤ 6/10\" — FireEnemyTurn did not apply the attack patch.");
 
-        var initiativeRow = rows.FirstOrDefault(r => r.Contains("Порядок боя"));
+        var initiativeRow = rows.FirstOrDefault(r => r.Contains("Initiative"));
         if (initiativeRow == null || !initiativeRow.Contains("⚔️HRO"))
-            failures.Add($"После хода врага ход должен вернуться герою («⚔️HRO»): «{initiativeRow?.TrimEnd()}»");
+            failures.Add($"After the enemy turn the turn must return to the hero (\"⚔️HRO\"): \"{initiativeRow?.TrimEnd()}\"");
 
-        // Скорость сброшена ДО полного максимума (30/30) — ни одна клетка не "потрачена", поэтому
-        // здесь достаточно проверить текст (CheckMovementSquares проверяет ещё и цвет ПОТРАЧЕННОЙ
-        // клетки, а таких при 30/30 попросту нет — сэмплировать было бы нечего).
-        var moveRow = rows.FirstOrDefault(r => r.Contains("Движение:"));
+        // Speed is reset TO the full maximum (30/30) — not a single square is "spent", so
+        // checking the text is enough here (CheckMovementSquares also checks the color of a SPENT
+        // square, and at 30/30 there simply are none — there would be nothing to sample).
+        var moveRow = rows.FirstOrDefault(r => r.Contains("Movement:"));
         if (moveRow == null || !moveRow.Contains("30/30"))
-            failures.Add($"После хода врага скорость должна быть сброшена до 30/30: «{moveRow?.TrimEnd()}»");
+            failures.Add($"After the enemy turn speed must be reset to 30/30: \"{moveRow?.TrimEnd()}\"");
 
-        CombatStateScenarioTests.CheckActionSymbol(game.Pid, rows, "Действие", '●', (70, 200, 70), spent: false, failures);
-        CombatStateScenarioTests.CheckActionSymbol(game.Pid, rows, "Бон. действие", '■', (160, 100, 50), spent: false, failures);
-        CombatStateScenarioTests.CheckActionSymbol(game.Pid, rows, "Реакция", '▲', (220, 70, 70), spent: false, failures);
+        CombatStateScenarioTests.CheckActionSymbol(game.Pid, rows, "Action", '●', (70, 200, 70), spent: false, failures);
+        CombatStateScenarioTests.CheckActionSymbol(game.Pid, rows, "Bonus action", '■', (160, 100, 50), spent: false, failures);
+        CombatStateScenarioTests.CheckActionSymbol(game.Pid, rows, "Reaction", '▲', (220, 70, 70), spent: false, failures);
         TestPacing.Step();
 
         _output.WriteLine(failures.Count == 0
-            ? "Все проверки пройдены."
-            : $"Провалено проверок: {failures.Count}.");
+            ? "All checks passed."
+            : $"Failed checks: {failures.Count}.");
         TestPacing.Step();
-        Assert.True(failures.Count == 0, "UI-тест FAIL:\n" + string.Join("\n", failures.Select(f => "  - " + f)));
+        Assert.True(failures.Count == 0, "UI test FAIL:\n" + string.Join("\n", failures.Select(f => "  - " + f)));
     }
 
     [Fact]
@@ -93,83 +93,83 @@ public class EnemyTurnBehaviorScenarioTests
     {
         using var game = GameSession.Launch(
             fixtureFileName: "enemy_turn_game.json", mockedActions: ["SendAction"], mockResponsesFolder: "EnemyMove");
-        _output.WriteLine($"Игра запущена (pid {game.Pid}).");
+        _output.WriteLine($"Game launched (pid {game.Pid}).");
         var failures = new List<string>();
 
-        Navigation.MenuSelect(game.Pid, "ПРОДОЛЖИТЬ");
+        Navigation.MenuSelect(game.Pid, "CONTINUE");
         Assert.True(
-            GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ КАРТА ←", 5000),
-            "Не дождались экрана Карты после [F1] в меню.");
-        _output.WriteLine("Экран Карты отрисован. Запоминаю исходную колонку гоблина на сетке...");
-        // Легенда с активным боем выше обычной (+7 строк CombatReservedLines) — окну консоли нужен
-        // момент, чтобы дорисовать нижнюю часть после первичной отрисовки заголовка (см. тот же
-        // класс гонки в CombatStateScenarioTests). Ждём «Время:» — рисуется последней строкой блока.
+            GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ MAP ←", 5000),
+            "Map screen did not appear after [F1] in the menu.");
+        _output.WriteLine("Map screen rendered. Remembering the goblin's initial column on the grid...");
+        // The legend with active combat is taller than usual (+7 rows of CombatReservedLines) — the console window needs
+        // a moment to draw the lower part after the initial drawing of the title (see the same
+        // class of race in CombatStateScenarioTests). Wait for "Time:" — it is drawn as the block's last row.
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Время:", 5000),
-            "Строка «Время:» так и не появилась в легенде.");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Time:", 5000),
+            "The \"Time:\" row never appeared in the legend.");
         TestPacing.Step();
 
         var initialRows = GameConsole.ReadRows(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth);
         int initialCol = FindGoblinGridColumn(initialRows);
-        Assert.True(initialCol >= 0, "Символ гоблина «GBL» не найден на сетке (в области карты, а не в легенде) в исходном состоянии.");
+        Assert.True(initialCol >= 0, "Goblin symbol \"GBL\" not found on the grid (in the map area, not the legend) in the initial state.");
 
-        _output.WriteLine("Отправляю действие игрока (1й вызов мока — заглушка без патча)...");
-        GameConsole.SendText(game.Pid, "жду своего хода");
+        _output.WriteLine("Sending the player's action (1st mock call — a stub without a patch)...");
+        GameConsole.SendText(game.Pid, "I wait for my turn");
         GameConsole.SendKey(game.Pid, ConsoleKey.Enter);
 
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Ожидание", 3000),
-            "Не дождались спиннера ожидания для действия игрока.");
-        _output.WriteLine("Действие игрока обрабатывается. После него движок должен автоматически подвинуть гоблина (2й вызов мока)...");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Waiting", 3000),
+            "Waiting spinner for the player's action did not appear.");
+        _output.WriteLine("The player's action is being processed. After it the engine must automatically move the goblin (2nd mock call)...");
         TestPacing.Step();
 
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "перемещается ближе", 20000),
-            "Не дождались хода гоблина (2й вызов мока — движение) — автоматический вызов FireEnemyTurn не произошёл.");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "moves closer", 20000),
+            "The goblin's turn did not arrive (2nd mock call — movement) — the automatic FireEnemyTurn call did not happen.");
         TestPacing.Step();
 
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Раунд 2", 5000),
-            "После хода врага раунд не продвинулся до «Раунд 2» — финальная запись хода не передала ход обратно герою.");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Round 2", 5000),
+            "After the enemy turn the round did not advance to \"Round 2\" — the final turn entry did not pass the turn back to the hero.");
         TestPacing.Step();
 
         var finalRows = GameConsole.ReadRows(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth);
         int finalCol = FindGoblinGridColumn(finalRows);
-        Assert.True(finalCol >= 0, "Символ гоблина «GBL» не найден на сетке (в области карты) после хода врага.");
+        Assert.True(finalCol >= 0, "Goblin symbol \"GBL\" not found on the grid (in the map area) after the enemy turn.");
 
-        _output.WriteLine($"Колонка гоблина: было {initialCol}, стало {finalCol} (должна уменьшиться — гоблин сдвинулся ближе к герою).");
+        _output.WriteLine($"Goblin column: was {initialCol}, now {finalCol} (should decrease — the goblin moved closer to the hero).");
         if (finalCol >= initialCol)
-            failures.Add($"Гоблин не сдвинулся на сетке после автоматического хода врага (поведение «движение»): колонка была {initialCol}, стала {finalCol}.");
+            failures.Add($"The goblin did not move on the grid after the automatic enemy turn (\"move\" behavior): column was {initialCol}, now {finalCol}.");
 
-        _output.WriteLine("Проверяю возврат хода герою и сброс скорости/действий...");
-        var initiativeRow = finalRows.FirstOrDefault(r => r.Contains("Порядок боя"));
+        _output.WriteLine("Checking the turn returning to the hero and the speed/action reset...");
+        var initiativeRow = finalRows.FirstOrDefault(r => r.Contains("Initiative"));
         if (initiativeRow == null || !initiativeRow.Contains("⚔️HRO"))
-            failures.Add($"После хода врага ход должен вернуться герою («⚔️HRO»): «{initiativeRow?.TrimEnd()}»");
+            failures.Add($"After the enemy turn the turn must return to the hero (\"⚔️HRO\"): \"{initiativeRow?.TrimEnd()}\"");
 
-        // Скорость сброшена ДО полного максимума (30/30) — ни одна клетка не "потрачена", поэтому
-        // здесь достаточно проверить текст (CheckMovementSquares проверяет ещё и цвет ПОТРАЧЕННОЙ
-        // клетки, а таких при 30/30 попросту нет — сэмплировать было бы нечего).
-        var moveRow = finalRows.FirstOrDefault(r => r.Contains("Движение:"));
+        // Speed is reset TO the full maximum (30/30) — not a single square is "spent", so
+        // checking the text is enough here (CheckMovementSquares also checks the color of a SPENT
+        // square, and at 30/30 there simply are none — there would be nothing to sample).
+        var moveRow = finalRows.FirstOrDefault(r => r.Contains("Movement:"));
         if (moveRow == null || !moveRow.Contains("30/30"))
-            failures.Add($"После хода врага скорость должна быть сброшена до 30/30: «{moveRow?.TrimEnd()}»");
+            failures.Add($"After the enemy turn speed must be reset to 30/30: \"{moveRow?.TrimEnd()}\"");
 
-        CombatStateScenarioTests.CheckActionSymbol(game.Pid, finalRows, "Действие", '●', (70, 200, 70), spent: false, failures);
-        CombatStateScenarioTests.CheckActionSymbol(game.Pid, finalRows, "Бон. действие", '■', (160, 100, 50), spent: false, failures);
-        CombatStateScenarioTests.CheckActionSymbol(game.Pid, finalRows, "Реакция", '▲', (220, 70, 70), spent: false, failures);
+        CombatStateScenarioTests.CheckActionSymbol(game.Pid, finalRows, "Action", '●', (70, 200, 70), spent: false, failures);
+        CombatStateScenarioTests.CheckActionSymbol(game.Pid, finalRows, "Bonus action", '■', (160, 100, 50), spent: false, failures);
+        CombatStateScenarioTests.CheckActionSymbol(game.Pid, finalRows, "Reaction", '▲', (220, 70, 70), spent: false, failures);
         TestPacing.Step();
 
         _output.WriteLine(failures.Count == 0
-            ? "Все проверки пройдены."
-            : $"Провалено проверок: {failures.Count}.");
+            ? "All checks passed."
+            : $"Failed checks: {failures.Count}.");
         TestPacing.Step();
-        Assert.True(failures.Count == 0, "UI-тест FAIL:\n" + string.Join("\n", failures.Select(f => "  - " + f)));
+        Assert.True(failures.Count == 0, "UI test FAIL:\n" + string.Join("\n", failures.Select(f => "  - " + f)));
     }
 
-    // Карта и легенда рисуются на ОДНОЙ строке side-by-side, и легенда ТОЖЕ показывает имя/символ
-    // существа текстом ("GBL : Гоблин - ...") — поиск "GBL" по всей строке может найти легенду
-    // вместо самой сетки (они не обязательно на одной физической строке, раз легенда не привязана
-    // к Y-координате существа). Ограничиваем поиск левой частью строки — областью карты, до
-    // внутренней границы с легендой (MapDisplay: mapWidth = cols*(cellWidth+1)+7 = 20*4+7 = 87).
+    // The map and the legend are drawn on the SAME row side by side, and the legend ALSO shows the creature's
+    // name/symbol as text ("GBL : Goblin - ...") — searching for "GBL" across the whole row may find the legend
+    // instead of the grid itself (they are not necessarily on the same physical row, since the legend is not tied
+    // to the creature's Y coordinate). Restrict the search to the left part of the row — the map area, up to
+    // the inner border with the legend (MapDisplay: mapWidth = cols*(cellWidth+1)+7 = 20*4+7 = 87).
     private const int MapContentWidth = 87;
 
     private static int FindGoblinGridColumn(List<string> rows)

@@ -51,11 +51,11 @@ internal sealed class SequentialHistoryPlayer(
             string? speechText = Speech.ValidateSsml(rawText);
             string normalizedText = text.Replace("\n", "");
 
-            // Промпт запрещает повторять в финальном history[] то, что уже было показано игроку
-            // через history[] у roll_dice/use_reaction (те записи попадают в settings.History сразу
-            // при вызове тула — DialogDisplay.StreamHistoryEntries, задолго до этого PlayAsync) —
-            // модель это правило иногда всё равно нарушает. Дословный повтор последней уже
-            // показанной записи молча пропускаем, а не показываем игроку одну реплику дважды подряд.
+            // The prompt forbids repeating in the final history[] what was already shown to the player
+            // via history[] of roll_dice/use_reaction (those entries land in settings.History immediately
+            // when the tool is called — DialogDisplay.StreamHistoryEntries, long before this PlayAsync) —
+            // the model still breaks this rule sometimes. A verbatim repeat of the last already
+            // shown entry is silently skipped instead of showing the player the same line twice in a row.
             bool isDuplicateOfLast = normalizedText.Length > 0
                 && settings.History is { Count: > 0 } h
                 && h[^1].Text == normalizedText;
@@ -69,18 +69,18 @@ internal sealed class SequentialHistoryPlayer(
             }
 
             if (entry["patch"] is JsonObject patch) await AnimateAndApplyPatch(patch);
-            // Хиты, написанные в механике записи («[… WL2 11→7]»), но забытые в патче.
+            // Hit points written in the entry's mechanics ("[… WL2 11→7]") but forgotten in the patch.
             if (storage.ReconcileMechanics(normalizedText)) onRedraw?.Invoke();
         }
 
         return accumulatedHistory;
     }
 
-    // ИИ иногда присылает один и тот же корневой ключ дважды (например два отдельных "hero":{...}
-    // вместо объединения в один) вопреки явному запрету в промпте — обычный JsonNode.Parse на такое
-    // падает (в отличие от Storage.ApplyUpdateWorldState, который читает через JsonDocument.
-    // EnumerateObject и спокойно обрабатывает дубли по очереди). Сливаем дубли ключей верхнего
-    // уровня перед разбором history, чтобы одна опечатка модели не роняла весь ответ игрока.
+    // The AI sometimes sends the same root key twice (e.g. two separate "hero":{...}
+    // instead of merging them into one) despite an explicit ban in the prompt — a plain JsonNode.Parse
+    // fails on that (unlike Storage.ApplyUpdateWorldState, which reads via JsonDocument.
+    // EnumerateObject and handles duplicates one by one without complaint). Merge duplicate top-level
+    // keys before parsing history so a single model slip doesn't crash the player's whole response.
     private static JsonObject? ParseMergingDuplicateRootKeys(string json)
     {
         using var doc = JsonDocument.Parse(json);

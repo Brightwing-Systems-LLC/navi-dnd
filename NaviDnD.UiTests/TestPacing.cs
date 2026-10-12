@@ -1,8 +1,8 @@
 namespace NaviDnD.UiTests;
 
-// Пауза между шагами сценария — чтобы можно было визуально проследить автоматический
-// прогон глазами. Выключена по умолчанию (тесты идут на полной скорости); включается
-// переменной окружения NAVIDND_TEST_STEP_DELAY_MS (мс между шагами, например "1500").
+// A pause between scenario steps — so an automated run can be followed visually
+// by eye. Off by default (tests run at full speed); enabled by the
+// NAVIDND_TEST_STEP_DELAY_MS environment variable (ms between steps, e.g. "1500").
 internal static class TestPacing
 {
     private static readonly int StepDelayMs =

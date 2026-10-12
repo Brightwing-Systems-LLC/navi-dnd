@@ -26,8 +26,8 @@ public class AppConfig
 
     public string RuleSet { get; init; } = "Dnd5e";
 
-    // Язык интерфейса: "ru" или "en" (L.SetLanguage). Язык мира — отдельно, в мире при создании. Новая установка
-    // (файла настроек ещё нет) — английский; настройки прежней версии без поля — русский (LoadUserSettings).
+    // Interface language: "ru" or "en" (L.SetLanguage). The world language is separate, set in the world at creation. A new install
+    // (no settings file yet) — English; settings from an older version without the field — Russian (LoadUserSettings).
     public string Language { get; set; } = L.English;
 
     // Claude CLI
@@ -37,15 +37,15 @@ public class AppConfig
     public string ClaudeCreateNewGameModel { get; set; } = "claude-opus-5-5";
     public string ClaudeStartNewGameModel { get; set; } = "claude-opus-5-5";
 
-    // Нейронка: "claude" — Claude CLI (по умолчанию), "codex" — OpenAI Codex CLI (CodexCliAiProvider).
+    // AI backend: "claude" — Claude CLI (default), "codex" — OpenAI Codex CLI (CodexCliAiProvider).
     public string AiProvider { get; set; } = "claude";
-    // Путь к Codex CLI: «codex» — найти в PATH (из npm-пакета берётся сам codex.exe), иначе — полный путь.
+    // Path to Codex CLI: "codex" — look it up in PATH (codex.exe itself is taken from the npm package), otherwise a full path.
     public string CodexCliPath { get; set; } = "codex";
-    // Модель Codex для всех запросов игры; пусто — модель Codex по умолчанию.
+    // Codex model for all game requests; empty means Codex's default model.
     public string CodexModel { get; set; } = "gpt-6.1-sol";
     public string CodexCreateNewGameModel { get; set; } = "gpt-6.1-sol";
     public string CodexStartNewGameModel { get; set; } = "gpt-6.1-sol";
-    // Отдельно от настроек Codex для разработки: medium — баланс скорости и правил игры.
+    // Separate from the Codex settings used for development: medium balances speed and adherence to the game rules.
     public string CodexReasoningEffort { get; set; } = "medium";
 
     public string McpServerPath { get; init; } = FindMcpServer();
@@ -88,56 +88,56 @@ public class AppConfig
     // Debug
     public bool DisableTriggers { get; set; } = false;
     public bool RevealMap { get; set; } = false;
-    // Ошибки ИИ (кривой ответ, сбой вызова) подробно в диалоге; выключено — короткое «повтори действие».
+    // AI errors (malformed response, failed call) shown in detail in the dialogue; when off, a short "repeat the action".
     public bool ShowAiErrors { get; set; } = false;
-    // Модель для починки сломанного JSON ответа мастера (короткий вызов без инструментов).
+    // Model for repairing broken JSON in the DM's response (a short call without tools).
     public string RepairJsonModel { get; set; } = "claude-haiku-4-5-20251001";
 
-    // Сохранять ли исследованные клетки (туман войны) между запусками игры. По умолчанию — сохранять.
+    // Whether to keep explored cells (fog of war) between game runs. Kept by default.
     public bool SaveExploredCells { get; set; } = true;
-    // Подсказки клавиш «[F1]», «[Esc]» в заголовках и подвкладках; выключено — на их месте пусто.
+    // Key hints "[F1]", "[Esc]" in headers and sub-tabs; when off, their place is blank.
     public bool ShowKeyHints { get; set; } = true;
-    // Весь экран: окно игры того же размера по центру монитора, вокруг — фон игры (Helpers/FullscreenBackdrop).
+    // Full screen: the game window at the same size centred on the monitor, surrounded by the game background (Helpers/FullscreenBackdrop).
     public bool Fullscreen { get; set; } = true;
-    // Шрифт консоли (настройка «ТИП ШРИФТА»).
+    // Console font (the "FONT FACE" setting).
     public string FontFace { get; set; } = "Consolas";
-    // Размер шрифта во весь экран: 0 — авто (самый крупный, при котором игра влезает в монитор), иначе размер.
+    // Full-screen font size: 0 — auto (the largest at which the game fits the monitor), otherwise the size.
     public int FullscreenFontSize { get; set; } = 0;
-    // Звук клика по кнопкам/стрелкам (Helpers/Sound.cs).
+    // Click sound for buttons/arrows (Helpers/Sound.cs).
     public bool SoundEnabled { get; set; } = true;
-    // Звук печати текста ИИ в диалоге (синтезируется в Sound.PlayTyping, работает только при SoundEnabled).
+    // Typing sound for AI text in the dialogue (synthesised in Sound.PlayTyping, works only with SoundEnabled).
     public bool TypingSoundEnabled { get; set; } = true;
-    // Фоновая музыка (Helpers/Music) и её громкость 0–100 % (умножается на общую громкость).
+    // Background music (Helpers/Music) and its volume 0–100 % (multiplied by the master volume).
     public bool MusicEnabled { get; set; } = true;
     public int MusicVolume { get; set; } = 30;
-    public bool AmbienceEnabled { get; set; } = true;   // звуки окружения (птицы, камин, капли)
-    // Общая громкость звуков, 0–100 % (Sound.Volume).
+    public bool AmbienceEnabled { get; set; } = true;   // ambient sounds (birds, fireplace, dripping)
+    // Master sound volume, 0–100 % (Sound.Volume).
     public int SoundVolume { get; set; } = 20;
     public bool SpeechEnabled { get; set; } = false;
     public int SpeechVolume { get; set; } = 70;
     public string SileroVoice { get; set; } = "baya";
-    // Голос рассказчика английской игры (Speech.EnglishVoices; модель — Speech/models/v3_en.pt).
+    // Narrator voice for an English game (Speech.EnglishVoices; model: Speech/models/v3_en.pt).
     public string SileroVoiceEn { get; set; } = "en_57";
     public string SileroPythonPath { get; set; } = "python";
     // [] = off, ["*"] = all actions, or any subset of:
     // "CreateNewGame", "FixHeroForNewGame", "StartNewGame", "SendAction"
-    // Через env var NAVIDND_TEST_MOCKED_ACTIONS (запятая-разделённый список) — для E2E-тестов,
-    // чтобы не бить в реальную нейронку (см. NaviDnD.UiTests/GameSession.cs).
+    // Via the NAVIDND_TEST_MOCKED_ACTIONS env var (a comma-separated list) — for E2E tests,
+    // so they do not hit the real AI (see NaviDnD.UiTests/GameSession.cs).
     public string[] MockedActions { get; init; } = ParseMockedActions();
 
-    // Переопределяет базовую папку, откуда SelectiveMockProvider берёт response.json —
-    // по умолчанию это Prompts/{RuleSet}/{Action}/, что затронуло бы боевые файлы в репозитории.
+    // Overrides the base folder SelectiveMockProvider reads response.json from —
+    // by default it is Prompts/{RuleSet}/{Action}/, which would touch the production files in the repository.
     public string? MockResponsesDir { get; init; } = Environment.GetEnvironmentVariable("NAVIDND_TEST_MOCK_RESPONSES_DIR")
         ?? (TestMocksSet ? null : DevMocksDir);
 
-    // Отладка при обычном запуске (без env var тестов): эти действия не зовут нейронку, а отвечают из
-    // Storage/DevMocks/{Action}/response.json. CreateNewGame — готовый герой, чтобы тестировать генерацию
-    // карты/старт игры без создания персонажа каждый раз. [] — выключить.
+    // Debugging in a normal run (without the test env var): these actions do not call the AI but answer from
+    // Storage/DevMocks/{Action}/response.json. CreateNewGame gives a ready-made hero, to test map generation/
+    // game start without creating a character every time. [] turns it off.
     public static readonly string[] DevMockedActions = [];
     public static string DevMocksDir => Path.Combine(ProjectRoot, "Storage", "DevMocks");
 
-    // ── Настройки игрока (экран «НАСТРОЙКИ») ──────────────────────────────────
-    // Сохраняются в Storage/settings.json (в .gitignore — там токен) поверх значений по умолчанию выше.
+    // ── Player settings (the "SETTINGS" screen) ──────────────────────────────────
+    // Saved to Storage/settings.json (in .gitignore — it holds the token) on top of the defaults above.
     public static string UserSettingsPath => Path.Combine(ProjectRoot, "Storage", "settings.json");
 
     private sealed class UserSettings
@@ -213,10 +213,10 @@ public class AppConfig
             Fullscreen = s.Fullscreen ?? Fullscreen;
             FullscreenFontSize = s.FullscreenFontSize ?? FullscreenFontSize;
             FontFace = s.FontFace ?? FontFace;
-            // Нет поля — настройки из версии до выбора языка: игрок играл по-русски, после обновления — тоже.
+            // No field — settings from a version before language selection: the player played in Russian, and keeps doing so after the update.
             Language = L.Normalize(s.Language ?? L.Russian);
         }
-        catch { /* битый файл настроек — остаются значения по умолчанию */ }
+        catch { /* broken settings file — the defaults remain */ }
     }
 
     public void SaveUserSettings()
@@ -242,7 +242,7 @@ public class AppConfig
             File.WriteAllText(UserSettingsPath, System.Text.Json.JsonSerializer.Serialize(s,
                 new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
         }
-        catch { /* не сохранилось — настройки действуют до конца сеанса */ }
+        catch { /* not saved — the settings apply until the end of the session */ }
     }
 
     private static bool TestMocksSet => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("NAVIDND_TEST_MOCKED_ACTIONS"));

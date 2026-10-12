@@ -15,17 +15,17 @@ public class SpellInfo
     public string Duration { get; init; } = "";
     public string Text { get; init; } = "";
     public string Source { get; init; } = "";
-    // Та же статья по-английски (у справочника оба языка); null — перевода нет.
+    // The same entry in English (the reference has both languages); null means no translation.
     public SpellInfo? En { get; init; }
 
-    // Статья на языке игры: имя у героя и карточка — как пишет мастер (L.World).
+    // The entry in the game's language: the hero's spell name and card match what the DM writes (L.World).
     public SpellInfo Localized => L.WorldIsEnglish && En != null ? En : this;
 }
 
-// Справочник заклинаний DnD5e (GameData/DnD5e_spells_BD.dtn). Файл читается и парсится один раз за
-// запуск процесса (Lazy) — дальше только поиск по кэшу, без обращения к диску. Public — переиспользуется
-// и игрой (NaviDnD.Display.MouseUiHelper — карточка заклинания по точному русскому имени), и
-// NaviDnD.McpServer (SpellTools.FindSpell — нечёткий поиск по английскому имени для ИИ-ДМ).
+// The DnD5e spell reference (GameData/DnD5e_spells_BD.dtn). The file is read and parsed once per
+// process run (Lazy) — after that only cache lookups, no disk access. Public — reused both
+// by the game (NaviDnD.Display.MouseUiHelper — spell card by exact Russian name) and by
+// NaviDnD.McpServer (SpellTools.FindSpell — fuzzy search by English name for the AI DM).
 public static class SpellDatabase
 {
     private static readonly string FilePath =
@@ -36,8 +36,8 @@ public static class SpellDatabase
 
     public static IReadOnlyList<SpellInfo> AllSpells => All.Value;
 
-    // Точный поиск по имени на любом языке (русское, "nic", английское) — карточка заклинания в игре: имя у героя
-    // (HeroSpell.Name) — каноничное название из справочника на языке игры.
+    // Exact lookup by name in any language (Russian, "nic", English) — the in-game spell card: the hero's spell name
+    // (HeroSpell.Name) is the canonical name from the reference in the game's language.
     public static SpellInfo? Find(string? name)
     {
         if (string.IsNullOrWhiteSpace(name)) return null;

@@ -1,12 +1,12 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Xunit.Abstractions;
 
 namespace NaviDnD.UiTests;
 
-// E2E: создание нового героя (Меню → [F2] → 5 полей анкеты) → редактор персонажа ([F3]НАЧАТЬ)
-// → игра на сгенерированной карте. AI-провайдер замокан (GameSession.LaunchForNewGame) —
-// CreateNewGame/StartNewGame берут канонические ответы из Fixtures/MockResponses/, реальная
-// нейронка не вызывается ни разу за тест.
+// E2E: creating a new hero (Menu → [F2] → 5 form fields) → character editor ([F3]START)
+// → a game on a generated map. The AI provider is mocked (GameSession.LaunchForNewGame) —
+// CreateNewGame/StartNewGame take canonical responses from Fixtures/MockResponses/, the real
+// model is not called even once during the test.
 public class NewGameScenarioTests
 {
     private static readonly (byte r, byte g, byte b) MainBackground = (18, 18, 22);
@@ -15,51 +15,51 @@ public class NewGameScenarioTests
 
     public NewGameScenarioTests(ITestOutputHelper output) => _output = output;
 
-    // Esc в любой момент анкеты должен отменить создание героя и вернуть в Меню (ScreenRegistry:
-    // Screen.NewGame.Commands["Esc"] → Screen.Menu) — до сих пор не проверялось ни в начале анкеты,
-    // ни (что важнее) посреди неё, после того как часть полей уже заполнена. CreateNewGame при этом
-    // вообще не должен вызываться (NewGameDisplay.GetFieldInput возвращает null сразу, как только
-    // распознаёт "Esc" среди команд экрана, до финального await _aiClient.CreateNewGame(...)).
+    // Esc at any point in the form must cancel hero creation and return to the Menu (ScreenRegistry:
+    // Screen.NewGame.Commands["Esc"] → Screen.Menu) — until now this was checked neither at the start of the form
+    // nor (more importantly) in the middle of it, after some fields have already been filled in. CreateNewGame must
+    // not be called at all (NewGameDisplay.GetFieldInput returns null as soon as it
+    // recognizes "Esc" among the screen's commands, before the final await _aiClient.CreateNewGame(...)).
     [Fact]
     public void EscMidAnketa_CancelsCreation_ReturnsToMenu()
     {
         using var game = GameSession.LaunchForNewGame();
-        _output.WriteLine($"Игра запущена (pid {game.Pid}), экран Меню отрисован.");
+        _output.WriteLine($"Game launched (pid {game.Pid}), Menu screen rendered.");
 
-        _output.WriteLine("Отправляю [F2] — жду анкету создания персонажа...");
+        _output.WriteLine("Sending [F2] — waiting for the character creation form...");
         Assert.True(Navigation.ToAnketa(game.Pid),
-            "Не дождались анкеты создания персонажа после нажатия [F2] в меню.");
+            "The character creation form did not appear after pressing [F2] in the menu.");
         TestPacing.Step();
 
-        _output.WriteLine("Заполняю первые два поля анкеты (имя, символ), затем отменяю Esc посреди третьего...");
-        TypeField(game.Pid, "Тестовый Герой Для Отмены");
+        _output.WriteLine("Filling in the first two form fields (name, symbol), then cancelling with Esc in the middle of the third...");
+        TypeField(game.Pid, "Test Hero To Cancel");
         TypeField(game.Pid, "ESC");
         GameConsole.SendKey(game.Pid, ConsoleKey.Escape);
-        // Выход из создания игры — с предупреждением, что прогресс не сохранится: [Enter] — выйти.
+        // Leaving game creation shows a warning that progress will not be saved: [Enter] leaves.
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Прогресс создания новой игры не сохранится", 5000),
-            "После [Esc] посреди анкеты не появилось предупреждение о выходе в меню.");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "New game progress will not be saved", 5000),
+            "After [Esc] in the middle of the form no warning about leaving to the menu appeared.");
         GameConsole.SendKey(game.Pid, ConsoleKey.Enter);
 
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "ГЛАВНОЕ МЕНЮ", 5000),
-            "После [Esc] посреди анкеты создания персонажа не вернулись на экран Меню.");
-        _output.WriteLine("Экран Меню отрисован — создание героя отменено, CreateNewGame не должен был вызваться.");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "MAIN MENU", 5000),
+            "After [Esc] in the middle of the character creation form we did not return to the Menu screen.");
+        _output.WriteLine("Menu screen rendered — hero creation cancelled, CreateNewGame should not have been called.");
         TestPacing.Step();
 
-        // Повторное открытие анкеты должно начинаться с чистого листа — введённый ранее текст
-        // не должен просочиться в новую попытку (регрессия против утечки состояния между анкетами).
-        _output.WriteLine("Открываю анкету заново — проверяю, что поля пустые (нет утечки предыдущего ввода)...");
+        // Reopening the form must start from a clean slate — text entered earlier
+        // must not leak into the new attempt (a regression guard against state leaking between forms).
+        _output.WriteLine("Opening the form again — checking that the fields are empty (no leak of the previous input)...");
         Assert.True(Navigation.ToAnketa(game.Pid),
-            "Не удалось открыть анкету создания персонажа повторно после отмены.");
+            "Could not reopen the character creation form after cancelling.");
 
-        // Заголовок (строка 1) обновляется первым — тело анкеты может дорисоваться на один poll-тик
-        // позже (тот же класс гонки, что и в CheckEditorScreen выше) — ждём, а не проверяем один снимок.
+        // The title (row 1) updates first — the form body may finish drawing one poll tick
+        // later (the same class of race as in CheckEditorScreen above) — wait rather than checking a single snapshot.
         Assert.True(
             GameConsole.WaitForRowsMatch(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth,
-                r => !r.Any(x => x.Contains("Тестовый Герой Для Отмены")), 3000),
-            "Анкета, открытая заново после отмены, всё ещё показывает текст из предыдущей (отменённой) попытки.");
-        _output.WriteLine("Анкета открылась заново без следов предыдущего отменённого ввода.");
+                r => !r.Any(x => x.Contains("Test Hero To Cancel")), 3000),
+            "The form reopened after cancelling still shows text from the previous (cancelled) attempt.");
+        _output.WriteLine("The form reopened with no trace of the previous cancelled input.");
         TestPacing.Step();
     }
 
@@ -67,96 +67,96 @@ public class NewGameScenarioTests
     public void CreateHeroAndStartNewGame()
     {
         using var game = GameSession.LaunchForNewGame();
-        _output.WriteLine($"Игра запущена (pid {game.Pid}), экран Меню отрисован.");
+        _output.WriteLine($"Game launched (pid {game.Pid}), Menu screen rendered.");
         var failures = new List<string>();
 
-        _output.WriteLine("Отправляю [F2] — жду анкету создания персонажа...");
+        _output.WriteLine("Sending [F2] — waiting for the character creation form...");
         Assert.True(Navigation.ToAnketa(game.Pid),
-            "Не дождались анкеты создания персонажа после нажатия [F2] в меню.");
-        _output.WriteLine("Анкета отрисована. Заполняю 5 полей (имя/символ/описание/сеттинг/пожелание)...");
+            "The character creation form did not appear after pressing [F2] in the menu.");
+        _output.WriteLine("Form rendered. Filling in 5 fields (name/symbol/description/setting/wish)...");
 
-        // AI-ответ замокан и не зависит от введённого текста — но реальная анкета должна
-        // реально принимать ввод (кириллица, Enter между полями), иначе тест не проверяет UI.
-        TypeField(game.Pid, "Тестовый Герой");
+        // The AI response is mocked and does not depend on the entered text — but the real form must
+        // really accept input (text, Enter between fields), otherwise the test does not check the UI.
+        TypeField(game.Pid, "Test Hero");
         TypeField(game.Pid, "TST");
-        TypeField(game.Pid, "Проверочный герой для e2e-теста создания игры.");
-        // Анкета не создаёт героя по последнему полю — дальше цвет/портрет и кнопка.
-        GameConsole.SendKey(game.Pid, ConsoleKey.F3);   // «ДАЛЕЕ» анкеты — то же, что [F3] (кнопка-плашка без стрелок)
+        TypeField(game.Pid, "A test hero for the game creation e2e test.");
+        // The form does not create the hero on the last field — color/portrait and the button come next.
+        GameConsole.SendKey(game.Pid, ConsoleKey.F3);   // the form's "NEXT" — same as [F3] (a button badge without arrows)
 
-        // SelectiveMockProvider намеренно задерживает мок-ответ на 5с (MockResponseDelayMs) —
-        // это единственный способ реально проверить, что спиннер ожидания (Spinner.While) в
-        // течение этого времени отрисован, а не просто предположить, что он есть.
-        _output.WriteLine("Проверяю, что во время ожидания CreateNewGame (мок, искусственная задержка 5с) виден спиннер «Создаём персонажа»...");
-        if (!GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Создаём персонажа", 3000))
-            failures.Add("Спиннер «Создаём персонажа» не появился во время ожидания ответа CreateNewGame (мок).");
+        // SelectiveMockProvider deliberately delays the mock response by 5s (MockResponseDelayMs) —
+        // this is the only way to really check that the waiting spinner (Spinner.While) is drawn
+        // during that time, rather than just assuming it is there.
+        _output.WriteLine("Checking that the \"Creating the character\" spinner is visible while waiting for CreateNewGame (mock, artificial 5s delay)...");
+        if (!GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Creating the character", 3000))
+            failures.Add("The \"Creating the character\" spinner did not appear while waiting for the CreateNewGame (mock) response.");
 
-        _output.WriteLine("Жду ответ CreateNewGame (мок) и экран редактора персонажа...");
+        _output.WriteLine("Waiting for the CreateNewGame (mock) response and the character editor screen...");
         Assert.True(
-            GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ РЕДАКТОР ←", 20000),
-            "Не дождались экрана редактора персонажа после заполнения анкеты — CreateNewGame (мок) не отработал.");
-        // Заголовок (строка 1) обновляется первым — карточка героя ниже может дорисоваться
-        // на один poll-тик позже; без паузы здесь ReadRows иногда ловит недорисованную карточку.
+            GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ EDITOR ←", 20000),
+            "The character editor screen did not appear after filling in the form — CreateNewGame (mock) did not finish.");
+        // The title (row 1) updates first — the hero card below may finish drawing
+        // one poll tick later; without a pause here ReadRows sometimes catches a half-drawn card.
         Thread.Sleep(200);
-        _output.WriteLine("Экран редактора персонажа отрисован.");
+        _output.WriteLine("Character editor screen rendered.");
         CheckEditorScreen(game.Pid, failures);
         TestPacing.Step();
 
-        _output.WriteLine("[редактор персонажа] Проверяю переключение подвкладок [F6]/[F7] (Инвентарь/Способности)...");
+        _output.WriteLine("[character editor] Checking sub-tab switching [F6]/[F7] (Inventory/Features)...");
         CheckEditorTabSwitching(game.Pid, failures);
         TestPacing.Step();
 
         CheckFixHeroEditWithAskPlayer(game, failures);
         TestPacing.Step();
 
-        // Settle-пауза: FixHeroForNewGame+ask_player только что прогнали SpinAsync/цикл выбора
-        // варианта — внешнему игровому циклу (Program.cs) нужен момент вернуться в состояние
-        // ожидания ввода на экране редактора, прежде чем слать следующую клавишу (тот же класс
-        // гонки, что уже встречался при чтении карточки героя сразу после ответа мока).
+        // Settle pause: FixHeroForNewGame+ask_player have just run SpinAsync/the option selection
+        // loop — the outer game loop (Program.cs) needs a moment to get back to waiting
+        // for input on the editor screen before the next key is sent (the same class
+        // of race already seen when reading the hero card right after a mock response).
         Thread.Sleep(500);
-        _output.WriteLine("Отправляю [F3] (НАЧАТЬ) → шаг «Приключение» → НАЧАТЬ ИГРУ...");
-        Assert.True(Navigation.StartFromEditor(game.Pid), "После [F3] в редакторе не открылся шаг «Приключение».");
+        _output.WriteLine("Sending [F3] (START) → the \"Adventure\" step → START GAME...");
+        Assert.True(Navigation.StartFromEditor(game.Pid), "After [F3] in the editor the \"Adventure\" step did not open.");
 
-        _output.WriteLine("Проверяю, что во время ожидания StartNewGame (мок, искусственная задержка 5с) виден спиннер «Создаём мир»...");
-        bool sawSpinner = GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Создаём мир", 3000);
+        _output.WriteLine("Checking that the \"Creating the world\" spinner is visible while waiting for StartNewGame (mock, artificial 5s delay)...");
+        bool sawSpinner = GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Creating the world", 3000);
         if (!sawSpinner)
         {
-            // Изредка [F3] не долетает с первого раза — но ТОЛЬКО при прогоне ВСЕГО набора тестов
-            // подряд (5+ поднятых-и-убитых процессов игры перед этим), никогда в изолированном
-            // прогоне; экран при этом стабильно возвращается в корректное состояние редактора
-            // (не куда-то в сторону) — похоже на гонку в самом автоматизаторе (посылка клавиши
-            // через WriteConsoleInput под нагрузкой), а не баг игры. Повторяем нажатие один раз.
-            _output.WriteLine("Спиннер не появился — повторяю Enter на шаге «Приключение»...");
+            // Occasionally [F3] doesn't get through on the first try — but ONLY when running the WHOLE test suite
+            // in a row (5+ game processes started and killed before this), never in an isolated
+            // run; the screen reliably returns to a correct editor state
+            // (not somewhere else) — looks like a race in the automation itself (sending a key
+            // via WriteConsoleInput under load), not a game bug. Retry the key press once.
+            _output.WriteLine("No spinner appeared — repeating Enter on the \"Adventure\" step...");
             GameConsole.SendKey(game.Pid, ConsoleKey.Enter);
-            sawSpinner = GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Создаём мир", 5000);
+            sawSpinner = GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Creating the world", 5000);
         }
         if (!sawSpinner)
-            failures.Add("Спиннер «Создаём мир» не появился во время ожидания ответа StartNewGame (мок), даже после повтора [F3].");
+            failures.Add("The \"Creating the world\" spinner did not appear while waiting for the StartNewGame (mock) response, even after repeating [F3].");
 
-        _output.WriteLine("Жду экран Карты...");
+        _output.WriteLine("Waiting for the Map screen...");
         Assert.True(
-            GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ КАРТА ←", 12000),
-            "Не дождались экрана Карты после [F3] — StartNewGame (мок) не отработал.");
+            GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ MAP ←", 12000),
+            "Map screen did not appear after [F3] — StartNewGame (mock) did not finish.");
         Thread.Sleep(200);
-        _output.WriteLine("Экран Карты отрисован (мир сгенерирован из мок-ответа StartNewGame).");
+        _output.WriteLine("Map screen rendered (the world was generated from the StartNewGame mock response).");
         CheckMapScreen(game.Pid, failures);
         TestPacing.Step();
 
-        _output.WriteLine("Отправляю [F4] — жду экран Персонажа, проверяю итоговое состояние героя...");
+        _output.WriteLine("Sending [F4] — waiting for the Character screen, checking the hero's final state...");
         GameConsole.SendKey(game.Pid, ConsoleKey.F4);
         Assert.True(
-            GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ ПЕРСОНАЖ ←", 5000),
-            "Не дождались экрана Персонажа после [F4] на карте.");
+            GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ CHARACTER ←", 5000),
+            "Character screen did not appear after [F4] on the map.");
         Thread.Sleep(200);
         CheckCharacterScreen(game.Pid, failures);
         TestPacing.Step();
 
         _output.WriteLine(failures.Count == 0
-            ? "Все проверки пройдены."
-            : $"Провалено проверок: {failures.Count}.");
-        // Финальный Step() — до Assert, а не после: если проверки провалились, Assert.True ниже
-        // бросит исключение и код после него не выполнится, а пауза для отладки нужна в любом случае.
+            ? "All checks passed."
+            : $"Failed checks: {failures.Count}.");
+        // The final Step() goes before the Assert, not after: if the checks failed, Assert.True below
+        // throws and the code after it won't run, but the debugging pause is needed either way.
         TestPacing.Step();
-        Assert.True(failures.Count == 0, "UI-тест FAIL:\n" + string.Join("\n", failures.Select(f => "  - " + f)));
+        Assert.True(failures.Count == 0, "UI test FAIL:\n" + string.Join("\n", failures.Select(f => "  - " + f)));
     }
 
     private static void TypeField(int gamePid, string text)
@@ -168,182 +168,182 @@ public class NewGameScenarioTests
 
     private void CheckEditorScreen(int gamePid, List<string> failures)
     {
-        const string context = "редактор персонажа";
+        const string context = "character editor";
 
-        _output.WriteLine($"[{context}] Проверяю вкладки [F2]/[F3]/[Esc]...");
+        _output.WriteLine($"[{context}] Checking tabs [F2]/[F3]/[Esc]...");
         string title = GameConsole.ReadRow(gamePid, 1, GameConsole.TitleReadWidth);
-        ScreenAssertions.RequireTab(title, "[F4]", "ПРИКЛЮЧЕНИЕ", context, failures);
-        ScreenAssertions.RequireTab(title, "[Esc]", "МЕНЮ", context, failures);
+        ScreenAssertions.RequireTab(title, "[F4]", "ADVENTURE", context, failures);
+        ScreenAssertions.RequireTab(title, "[Esc]", "MENU", context, failures);
         TestPacing.Step();
 
-        _output.WriteLine($"[{context}] Проверяю рамки...");
+        _output.WriteLine($"[{context}] Checking borders...");
         var rows = GameConsole.ReadRows(gamePid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth);
         ScreenAssertions.CheckBorders(rows, context, failures);
         TestPacing.Step();
 
-        _output.WriteLine($"[{context}] Проверяю карточку созданного героя (имя, hp, инвентарь)...");
+        _output.WriteLine($"[{context}] Checking the created hero's card (name, hp, inventory)...");
         CheckMockedHeroCard(gamePid, rows, context, failures);
         TestPacing.Step();
     }
 
-    // ВАЖНО: [F2] в EditorScreen ведёт на Screen.NewGameAbilities/AbilityDisplay — это НАСТОЯЩАЯ
-    // заглушка (см. AbilityDisplay.Draw(): рисует только рамку с заголовком "СПУТНИК", контента
-    // нет вообще — BuildAbilityLines существует, но нигде не вызывается). Реальные подвкладки
-    // Инвентарь/Способности — это F6/F7 ВНУТРИ экрана Screen.NewGameCharacter (HeroDisplay,
-    // тот же механизм, что и в геймплейном экране Персонажа — см. GameScenarioTests). Проверяем
-    // именно их: переключение подвкладки должно менять видимый контент карточки.
+    // IMPORTANT: [F2] in EditorScreen leads to Screen.NewGameAbilities/AbilityDisplay — that is a REAL
+    // stub (see AbilityDisplay.Draw(): it draws only a frame with the "COMPANION" title, there is no content
+    // at all — BuildAbilityLines exists but is never called). The real Inventory/Features
+    // sub-tabs are F6/F7 INSIDE the Screen.NewGameCharacter screen (HeroDisplay,
+    // the same mechanism as on the gameplay Character screen — see GameScenarioTests). We check
+    // exactly those: switching the sub-tab must change the card's visible content.
     private void CheckEditorTabSwitching(int gamePid, List<string> failures)
     {
-        const string context = "редактор персонажа";
+        const string context = "character editor";
 
         GameConsole.SendKey(gamePid, ConsoleKey.F7);
-        if (!GameConsole.WaitForAnyRowContains(gamePid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "→ СПОСОБНОСТИ ←", 3000))
+        if (!GameConsole.WaitForAnyRowContains(gamePid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "→ FEATURES ←", 3000))
         {
-            failures.Add($"[{context}] Не удалось переключиться на подвкладку [F7] (Способности) в карточке героя.");
+            failures.Add($"[{context}] Could not switch to the [F7] (Features) sub-tab in the hero card.");
             return;
         }
         var abilityRows = GameConsole.ReadRows(gamePid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth);
-        if (!abilityRows.Any(r => r.Contains("Тестовая способность 1")))
-            failures.Add($"[{context}] После переключения на подвкладку [F7] способности из мок-ответа CreateNewGame не отображаются.");
+        if (!abilityRows.Any(r => r.Contains("Test Ability 1")))
+            failures.Add($"[{context}] After switching to the [F7] sub-tab the features from the CreateNewGame mock response are not shown.");
 
         GameConsole.SendKey(gamePid, ConsoleKey.F6);
-        if (!GameConsole.WaitForAnyRowContains(gamePid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "→ ИНВЕНТАРЬ ←", 3000))
+        if (!GameConsole.WaitForAnyRowContains(gamePid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "→ INVENTORY ←", 3000))
         {
-            failures.Add($"[{context}] Не удалось вернуться на подвкладку [F6] (Инвентарь) в карточке героя.");
+            failures.Add($"[{context}] Could not return to the [F6] (Inventory) sub-tab in the hero card.");
             return;
         }
         var invRows = GameConsole.ReadRows(gamePid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth);
-        if (!invRows.Any(r => r.Contains("Тестовый меч")))
-            failures.Add($"[{context}] После возврата на подвкладку [F6] инвентарь из мок-ответа CreateNewGame не отображается.");
+        if (!invRows.Any(r => r.Contains("Test Sword")))
+            failures.Add($"[{context}] After returning to the [F6] sub-tab the inventory from the CreateNewGame mock response is not shown.");
     }
 
-    // Проверяет, что во время редактирования персонажа (FixHeroForNewGame, отдельное от
-    // SendAction действие) механизм ask_player (диалог вопроса от ИИ) работает так же корректно —
-    // GameAiClient.SpinAsync поллит ask_player_request.json одинаково для ЛЮБОГО действия,
-    // не только для геймплейного SendAction (см. InteractiveResponseTests).
+    // Checks that during character editing (FixHeroForNewGame, an action separate from
+    // SendAction) the ask_player mechanism (a question dialog from the AI) works just as correctly —
+    // GameAiClient.SpinAsync polls ask_player_request.json the same way for ANY action,
+    // not only for the gameplay SendAction (see InteractiveResponseTests).
     private void CheckFixHeroEditWithAskPlayer(GameSession game, List<string> failures)
     {
-        const string context = "редактирование персонажа (FixHeroForNewGame)";
+        const string context = "character editing (FixHeroForNewGame)";
 
-        _output.WriteLine("Отправляю запрос на редактирование персонажа — жду начала ожидания FixHeroForNewGame (мок)...");
-        GameConsole.SendText(game.Pid, "добавь мне элегантный плащ, но сначала спроси о моих планах");
+        _output.WriteLine("Sending a character edit request — waiting for FixHeroForNewGame (mock) to start...");
+        GameConsole.SendText(game.Pid, "give me an elegant cloak, but ask about my plans first");
         GameConsole.SendKey(game.Pid, ConsoleKey.Enter);
         Thread.Sleep(150);
 
         string askPlayerPath = Path.Combine(game.RealStorageDir, "ask_player_request.json");
-        string[] options = ["Исследовать подземелье", "Сражаться", "Договориться с обитателями"];
-        var askRequest = new { history = new[] { new { text = "Каковы твои планы?" } }, options };
-        _output.WriteLine("Пишу ask_player_request.json — проверяю, что вопрос отображается и при редактировании персонажа...");
+        string[] options = ["Explore the dungeon", "Fight", "Negotiate with the inhabitants"];
+        var askRequest = new { history = new[] { new { text = "What are your plans?" } }, options };
+        _output.WriteLine("Writing ask_player_request.json — checking that the question is shown during character editing too...");
         File.WriteAllText(askPlayerPath, JsonSerializer.Serialize(askRequest));
 
         foreach (var option in options)
             if (!GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, option, 4000))
             {
-                failures.Add($"[{context}] Вариант ответа «{option}» не отображён в диалоге вопроса.");
+                failures.Add($"[{context}] Answer option \"{option}\" not shown in the question dialog.");
                 return;
             }
-        _output.WriteLine("Вопрос при редактировании отображён — выбираю первый вариант...");
+        _output.WriteLine("Question shown during editing — choosing the first option...");
 
         GameConsole.SendKey(game.Pid, ConsoleKey.Enter);
-        // Короткий таймаут намеренно: ответ должен появиться СРАЗУ (DialogDisplay.
-        // PlayAskPlayerRequest перерисовывает диалог немедленно после выбора), а не только
-        // когда FixHeroForNewGame (мок, искусственная задержка 5с) полностью завершится —
-        // широкое окно замаскировало бы регрессию немедленной перерисовки. Ищем именно
-        // "Test Hero: <ответ>" (с префиксом автора) — голый текст варианта ещё виден в САМОМ
-        // СПИСКЕ ВАРИАНТОВ независимо от того, попал ли ответ в историю, и дал бы ложное срабатывание.
+        // The short timeout is deliberate: the answer must appear IMMEDIATELY (DialogDisplay.
+        // PlayAskPlayerRequest redraws the dialog right after the choice), not only
+        // when FixHeroForNewGame (mock, artificial 5s delay) has fully finished —
+        // a wide window would mask a regression of the immediate redraw. We look specifically for
+        // "Test Hero: <answer>" (with the author prefix) — the bare option text is still visible in the
+        // OPTION LIST ITSELF regardless of whether the answer reached the history, and would give a false positive.
         if (!GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, $"Test Hero: {options[0]}", 2000))
         {
-            failures.Add($"[{context}] Выбранный вариант ответа не появился в истории диалога СРАЗУ после выбора.");
+            failures.Add($"[{context}] The chosen answer option did not appear in the dialog history IMMEDIATELY after the choice.");
             return;
         }
 
-        _output.WriteLine("Жду ответ FixHeroForNewGame (мок)...");
-        if (!GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "плащ", 15000))
+        _output.WriteLine("Waiting for the FixHeroForNewGame (mock) response...");
+        if (!GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "part of your gear", 15000))
         {
-            failures.Add($"[{context}] Не дождались ответа FixHeroForNewGame (мок) после ответа на вопрос.");
+            failures.Add($"[{context}] The FixHeroForNewGame (mock) response did not arrive after answering the question.");
             return;
         }
 
-        // НЕ "sleep фиксированное время + один снимок": диалоговая панель (где только что
-        // мелькнуло "плащ" в реплике DM) и карточка героя слева перерисовываются РАЗНЫМИ вызовами
-        // в РАЗНОЕ время — карточка обновляется только на следующей итерации внешнего игрового
-        // цикла. Под нагрузкой (весь набор тестов подряд) фиксированной паузы иногда не хватает —
-        // поэтому опрашиваем экран до появления итогового предмета, а не гадаем с Thread.Sleep.
-        // Только начало названия: слот экипировки в карточке обрезает длинное имя с «...»
-        // (HeroDisplay.FitLine); с заглавной — в реплике ДМ оно со строчной «элегантный плащ».
-        // Ждём долго: патч применяется после того, как реплика ДМ допечатается посимвольно.
-        if (!GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Элегантный", 20000))
-            failures.Add($"[{context}] Предмет «Элегантный плащ», добавленный мок-ответом FixHeroForNewGame, не найден на экране.");
+        // NOT "sleep a fixed time + one snapshot": the dialog panel (where the cloak just
+        // showed up in the DM line) and the hero card on the left are redrawn by DIFFERENT calls
+        // at DIFFERENT times — the card updates only on the next iteration of the outer game
+        // loop. Under load (the whole test suite in a row) a fixed pause is sometimes not enough —
+        // so we poll the screen until the final item appears rather than guessing with Thread.Sleep.
+        // Only the start of the name: the equipment slot in the card truncates a long name with "..."
+        // (HeroDisplay.FitLine); capitalized — in the DM line it is lowercase, "elegant cloak".
+        // Wait long: the patch is applied after the DM line has finished typing out character by character.
+        if (!GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Elegant", 20000))
+            failures.Add($"[{context}] Item \"Elegant Cloak\", added by the FixHeroForNewGame mock response, not found on screen.");
     }
 
     private void CheckMapScreen(int gamePid, List<string> failures)
     {
-        const string context = "экран карты (новая игра)";
+        const string context = "map screen (new game)";
 
-        _output.WriteLine($"[{context}] Проверяю вкладки [F2]/[F3]/[Esc]...");
+        _output.WriteLine($"[{context}] Checking tabs [F2]/[F3]/[Esc]...");
         string title = GameConsole.ReadRow(gamePid, 1, GameConsole.TitleReadWidth);
-        ScreenAssertions.RequireTab(title, "[F2]", "МИР", context, failures);
-        ScreenAssertions.RequireTab(title, "[F3]", "ЖУРНАЛ", context, failures);
-        ScreenAssertions.RequireTab(title, "[F4]", "ПЕРСОНАЖ", context, failures);
-        ScreenAssertions.RequireTab(title, "[F5]", "СПУТНИК", context, failures);
-        ScreenAssertions.RequireTab(title, "[Esc]", "МЕНЮ", context, failures);
+        ScreenAssertions.RequireTab(title, "[F2]", "WORLD", context, failures);
+        ScreenAssertions.RequireTab(title, "[F3]", "JOURNAL", context, failures);
+        ScreenAssertions.RequireTab(title, "[F4]", "CHARACTER", context, failures);
+        ScreenAssertions.RequireTab(title, "[F5]", "COMPANION", context, failures);
+        ScreenAssertions.RequireTab(title, "[Esc]", "MENU", context, failures);
         TestPacing.Step();
 
-        _output.WriteLine($"[{context}] Проверяю рамки...");
+        _output.WriteLine($"[{context}] Checking borders...");
         var rows = GameConsole.ReadRows(gamePid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth);
         ScreenAssertions.CheckBorders(rows, context, failures);
         TestPacing.Step();
 
-        _output.WriteLine($"[{context}] Проверяю номера колонок сетки...");
+        _output.WriteLine($"[{context}] Checking grid column numbers...");
         if (!rows.Any(r => r.Contains(" 1 ") || r.TrimEnd().EndsWith(" 1")))
-            failures.Add($"[{context}] На экране карты не найдены номера колонок сетки.");
+            failures.Add($"[{context}] Grid column numbers not found on the map screen.");
         TestPacing.Step();
 
-        // Из мок-ответа StartNewGame (Fixtures/MockResponses/StartNewGame/response.json) —
-        // символ героя, символ и объект должны быть реально отрисованы на сетке.
-        _output.WriteLine($"[{context}] Проверяю символы героя (TST), нпс (NPC) и объекта ([C]) на сетке...");
+        // From the StartNewGame mock response (Fixtures/MockResponses/StartNewGame/response.json) —
+        // the hero symbol, an NPC symbol and an object must actually be drawn on the grid.
+        _output.WriteLine($"[{context}] Checking the symbols of the hero (TST), the NPC (NPC) and the object ([C]) on the grid...");
         if (!rows.Any(r => r.Contains("TST")))
-            failures.Add($"[{context}] Символ героя «TST» не найден на карте.");
+            failures.Add($"[{context}] Hero symbol \"TST\" not found on the map.");
         if (!rows.Any(r => r.Contains("NPC")))
-            failures.Add($"[{context}] Символ нпс «NPC» не найден на карте.");
+            failures.Add($"[{context}] NPC symbol \"NPC\" not found on the map.");
         if (!rows.Any(r => r.Contains("[C]")))
-            failures.Add($"[{context}] Символ объекта «[C]» не найден на карте.");
+            failures.Add($"[{context}] Object symbol \"[C]\" not found on the map.");
         TestPacing.Step();
     }
 
     private void CheckCharacterScreen(int gamePid, List<string> failures)
     {
-        const string context = "экран персонажа (новая игра)";
+        const string context = "character screen (new game)";
 
         var rows = GameConsole.ReadRows(gamePid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth);
-        _output.WriteLine($"[{context}] Проверяю, что герой из CreateNewGame (мок) сохранился и виден после StartNewGame (Storage.Save)...");
+        _output.WriteLine($"[{context}] Checking that the hero from CreateNewGame (mock) was saved and is visible after StartNewGame (Storage.Save)...");
         CheckMockedHeroCard(gamePid, rows, context, failures);
 
-        // Правка из FixHeroForNewGame (сделана ДО StartNewGame) должна пережить Storage.Save()
-        // и перерисовку на этом экране — иначе редактирование персонажа теряется при старте игры.
-        _output.WriteLine($"[{context}] Проверяю, что правка из FixHeroForNewGame (Элегантный плащ) сохранилась...");
-        if (!rows.Any(r => r.Contains("Элегантный плащ")))
-            failures.Add($"[{context}] Предмет «Элегантный плащ» из FixHeroForNewGame не пережил StartNewGame/Storage.Save().");
+        // The FixHeroForNewGame edit (made BEFORE StartNewGame) must survive Storage.Save()
+        // and the redraw on this screen — otherwise character editing is lost when the game starts.
+        _output.WriteLine($"[{context}] Checking that the FixHeroForNewGame edit (Elegant Cloak) was kept...");
+        if (!rows.Any(r => r.Contains("Elegant Cloak")))
+            failures.Add($"[{context}] Item \"Elegant Cloak\" from FixHeroForNewGame did not survive StartNewGame/Storage.Save().");
         TestPacing.Step();
     }
 
-    // Общие для редактора и экрана персонажа проверки содержимого карточки — оба экрана рисуют
-    // её тем же HeroDisplay.DrawHeroCard над одним и тем же WorldState.Hero.
+    // Card content checks shared by the editor and the character screen — both screens draw
+    // it with the same HeroDisplay.DrawHeroCard over the same WorldState.Hero.
     private void CheckMockedHeroCard(int gamePid, List<string> rows, string context, List<string> failures)
     {
         if (!rows.Any(r => r.Contains("Test Hero")))
-            failures.Add($"[{context}] Имя героя «Test Hero» (из мок-ответа CreateNewGame) не найдено на экране.");
+            failures.Add($"[{context}] Hero name \"Test Hero\" (from the CreateNewGame mock response) not found on screen.");
         if (!rows.Any(r => r.Contains("10/10")))
-            failures.Add($"[{context}] HP героя «10/10» не найдено на экране.");
-        if (!rows.Any(r => r.Contains("Тестовый меч")))
-            failures.Add($"[{context}] Предмет «Тестовый меч» не найден в инвентаре.");
-        if (!rows.Any(r => r.Contains("Тестовый факел")))
-            failures.Add($"[{context}] Предмет «Тестовый факел» не найден в инвентаре.");
-        // Способности живут на отдельной подвкладке ([F7]/отдельный экран НовойИгры) —
-        // не проверяются здесь вместе с инвентарём, который открыт по умолчанию.
+            failures.Add($"[{context}] Hero HP \"10/10\" not found on screen.");
+        if (!rows.Any(r => r.Contains("Test Sword")))
+            failures.Add($"[{context}] Item \"Test Sword\" not found in the inventory.");
+        if (!rows.Any(r => r.Contains("Test Torch")))
+            failures.Add($"[{context}] Item \"Test Torch\" not found in the inventory.");
+        // Features live on a separate sub-tab ([F7]/a separate NewGame screen) —
+        // they are not checked here together with the inventory, which is open by default.
 
-        // Цвет героя выбирается в анкете и переносится поверх ответа CreateNewGame — по умолчанию
-        // первый в палитре NewGameDisplay («ЯНТАРНЫЙ» [220, 170, 60]), а не [100, 200, 255] из мока.
+        // The hero color is chosen in the form and carried over on top of the CreateNewGame response — by default
+        // the first in the NewGameDisplay palette ("AMBER" [220, 170, 60]), not [100, 200, 255] from the mock.
         ScreenAssertions.CheckTextColor(gamePid, rows, "Test Hero", (220, 170, 60), 60, MainBackground, context, failures);
     }
 }

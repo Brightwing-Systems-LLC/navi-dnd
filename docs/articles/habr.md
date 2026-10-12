@@ -1,180 +1,180 @@
-# D&D в консоли с нейросетью-мастером: почему модели нельзя доверять кубики
+# D&D in the console with an AI Dungeon Master: why you can't trust the model with the dice
 
-*Хабы: C#, .NET, Разработка игр, Искусственный интеллект, Open source*
+*Hubs: C#, .NET, Game development, Artificial intelligence, Open source*
 
-> **TL;DR.** Я делаю NaviDnD — настольную ролевую игру, где мастера подземелий играет Claude или OpenAI Codex. Это минималистичное консольное приложение: никакой 3D-графики и игрового движка, только текст, псевдографика и картинки шрифтом Брайля в окне терминала. Главная идея: модель рассказывает историю, а состояние мира, геометрия, броски и опыт принадлежат коду. Около 45 тысяч строк на C#/.NET 9, свой MCP-сервер с игровыми инструментами. Проект бесплатный, исходники открыты. Ищу людей, которым это интересно развивать вместе. Ссылки в конце.
+> **TL;DR.** I'm building NaviDnD, a tabletop role-playing game where the Dungeon Master is played by Claude or OpenAI Codex. It's a minimalist console application: no 3D graphics and no game engine, just text, pseudographics and Braille-font pictures in a terminal window. The core idea: the model tells the story, while the world state, geometry, rolls and experience belong to the code. About 45 thousand lines of C#/.NET 9, plus a custom MCP server with game tools. The project is free and the source is open. I'm looking for people who'd like to develop it together. Links at the end.
 
-![Ход в бою: героиня бьёт мертвеца двумя мечами, игрок бросает кубики, мастер рассказывает результат](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/g4_combat_turn.gif)
-*Настоящий ход, записанный в игре (паузы ожидания модели вырезаны, текст ускорен). Игрок пишет действие, мастер просит бросок, кубик бросается на экране, движок списывает хиты.*
+![A combat turn: the heroine strikes a zombie with two swords, the player rolls the dice, the DM narrates the result](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/g4_combat_turn.gif)
+*A real turn recorded in the game (the waits for the model are cut out, the text is sped up). The player writes an action, the DM asks for a roll, the die is rolled on screen, the engine deducts hit points.*
 
-## С чего всё началось
+## How it all started
 
-Если вы хоть раз водили D&D, вы знаете главную проблему: мастера нет. Или он есть, но раз в месяц. Логичная мысль — «пусть мастером будет нейросеть». И первые десять минут в чате с моделью это действительно выглядит волшебно.
+If you've ever run D&D, you know the main problem: there's no DM. Or there is one, but once a month. The logical thought is "let a neural network be the DM". And for the first ten minutes of chatting with a model it really does look magical.
 
-Потом начинается:
+Then it begins:
 
-- у гоблина было 7 хитов, вы нанесли 9, а он «из последних сил поднимается»;
-- вы зашли в комнату с запада, а через три хода дверь «за спиной» уже на севере;
-- модель «бросает кубик» за вас — и почему-то всегда выпадает драматичное значение;
-- через час игры контекст распухает, мастер забывает, что у вас в рюкзаке.
+- the goblin had 7 hit points, you dealt 9, and yet it "rises with the last of its strength";
+- you entered the room from the west, and three turns later the door "behind you" is to the north;
+- the model "rolls the die" for you, and somehow it always comes up with a dramatic number;
+- an hour into the game the context has bloated and the DM forgets what's in your backpack.
 
-Чат — плохой движок. Модель отлично придумывает, описывает и отыгрывает персонажей, но хранить точное состояние и честно считать она не обязана и не умеет. Отсюда принцип, на котором построен весь проект:
+A chat is a bad engine. A model is great at inventing, describing and playing characters, but it isn't obliged to, and can't, keep exact state and count honestly. Hence the principle the whole project is built on:
 
-**Модель — рассказчик и судья. Состояние, геометрия, кубики и прогрессия — у кода.**
+**The model is the storyteller and the referee. State, geometry, dice and progression belong to the code.**
 
-## Почему консоль
+## Why the console
 
-Настольная ролёвка — это в первую очередь воображение. Игрокам за столом хватает листа персонажа, клетчатой карты и голоса мастера. NaviDnD устроена так же: одно окно консоли, тёмный фон, моноширинный шрифт. Карта нарисована символами, монстры обозначены коротким тегом вроде `ZM1`, а вся атмосфера живёт в тексте мастера.
+A tabletop RPG is first and foremost imagination. Players at the table make do with a character sheet, a grid map and the DM's voice. NaviDnD works the same way: one console window, a dark background, a monospaced font. The map is drawn with characters, monsters are marked with a short tag like `ZM1`, and all the atmosphere lives in the DM's text.
 
-![Начало приключения: героиня у кургана на болотах, туман войны, первая реплика мастера](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/g3_intro.gif)
+![The start of an adventure: the heroine at a barrow in the marshes, fog of war, the DM's first line](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/g3_intro.gif)
 
-У минимализма есть и практические плюсы:
+Minimalism has practical advantages too:
 
-- **Ничего не отвлекает от истории.** Экран целиком отдан карте, логу и листу персонажа.
-- **Низкий порог для разработчика.** Нет Unity, шейдеров и гигабайтов ассетов, только обычный C#. Чтобы добавить механику, не нужно учить игровой движок.
-- **Нетребовательность к железу.** Игра идёт на слабом ноутбуке с Windows, а тяжёлую работу делает модель на стороне провайдера.
-- **Всё проверяемо.** UI-тесты читают буфер консоли как текст, поэтому любой экран можно проверить в автотесте.
+- **Nothing distracts from the story.** The whole screen is given over to the map, the log and the character sheet.
+- **A low barrier for developers.** No Unity, shaders or gigabytes of assets, just plain C#. You don't need to learn a game engine to add a mechanic.
+- **Modest hardware requirements.** The game runs on a weak Windows laptop, and the heavy lifting is done by the model on the provider's side.
+- **Everything is testable.** UI tests read the console buffer as text, so any screen can be checked in an automated test.
 
-## Как это устроено
+## How it works
 
 ```
- Игрок ──► Консольный UI (C#) ──► GameAiClient ──► claude / codex CLI
+ Player ──► Console UI (C#) ──► GameAiClient ──► claude / codex CLI
               ▲                                       │
-              │      JSON-патчи + history             │  вызовы инструментов
+              │      JSON patches + history           │  tool calls
               │                                       ▼
           Storage ◄──────────────────────── NaviDnD.McpServer
        (WorldState)        roll_dice, select_target, calculate_movement,
                            plan_location, find_monster, get_world_state…
 ```
 
-Решение состоит из нескольких проектов:
+The solution consists of several projects:
 
-| Проект | Что делает |
+| Project | What it does |
 | --- | --- |
-| `NaviDnD` | игровой цикл, консольный UI, хранилище, клиенты ИИ |
-| `NaviDnD.Data` | модели состояния мира |
-| `NaviDnD.MapGen` | геометрия тактических карт и карты мира |
-| `NaviDnD.McpServer` | игровые инструменты для модели (MCP) |
-| `NaviDnD.Tests` / `UiTests` / `PromptTests` | логика, UI через настоящий процесс, сценарии с реальными моделями |
+| `NaviDnD` | game loop, console UI, storage, AI clients |
+| `NaviDnD.Data` | world state models |
+| `NaviDnD.MapGen` | geometry of tactical maps and the world map |
+| `NaviDnD.McpServer` | game tools for the model (MCP) |
+| `NaviDnD.Tests` / `UiTests` / `PromptTests` | logic, UI through a real process, scenarios with real models |
 
-### Модель не пишет состояние — она присылает патчи
+### The model doesn't write the state, it sends patches
 
-На каждый ход мастер возвращает JSON: список записей `history` (что увидит и услышит игрок) и патчи к состоянию мира. Патчи применяет `Storage.ApplyUpdateWorldState`, и у каждого поля свои правила.
+On every turn the DM returns JSON: a list of `history` entries (what the player will see and hear) and patches to the world state. The patches are applied by `Storage.ApplyUpdateWorldState`, and each field has its own rules.
 
-Для коллекций (существа, комнаты, ресурсы героя) работает схема `PatchByIndex`: `id` — индекс в текущем списке, переданные поля обновляются точечно, `deleted: true` удаляет элемент. Модели не нужно пересылать весь мир, а ошибиться в одном поле гораздо безопаснее, чем «перерисовать» всю карту.
+Collections (creatures, rooms, hero resources) use the `PatchByIndex` scheme: `id` is the index in the current list, the fields passed are updated selectively, and `deleted: true` removes the element. The model doesn't need to resend the whole world, and getting one field wrong is much safer than "redrawing" the entire map.
 
-Некоторые поля модель не может изменить вообще. Например, `hero.level` и `hero.xp` из ответа мастера игнорируются. Мастер может только *начислить* опыт: передать `xpAward` со списком ключей побеждённых монстров. Сколько опыта за них положено, считает движок по таблице правил, он же решает, когда герой может поднять уровень. Само повышение уровня — отдельный экран: хиты, бонус мастерства и улучшение характеристик считает код, а модель предлагает только то, где по правилам есть выбор (заклинания, умения).
+Some fields the model can't change at all. For example, `hero.level` and `hero.xp` in the DM's response are ignored. The DM can only *award* experience: pass `xpAward` with a list of keys of defeated monsters. How much experience they're worth is calculated by the engine from the rules table, and the engine also decides when the hero can level up. Leveling up itself is a separate screen: hit points, proficiency bonus and ability score improvements are computed by the code, and the model only proposes the things where the rules give a choice (spells, features).
 
-### Кубики бросает игрок, а не модель
+### The player rolls the dice, not the model
 
-Когда по правилам нужен бросок d20, модель вызывает MCP-инструмент `roll_dice`. Игра показывает анимацию кубика, СЛ (если она не скрыта) и модификаторы, а модель получает обратно `{ roll, total }`.
+When the rules call for a d20 roll, the model calls the MCP tool `roll_dice`. The game shows a die animation, the DC (unless it's hidden) and the modifiers, and the model gets back `{ roll, total }`.
 
-![Бросок с помехой: два d20, СЛ 8, модификаторы Ловкости и бонус мастерства](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/07_dice_disadvantage.png)
-*Героиня стреляет из лука в упор, и мастер сам накладывает помеху по правилам («[Помеха: враг в 5 фт]»). Игрок видит оба кубика, СЛ и модификаторы.*
+![A roll with disadvantage: two d20s, DC 8, Dexterity modifiers and proficiency bonus](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/07_dice_disadvantage.png)
+*The heroine fires her bow point-blank, and the DM applies disadvantage on its own, by the rules ("[Disadvantage: enemy within 5 ft]"). The player sees both dice, the DC and the modifiers.*
 
-Честность работает в обе стороны. В той же партии на втором выстреле выпала натуральная единица, и мастер честно описал, как стрела ушла в трясину. Попросить модель «подкрутить» результат нельзя: число пришло от игрока.
+Honesty works both ways. In the same session the second shot came up a natural one, and the DM honestly described the arrow vanishing into the bog. You can't ask the model to "tweak" the result: the number came from the player.
 
-Тут быстро выяснилось, что модели любят кидать кубик «для атмосферы». Поэтому инструмент проверяет запросы и отклоняет бессмысленные: например, бросок без модификаторов и без СЛ почти наверняка не настоящая проверка 5e (чаще всего это попытка «бросить» на активацию Ярости, которая броска не требует). Модель получает ошибку с объяснением и идёт рассказывать дальше.
+It quickly turned out that models love to roll a die "for atmosphere". So the tool validates requests and rejects meaningless ones: for example, a roll with no modifiers and no DC is almost certainly not a real 5e check (most often it's an attempt to "roll" for activating Rage, which requires no roll). The model gets an error with an explanation and goes on with the story.
 
-По тому же принципу работают `select_target` (игрок сам выбирает цель или точку на карте) и `calculate_movement` (путь и дистанции в бою считает код, а не модель «на глаз»).
+`select_target` (the player picks the target or a point on the map themselves) and `calculate_movement` (paths and distances in combat are computed by the code, not eyeballed by the model) work on the same principle.
 
-### Карты: модель планирует, код строит
+### Maps: the model plans, the code builds
 
-Локация создаётся в два шага. Мастер вызывает `plan_location` и описывает замысел: тип (подземелье, пещера, открытая местность), комнаты, настроение. Геометрию строит `NaviDnD.MapGen`, а следующие куски карты по мере исследования наполняет отдельный промпт `PopulateChunk`. Координаты, туман войны, двери, видимость и проходимость — всё на стороне кода.
+A location is created in two steps. The DM calls `plan_location` and describes the intent: the type (dungeon, cave, open terrain), rooms, mood. The geometry is built by `NaviDnD.MapGen`, and further chunks of the map are filled in as they are explored by a separate `PopulateChunk` prompt. Coordinates, fog of war, doors, visibility and passability are all on the code's side.
 
-Важный побочный эффект: **обычная ходьба по карте вообще не вызывает модель**. Игра обращается к нейросети, только когда происходит что-то значимое: сработал триггер, игрок что-то сделал или заговорил. Это экономит и время, и лимиты подписки.
+An important side effect: **ordinary walking around the map doesn't call the model at all**. The game turns to the neural network only when something significant happens: a trigger fires, the player does something or speaks. That saves both time and subscription limits.
 
-![Наведение мыши на карту: путь, оставшееся движение, подсветка в легенде](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/g2_map_hover.gif)
-*Путь под курсором и остаток движения считает код («30 фт · останется 0»), без единого запроса к модели.*
+![Hovering the mouse over the map: the path, remaining movement, highlighting in the legend](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/g2_map_hover.gif)
+*The path under the cursor and the remaining movement are computed by the code ("30 ft · 0 left"), without a single request to the model.*
 
-Карта мира тоже процедурная. Код генерирует континенты, реки, горы и королевства, а модель по запросу игрока пишет описание мира и потом ведёт историю внутри этой географии.
+The world map is procedural too. The code generates continents, rivers, mountains and kingdoms, and the model, at the player's request, writes a description of the world and then runs the story within that geography.
 
-![Генерация карты мира: несколько вариантов подряд](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/g1_worldgen.gif)
+![World map generation: several variants in a row](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/g1_worldgen.gif)
 
-### Почему CLI, а не API
+### Why the CLI and not the API
 
-Игра не просит API-ключ. Она находит у пользователя установленный Claude Code или Codex CLI (в PATH, в npm, в расширениях VS Code, Cursor и Windsurf), запускает его как процесс и подключает к нему свой MCP-сервер. Игрок пользуется подпиской, которая у него уже есть, и не платит за токены отдельно.
+The game doesn't ask for an API key. It finds the user's installed Claude Code or Codex CLI (in PATH, in npm, in the VS Code, Cursor and Windsurf extensions), launches it as a process and connects its own MCP server to it. The player uses the subscription they already have and doesn't pay for tokens separately.
 
-У обоих провайдеров общий JSON-протокол и один набор MCP-инструментов. Провайдер выбирается в настройках, переключение — `SwitchableAiProvider`.
+Both providers share a common JSON protocol and one set of MCP tools. The provider is chosen in the settings; switching is handled by `SwitchableAiProvider`.
 
-### Минималистичная консоль, которая выглядит как игра
+### A minimalist console that looks like a game
 
-Весь интерфейс — это консольное приложение на Spectre.Console. Карта, вкладки, лист персонажа, журнал, бестиарий. Иконки монстров, предметов и портреты — SVG, которые в фоне конвертируются в шрифт Брайля (`SvgToBrailleConverter`).
+The entire interface is a console application built on Spectre.Console. The map, tabs, character sheet, journal, bestiary. Monster and item icons and portraits are SVGs that are converted to Braille in the background (`SvgToBrailleConverter`).
 
-![Создание героини: анкета, брайлевский портрет лучника и описание, которое написала модель](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/03_hero.png)
-*Анкету заполняет игрок, описание по короткому запросу пишет модель, а портрет — это SVG, отрисованный точками Брайля.*
+![Creating the heroine: the questionnaire, a Braille portrait of an archer and a description written by the model](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/03_hero.png)
+*The player fills in the questionnaire, the model writes the description from a short prompt, and the portrait is an SVG drawn with Braille dots.*
 
-![Лист персонажа, собранный по анкете](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/04_character_sheet.png)
+![The character sheet, assembled from the questionnaire](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/en/character_sheet.png)
 
-Чтобы консоль не мерцала, пришлось написать свой мини-рендер:
+To keep the console from flickering I had to write my own mini-renderer:
 
-- `AnimationLoop` по монотонным часам ведёт параллельные анимации: печать текста, спиннер, кубик, движение героя по пути;
-- `ConsoleRegionBuffer` кэширует строки и перерисовывает только изменившиеся клетки, например при наведении мыши;
-- `AnsiColorRuns` схлопывает повторные ANSI-команды цвета;
-- перетаскивание карты мышью обрабатывается в общем цикле опроса ввода, без вложенных блокирующих циклов.
+- `AnimationLoop` runs parallel animations off a monotonic clock: text typing, a spinner, the die, the hero moving along a path;
+- `ConsoleRegionBuffer` caches lines and redraws only the cells that changed, for example on mouse hover;
+- `AnsiColorRuns` collapses repeated ANSI color commands;
+- dragging the map with the mouse is handled in the shared input polling loop, without nested blocking loops.
 
-### Офлайн-озвучка
+### Offline voice-over
 
-Реплики мастера можно слушать. Модель размечает текст SSML, движок вырезает механику (`[Атака: 17 против КД 15]`) и отдаёт текст локальной модели Silero. Сборка содержит переносимый Python, CPU-версию PyTorch и модель, так что ничего докачивать не нужно и интернет не требуется. Синтез идёт в отдельном процессе с очередью и не блокирует UI.
+You can listen to the DM's lines. The model marks up the text with SSML, the engine strips out the mechanics (`[Attack: 17 vs AC 15]`) and hands the text to a local Silero model. The build contains a portable Python, the CPU version of PyTorch and the model, so nothing needs to be downloaded and no internet is required. Synthesis runs in a separate process with a queue and doesn't block the UI.
 
-### Обновления патчами
+### Updates via patches
 
-Полная сборка с Python и Silero весит около 500 МБ, и гонять её на каждый фикс было бы издевательством над игроками. Поэтому релизы, начиная с 1.1.5, приходят дифф-патчами: скрипт сравнивает манифест файлов с прошлой версией, упаковывает только изменённое, а помощник обновления проверяет SHA256 и откатывает изменения при любой ошибке. Сохранения и настройки при этом не трогаются, а при смене формата данных запускаются миграции с резервной копией.
+The full build with Python and Silero weighs about 500 MB, and pushing it for every fix would be torture for players. So releases since 1.1.5 arrive as diff patches: a script compares the file manifest with the previous version, packs only what changed, and the update helper verifies SHA256 and rolls back the changes on any error. Saves and settings aren't touched, and when the data format changes, migrations run with a backup.
 
-## Как тестировать то, что отвечает по-разному каждый раз
+## How to test something that answers differently every time
 
-Это, пожалуй, самая интересная инженерная часть. Тестов три слоя:
+This is perhaps the most interesting engineering part. There are three layers of tests:
 
-1. **`NaviDnD.Tests`** — больше 200 тестов логики без нейросети: применение патчей, геометрия, миграции, правила уровней.
-2. **`NaviDnD.UiTests`** — запускают настоящий процесс игры и управляют консольным UI.
-3. **`NaviDnD.PromptTests`** — сценарии с реальными ответами моделей. Проверяется не то, что JSON валиден, а *последствия*: после атаки у гоблина действительно уменьшились хиты, после открытия двери она открыта на карте.
+1. **`NaviDnD.Tests`**: more than 200 logic tests without a neural network: applying patches, geometry, migrations, level rules.
+2. **`NaviDnD.UiTests`**: launch a real game process and drive the console UI.
+3. **`NaviDnD.PromptTests`**: scenarios with real model responses. What's checked isn't that the JSON is valid but the *consequences*: after an attack the goblin's hit points really went down, after a door is opened it's open on the map.
 
-Правило, которое мы держим в проекте: проверяй последствия ответа в состоянии, а не только валидность ответа.
+A rule we hold to in the project: check the consequences of a response in the state, not just the validity of the response.
 
-## Движок, а не только D&D
+## An engine, not just D&D
 
-Правила D&D 5e живут в промптах (`Prompts/Dnd5e/{Действие}/systemPrompt.md`) и справочниках (`GameData`: монстры, заклинания, снаряжение, таблица уровней). Движок от системы правил не зависит, поэтому в теории можно подключить другую систему. Это одно из направлений, где особенно нужны люди, которые хорошо знают другие НРИ.
+The D&D 5e rules live in prompts (`Prompts/Dnd5e/{Action}/systemPrompt.md`) and reference data (`GameData`: monsters, spells, equipment, the level table). The engine doesn't depend on the rule system, so in theory another system could be plugged in. This is one of the areas where people who know other tabletop RPGs well are especially needed.
 
-## Что уже есть
+## What's already there
 
-- создание героя и мира, карта мира с путешествиями, временем и случайными встречами;
-- тактические бои по клеткам: инициатива, реакции, выбор целей, эффекты по раундам;
-- подземелья, пещеры, открытая местность, туман войны, тёмное зрение;
-- журнал заданий, лист персонажа, бестиарий, повышение уровня;
-- русский и английский язык (интерфейс и язык мира выбираются отдельно);
-- офлайн-озвучка, автообновления патчами;
-- актуальная версия 2.2.3, установщик для Windows x64.
+- hero and world creation, a world map with travel, time and random encounters;
+- grid-based tactical combat: initiative, reactions, target selection, per-round effects;
+- dungeons, caves, open terrain, fog of war, darkvision;
+- a quest journal, character sheet, bestiary, leveling up;
+- Russian and English (the interface language and the world language are chosen separately);
+- offline voice-over, automatic patch updates;
+- current version 2.2.3, an installer for Windows x64.
 
-![Развязка боя: крит вторым клинком, движок списывает хиты](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/08_combat_crit.png)
-*Механика в квадратных скобках — то, что посчитал и применил движок: «[КРИТ 25 vs КД8, урон 9, ZM1 6→0]».*
+![The climax of the fight: a crit with the second blade, the engine deducts hit points](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/08_combat_crit.png)
+*The mechanics in square brackets are what the engine calculated and applied: "[CRIT 25 vs AC8, damage 9, ZM1 6→0]".*
 
-![Карта мира с регионами, городами и положением героини](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/09_world_map.png)
+![The world map with regions, cities and the hero's position](https://gitlab.com/navitalevich/navi-dnd/-/raw/main/docs/media/en/world_map.png)
 
-## Честно о проблемах
+## Being honest about the problems
 
-- **Задержка.** Ход с вызовами инструментов может занимать десятки секунд. Хочется показывать записи по мере генерации и резать лишние вызовы.
-- **Промпт главного хода весит около 59 КБ.** Каждое правило в нём выстрадано, но его нужно сокращать и структурировать.
-- **Модель путает одинаковых существ** («какой из трёх скелетов?») и иногда расходится описанием с механикой.
-- **Только Windows.** Консольный слой завязан на WinAPI.
+- **Latency.** A turn with tool calls can take tens of seconds. I'd like to show entries as they're generated and cut unnecessary calls.
+- **The main-turn prompt weighs about 59 KB.** Every rule in it was hard-won, but it needs to be shortened and structured.
+- **The model confuses identical creatures** ("which of the three skeletons?") and sometimes its description diverges from the mechanics.
+- **Windows only.** The console layer is tied to WinAPI.
 
-## Кого я ищу
+## Who I'm looking for
 
-Сейчас проект делаю я один (плюс Claude и Codex как напарники по коду). Буду рад:
+Right now I'm building the project alone (plus Claude and Codex as coding partners). I'd be glad to have:
 
-- **C#/.NET-разработчикам** — движок, карта, бой, производительность консольного рендера;
-- **людям с опытом LLM и промпт-инжиниринга** — сокращение промптов, задержка, надёжность tool calling, eval-сценарии;
-- **мастерам и игрокам D&D** — плейтесты, баг-репорты, проверка правил; особенно тем, кто водит другие системы;
-- **тем, кто разбирается в кроссплатформенных терминалах**, — порт на Linux и macOS;
-- **художникам и звукорежиссёрам** — иконки, музыка, эмбиент.
+- **C#/.NET developers**: the engine, the map, combat, console rendering performance;
+- **people with LLM and prompt-engineering experience**: shortening prompts, latency, tool-calling reliability, eval scenarios;
+- **D&D DMs and players**: playtests, bug reports, rules checking; especially those who run other systems;
+- **people who know cross-platform terminals**: a port to Linux and macOS;
+- **artists and sound designers**: icons, music, ambience.
 
-Открытые задачи собраны в [docs/roadmap.md](https://gitlab.com/navitalevich/navi-dnd/-/blob/main/docs/roadmap.md), архитектура описана в [docs/architecture.md](https://gitlab.com/navitalevich/navi-dnd/-/blob/main/docs/architecture.md), сборка из исходников занимает пару команд ([docs/development.md](https://gitlab.com/navitalevich/navi-dnd/-/blob/main/docs/development.md)).
+Open tasks are collected in [docs/roadmap.md](https://gitlab.com/navitalevich/navi-dnd/-/blob/main/docs/roadmap.md), the architecture is described in [docs/architecture.md](https://gitlab.com/navitalevich/navi-dnd/-/blob/main/docs/architecture.md), and building from source takes a couple of commands ([docs/development.md](https://gitlab.com/navitalevich/navi-dnd/-/blob/main/docs/development.md)).
 
-## Ссылки
+## Links
 
-- Репозиторий и релизы: https://gitlab.com/navitalevich/navi-dnd
-- Скачать последнюю версию: https://gitlab.com/navitalevich/navi-dnd/-/releases/permalink/latest
+- Repository and releases: https://gitlab.com/navitalevich/navi-dnd
+- Download the latest version: https://gitlab.com/navitalevich/navi-dnd/-/releases/permalink/latest
 - Telegram @navitalevich
 
-Лицензия: бесплатно для некоммерческого использования с сохранением авторства, продажа только с разрешения автора.
+License: free for non-commercial use with attribution preserved; selling only with the author's permission.
 
-Если у вас есть Claude Code или Codex — скачайте, сыграйте одно приключение и напишите в комментариях, где мастер сломался. Это лучший вклад, с которого можно начать.
+If you have Claude Code or Codex, download it, play one adventure and write in the comments where the DM broke. That's the best contribution to start with.

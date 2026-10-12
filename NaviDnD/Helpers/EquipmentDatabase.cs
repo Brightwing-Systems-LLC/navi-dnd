@@ -7,7 +7,7 @@ public class EquipmentInfo
 {
     public required string Name { get; init; }
     public string NameEn { get; init; } = "";
-    public string Category { get; init; } = ""; // "обычное" | "магическое"
+    public string Category { get; init; } = ""; // "mundane" | "magic"
     public string Type { get; init; } = "";
     public string TypeAdditions { get; init; } = "";
     public string DamageVal { get; init; } = "";
@@ -16,20 +16,20 @@ public class EquipmentInfo
     public string Ac { get; init; } = "";
     public string Weight { get; init; } = "";
     public string Cost { get; init; } = "";
-    public string Rarity { get; init; } = ""; // только магические
+    public string Rarity { get; init; } = ""; // magic items only
     public string Attunement { get; init; } = "";
     public string Text { get; init; } = "";
     public string Source { get; init; } = "";
 
-    // Название на языке игры (L.World).
+    // Name in the game's language (L.World).
     public string LocalizedName => L.WorldIsEnglish ? NameEn : Name;
 }
 
-// Справочник снаряжения DnD5e (GameData/DnD5e_equipment_BD.dtn — обычные предметы,
-// GameData/DnD5e_magic_equipment_BD.dtn — магические) — по аналогии с SpellDatabase/MonsterDatabase.
-// Поля берутся из "en" (механика: damageVal/ac/props/weight/coast/rarity/attunement) — переводом
-// в русский текст description занимается сам ИИ (EquipmentTools.FindItem), как он уже делает для
-// остальной механики; отдельного русского перевода формул/свойств в исходнике нет.
+// The DnD5e equipment reference (GameData/DnD5e_equipment_BD.dtn — mundane items,
+// GameData/DnD5e_magic_equipment_BD.dtn — magic ones) — like SpellDatabase/MonsterDatabase.
+// Fields are taken from "en" (mechanics: damageVal/ac/props/weight/coast/rarity/attunement) — the AI itself
+// renders them into the game's language (EquipmentTools.FindItem), as it already does for
+// the rest of the mechanics; the source has no separate Russian translation of formulas/properties.
 public static class EquipmentDatabase
 {
     private static readonly string MundaneFilePath =
@@ -45,7 +45,7 @@ public static class EquipmentDatabase
 
     public static IReadOnlyList<EquipmentInfo> AllItems => All.Value;
 
-    // Точный поиск по имени на любом языке (русское, "nic", английское).
+    // Exact lookup by name in any language (Russian, "nic", English).
     public static EquipmentInfo? Find(string? name)
     {
         if (string.IsNullOrWhiteSpace(name)) return null;
@@ -57,8 +57,8 @@ public static class EquipmentDatabase
     private static Dictionary<string, EquipmentInfo> LoadAll()
     {
         var result = new Dictionary<string, EquipmentInfo>();
-        LoadFile(MundaneFilePath, "обычное", result);
-        LoadFile(MagicFilePath, "магическое", result);
+        LoadFile(MundaneFilePath, "mundane", result);
+        LoadFile(MagicFilePath, "magic", result);
         return result;
     }
 
@@ -118,8 +118,8 @@ public static class EquipmentDatabase
         return idx > 0 && idx < RarityByIndex.Length ? RarityByIndex[idx] : "";
     }
 
-    // Исходник хранит "text" как HTML-разметку (<ul><li>...</li></ul>, <br>) — убираем теги и
-    // схлопываем пробелы, урезаем длинные магические эффекты, чтобы не раздувать ответ тула.
+    // The source stores "text" as HTML markup (<ul><li>...</li></ul>, <br>) — strip the tags,
+    // collapse whitespace and trim long magic effects so the tool response does not bloat.
     private static string CleanText(string text)
     {
         if (text.Length == 0) return text;

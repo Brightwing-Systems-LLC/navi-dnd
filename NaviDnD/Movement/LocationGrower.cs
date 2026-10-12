@@ -3,39 +3,39 @@ using NaviDnD.MapGen.Generators;
 
 namespace NaviDnD;
 
-// Локация из блоков 20×15 (MapConfig.Chunks) по плану нейронки (plan_location): какие блоки, где они
-// относительно друг друга и что в каждом по сюжету. Геометрию всех блоков код строит сразу — локация
-// конечна; нейронка наполняет блок, когда герой к нему подходит (UnpopulatedNearHero → PopulateChunk).
+// A location made of 20×15 blocks (MapConfig.Chunks) following the AI's plan (plan_location): which blocks, where they sit
+// relative to each other and what each holds story-wise. The code builds the geometry of all blocks at once — the location
+// is finite; the AI populates a block when the hero approaches it (UnpopulatedNearHero → PopulateChunk).
 public static class LocationGrower
 {
-    // На каком расстоянии (в клетках) от границы ещё не наполненного блока он наполняется.
+    // At what distance (in cells) from the edge of a not-yet-populated block it gets populated.
     public const int TriggerDistance = 4;
 
     public const int MaxBlocks = 8;
 
-    // Блок плана: X — вправо (восток), Y — вверх (север), Z — этаж (0 — земля, 1+ — выше, −1… — подвалы),
-    // относительно друг друга; первый — стартовый (вход снаружи, Z = 0). Terrain — тип местности блока:
-    // dungeon (по умолчанию), cave, building, village или открытая (MapChunk.IsOutdoorTheme). Building — тип
-    // здания (tavern, house, shop, temple, manor, barracks, tower): по нему планировка и мебель.
+    // A plan block: X — right (east), Y — up (north), Z — floor (0 — ground, 1+ — above, −1… — cellars),
+    // relative to each other; the first is the starting one (entrance from outside, Z = 0). Terrain is the block's terrain type:
+    // dungeon (default), cave, building, village or open terrain (MapChunk.IsOutdoorTheme). Building is the
+    // building type (tavern, house, shop, temple, manor, barracks, tower): it drives the layout and furniture.
     public record PlannedBlock(int X, int Y, string? Purpose, string? Terrain = null, int Z = 0, string? Building = null);
 
     public static readonly string[] Terrains = ["dungeon", MapChunk.Cave, MapChunk.Building, MapChunk.Village, "forest", "plains", "hills", "mountain", "swamp", "desert", "snow", "taiga"];
 
-    // Клетка карты мира, где строится локация (GameWorld.SiteAt): местность открытых блоков (по биому), река
-    // через локацию (ось, ширина), стороны с водой (море/озеро — край локации водой). Нет — как задумал мастер.
+    // The world map cell where the location is built (GameWorld.SiteAt): open-block terrain (by biome), a river
+    // through the location (axis, width), sides with water (sea/lake — the location edge is water). If absent — as the DM intended.
     public sealed record WorldSite(string Theme, bool? RiverHorizontal, int RiverWidth, HashSet<ChunkSide> WaterSides);
 
-    // Новая локация по плану. Прежнее содержимое карты (комнаты, существа…) сбрасывается, герой ставится
-    // у входа снаружи (startInside — внутри, в первой комнате за входом). Возвращает стартовый блок или текст
-    // ошибки плана (карта тогда не тронута).
+    // A new location from the plan. The map's previous contents (rooms, creatures…) are reset, the hero is placed
+    // at the entrance outside (startInside — inside, in the first room past the entrance). Returns the starting block or the plan
+    // error text (the map is then untouched).
     public static (MapChunk? start, string? error) CreatePlanned(WorldState ws, List<PlannedBlock> blocks, string theme = "dungeon", bool startInside = false,
         WorldSite? site = null)
     {
         if (Validate(blocks, theme) is { } error) return (null, error);
 
-        // Этажи лежат на поле в разных местах сетки блоков: земля — в центре, остальные — в свободных клетках.
+        // Floors lie in different parts of the block grid: ground in the centre, the rest in free cells.
         var rng = new Random();
-        if (PlaceFloors(blocks, rng) is not { } place) return (null, "этажи не помещаются на поле — уменьшите план");
+        if (PlaceFloors(blocks, rng) is not { } place) return (null, "the floors do not fit on the grid — make the plan smaller");
 
         var map = ws.Map;
         map.Rooms = [];
@@ -48,18 +48,18 @@ public static class LocationGrower
         map.Furniture = [];
         map.Cols = MapConfig.MaxSize;
         map.Rows = MapConfig.MaxSize;
-        // Цвета карты — как у DungeonGenerator; без этого остаются чёрный фон и белые линии сетки.
+        // Map colours as in DungeonGenerator; without this a black background and white grid lines remain.
         map.Colors = new ColorSetting { MapBackground = new NaviDnD.Data.DisplayConfig().MainBackground, MapForeground = [200, 190, 160] };
 
         var chunks = blocks.Select(b =>
         {
             var (gx, gy) = place[b];
             string t = b.Terrain ?? theme;
-            // Открытая местность — как на карте мира (в горах не будет пустыни).
+            // Open terrain matches the world map (no desert in the mountains).
             if (site != null && MapChunk.IsOutdoorTheme(t)) t = site.Theme;
             return new MapChunk { X = gx, Y = gy, Z = b.Z, Seed = rng.Next(), Theme = t, Purpose = b.Purpose, Style = t == MapChunk.Building ? b.Building ?? "house" : null };
         }).ToList();
-        // Соседство — по плану (x, y, z): блоки разных этажей, оказавшиеся рядом на поле, не связаны.
+        // Adjacency follows the plan (x, y, z): blocks of different floors that end up next to each other on the grid are not connected.
         var byPlan = blocks.Select((b, i) => (b, i)).ToDictionary(x => (x.b.X, x.b.Y, x.b.Z), x => chunks[x.i]);
         var planOf = chunks.Select((c, i) => (c, i)).ToDictionary(x => x.c, x => blocks[x.i]);
         MapChunk? Neighbor(MapChunk c, ChunkSide side)
@@ -79,8 +79,8 @@ public static class LocationGrower
         var startSide = freeSides[rng.Next(freeSides.Count)];
         exits[start].Add(new ChunkExit { Side = startSide, Offset = RandomOffset(startSide, rng), External = true });
 
-        // Связи: остовное дерево по соседям своего этажа + изредка лишний проход — петля. Этажи между собой
-        // связаны только лестницами — у каждого этажа своё дерево.
+        // Connections: a spanning tree over same-floor neighbours + an occasional extra passage — a loop. Floors are
+        // connected to each other only by stairs — each floor has its own tree.
         var linked = new HashSet<(MapChunk, MapChunk)>();
         void Link(MapChunk a, ChunkSide side)
         {
@@ -113,10 +113,10 @@ public static class LocationGrower
                 if (Neighbor(c, side) is { } n && !linked.Contains((c, n)) && rng.Next(4) == 0)
                     Link(c, side);
 
-        // Один контур на всё здание: этажи одной клетки плана (x, y) — с общим seed контура.
+        // One outline for the whole building: floors of the same plan cell (x, y) share an outline seed.
         var footprintSeeds = new Dictionary<(int, int), int>();
         int noiseSeed = rng.Next();
-        // Река с карты мира — поперёк всей местности (одна линия на поле, блоки стыкуются).
+        // The river from the world map crosses the whole terrain (one line on the grid, blocks join up).
         OutdoorGenerator.RiverSpec? river = null;
         if (site?.RiverHorizontal is bool rh && chunks.Any(c => MapChunk.IsOutdoorTheme(c.Theme) && c.Z == 0))
         {
@@ -154,8 +154,8 @@ public static class LocationGrower
             }
             if (!MapChunk.IsOutdoorTheme(c.Theme)) { AddChunk(map, c, exits[c]); continue; }
 
-            // Края открытой местности: к соседу-местности/зданию (его двор) — открыто, к подземелью — скальная
-            // стена (вход в него — проём в скале), к пустоте — естественная преграда по типу местности.
+            // Edges of open terrain: towards neighbouring terrain/a building (its yard) — open, towards a dungeon — a rock
+            // wall (its entrance is an opening in the rock), towards the void — a natural barrier by terrain type.
             var outdoorBands = new Dictionary<ChunkSide, char>();
             foreach (var side in Enum.GetValues<ChunkSide>())
             {
@@ -172,7 +172,7 @@ public static class LocationGrower
             map.Chunks.Add(c);
         }
 
-        // Лестницы между этажами, стоящими друг над другом в плане.
+        // Stairs between floors stacked on top of each other in the plan.
         foreach (var lower in chunks)
         {
             var b = planOf[lower];
@@ -186,7 +186,7 @@ public static class LocationGrower
             ws.Hero.Position = startInside && FirstRoomCell(map, start, startCol, startRow) is var (ic, ir) ? [ic, ir] : [startCol, startRow];
         return (start, null);
 
-        // Края двора здания/поселения: к открытой земле — открыто, к подземелью — скала, без соседа — деревья и чаща.
+        // Edges of a building/settlement yard: towards open ground — open, towards a dungeon — rock, no neighbour — trees and thicket.
         Dictionary<ChunkSide, char> GroundBands(MapChunk c)
         {
             var bands = new Dictionary<ChunkSide, char>();
@@ -200,8 +200,8 @@ public static class LocationGrower
         }
     }
 
-    // Первая клетка комнаты на пути от входа снаружи (шагами героя: внутри комнаты — к соседней клетке, между
-    // комнатами/двором — только через дверь или проход) — сюда ставится герой, если игра начинается внутри.
+    // The first room cell on the way from the outside entrance (by the hero's steps: inside a room — to an adjacent cell, between
+    // rooms/the yard — only through a door or passage) — the hero is placed here if the game starts inside.
     private static (int col, int row)? FirstRoomCell(MapConfig map, MapChunk chunk, int col, int row)
     {
         var roomOf = new Dictionary<(int, int), int>();
@@ -224,7 +224,7 @@ public static class LocationGrower
             var x = queue.Dequeue();
             if (roomOf.TryGetValue(x, out int room) && map.Rooms[room].Passage != true)
             {
-                // Шаг-другой вглубь комнаты, а не на пороге.
+                // A step or two into the room, not on the threshold.
                 var deeper = new[] { (x.c + 1, x.r), (x.c - 1, x.r), (x.c, x.r + 1), (x.c, x.r - 1) }
                     .FirstOrDefault(n => roomOf.TryGetValue(n, out int rn) && rn == room && Walkable(n) && !seen.Contains(n));
                 return deeper != default ? deeper : x;
@@ -241,41 +241,41 @@ public static class LocationGrower
         return null;
     }
 
-    // Запасной вариант (нейронка не прислала план): один блок.
+    // Fallback (the AI sent no plan): a single block.
     public static MapChunk CreateStart(WorldState ws, string theme = "dungeon") =>
         CreatePlanned(ws, [new PlannedBlock(0, 0, null)], theme).start!;
 
     private static string? Validate(List<PlannedBlock> blocks, string theme)
     {
-        if (blocks.Count == 0) return "план пуст — нужен хотя бы один блок";
-        if (blocks.Count > MaxBlocks) return $"не больше {MaxBlocks} блоков";
-        if (blocks.Select(b => (b.X, b.Y, b.Z)).Distinct().Count() != blocks.Count) return "у двух блоков одинаковые x,y,z";
+        if (blocks.Count == 0) return "the plan is empty — at least one block is needed";
+        if (blocks.Count > MaxBlocks) return $"no more than {MaxBlocks} blocks";
+        if (blocks.Select(b => (b.X, b.Y, b.Z)).Distinct().Count() != blocks.Count) return "two blocks have the same x,y,z";
         if (blocks.FirstOrDefault(b => b.Terrain != null && !Terrains.Contains(b.Terrain)) is { } badTerrain)
-            return $"неизвестный terrain \"{badTerrain.Terrain}\", допустимы: {string.Join(", ", Terrains)}";
-        if (blocks[0].Z != 0) return "первый (стартовый) блок должен быть на земле (z = 0)";
+            return $"unknown terrain \"{badTerrain.Terrain}\", allowed: {string.Join(", ", Terrains)}";
+        if (blocks[0].Z != 0) return "the first (starting) block must be on the ground (z = 0)";
         var planned = blocks.ToDictionary(b => (b.X, b.Y, b.Z));
         foreach (var b in blocks.Where(b => b.Z != 0))
         {
             string t = b.Terrain ?? theme;
-            if (MapChunk.IsOutdoorTheme(t) || t == MapChunk.Village) return $"{t} — только на земле (z = 0)";
+            if (MapChunk.IsOutdoorTheme(t) || t == MapChunk.Village) return $"{t} — only on the ground (z = 0)";
             if (b.Z > 0)
             {
                 if (planned.GetValueOrDefault((b.X, b.Y, b.Z - 1)) is not { } below)
-                    return $"под блоком ({b.X},{b.Y},{b.Z}) нужен блок ({b.X},{b.Y},{b.Z - 1}) — этажи стоят друг на друге";
+                    return $"block ({b.X},{b.Y},{b.Z}) needs block ({b.X},{b.Y},{b.Z - 1}) below it — floors stack on top of each other";
                 if ((below.Terrain ?? theme) != MapChunk.Building || t != MapChunk.Building)
-                    return $"выше земли — только этажи здания: блоки ({b.X},{b.Y},{b.Z}) и под ним должны быть building";
+                    return $"above ground only building floors are allowed: block ({b.X},{b.Y},{b.Z}) and the one below it must be building";
             }
             if (b.Z < 0 && !planned.ContainsKey((b.X, b.Y, b.Z + 1)))
-                return $"над подвалом ({b.X},{b.Y},{b.Z}) нужен блок ({b.X},{b.Y},{b.Z + 1})";
+                return $"cellar ({b.X},{b.Y},{b.Z}) needs block ({b.X},{b.Y},{b.Z + 1}) above it";
         }
         foreach (var floor in blocks.GroupBy(b => b.Z))
         {
             int w = floor.Max(b => b.X) - floor.Min(b => b.X) + 1, h = floor.Max(b => b.Y) - floor.Min(b => b.Y) + 1;
             if (w > MapChunk.GridCols || h > MapChunk.GridRows)
-                return $"этаж z={floor.Key} занимает {w}×{h} блоков, максимум {MapChunk.GridCols}×{MapChunk.GridRows}";
+                return $"floor z={floor.Key} spans {w}×{h} blocks, maximum {MapChunk.GridCols}×{MapChunk.GridRows}";
         }
 
-        // Связность: соседи сторонами на одном этаже + лестница между этажами одной клетки (x, y).
+        // Connectivity: side neighbours on the same floor + stairs between floors of the same cell (x, y).
         var seen = new HashSet<(int, int, int)> { (blocks[0].X, blocks[0].Y, 0) };
         var queue = new Queue<(int x, int y, int z)>([(blocks[0].X, blocks[0].Y, 0)]);
         while (queue.Count > 0)
@@ -285,23 +285,23 @@ public static class LocationGrower
                 if (planned.ContainsKey(n) && seen.Add(n)) queue.Enqueue(n);
         }
         if (seen.Count != blocks.Count)
-            return "блоки должны соединяться: сторонами на одном этаже (соседи по x или y на 1) или этажами друг над другом";
+            return "blocks must connect: by sides on the same floor (neighbours differing by 1 in x or y) or as floors on top of each other";
         var b0 = blocks[0];
         if (Enum.GetValues<ChunkSide>().All(s =>
             {
                 var (dx, dy) = ChunkExit.Step(s);
                 return planned.ContainsKey((b0.X + dx, b0.Y + dy, 0));
             }))
-            return "у первого (стартового) блока нужна свободная сторона для входа снаружи";
+            return "the first (starting) block needs a free side for the entrance from outside";
         return null;
     }
 
-    // Клетка сетки блоков поля для каждого блока плана. Этаж земли — в центре; каждый другой этаж — целиком
-    // (с сохранением раскладки) в свободное место, по возможности не вплотную к чужим этажам.
+    // A block-grid cell for each plan block. The ground floor is in the centre; every other floor goes whole
+    // (keeping its layout) into a free spot, preferably not right next to other floors.
     private static Dictionary<PlannedBlock, (int x, int y)>? PlaceFloors(List<PlannedBlock> blocks, Random rng)
     {
         var place = new Dictionary<PlannedBlock, (int x, int y)>(ReferenceEqualityComparer.Instance);
-        var taken = new Dictionary<(int, int), int>(); // клетка сетки → этаж
+        var taken = new Dictionary<(int, int), int>(); // grid cell → floor
         foreach (var floor in blocks.GroupBy(b => b.Z).OrderBy(g => Math.Abs(g.Key)).ThenByDescending(g => g.Key))
         {
             var list = floor.ToList();
@@ -318,8 +318,8 @@ public static class LocationGrower
             {
                 var cells = list.Select(b => (b.X - minX + ox, b.Y - minY + oy)).ToList();
                 if (cells.Any(taken.ContainsKey)) continue;
-                // Чем меньше соседей с других этажей (включая диагональ), тем лучше. Край поля — хуже: камера там
-                // упирается в границу, и при переходе по лестнице карта сдвигалась бы.
+                // The fewer neighbours from other floors (diagonals included), the better. The grid edge is worse: the camera
+                // hits the boundary there, and the map would shift when taking the stairs.
                 int score = cells.Sum(c => taken.Count(t => t.Value != floor.Key
                     && Math.Abs(t.Key.Item1 - c.Item1) <= 1 && Math.Abs(t.Key.Item2 - c.Item2) <= 1))
                     + cells.Count(c => c.Item1 == 0 || c.Item1 == MapChunk.GridCols - 1 || c.Item2 == 0 || c.Item2 == MapChunk.GridRows - 1) * 10;
@@ -337,10 +337,10 @@ public static class LocationGrower
     }
 
 
-    // Лестница: клетка нижнего блока «вверх» (U) ↔ клетка верхнего «вниз» (D). Клетка — проходимая, у стены,
-    // не у двери/выхода и не перерезает комнату (шаг на неё переносит героя — пройти сквозь неё нельзя).
-    // Лучше — в главном зале/коридоре (вес клетки — размер её комнаты, у коридора — наибольший), по возможности
-    // на одном месте в обоих блоках (этажи здания стоят друг над другом).
+    // Stairs: a lower-block "up" cell (U) ↔ an upper-block "down" cell (D). The cell is walkable, by a wall,
+    // not next to a door/exit and does not cut a room in two (stepping on it moves the hero — you cannot walk through it).
+    // Preferably in the main hall/corridor (a cell's weight is its room's size, a corridor's is the largest), ideally
+    // in the same spot in both blocks (building floors stand on top of each other).
     private static void AddStairs(MapConfig map, MapChunk lower, MapChunk upper, Random rng)
     {
         var lowerCells = StairCandidates(map, lower);
@@ -351,7 +351,7 @@ public static class LocationGrower
             .Select(x => (x, score: lowerCells[x] + upperCells[x] + Jitter())).OrderByDescending(p => p.score).FirstOrDefault();
         var lowerBest = lowerCells.MaxBy(p => p.Value + Jitter());
         var upperBest = upperCells.MaxBy(p => p.Value + Jitter());
-        bool aligned = common.score > 0; // одна клетка на обоих этажах — лестница стоит «друг над другом»
+        bool aligned = common.score > 0; // the same cell on both floors — the stairs are stacked "one above the other"
         var (lc, lr) = aligned ? common.x : lowerBest.Key;
         var (uc, ur) = aligned ? common.x : upperBest.Key;
         SetTerrain(lower, lc, lr, 'U');
@@ -363,10 +363,10 @@ public static class LocationGrower
         });
     }
 
-    // Подходящие для лестницы клетки блока (локальные координаты) → вес (чем больше, тем уместнее).
+    // The block's cells suitable for stairs (local coordinates) → weight (higher is more fitting).
     private static Dictionary<(int c, int r), int> StairCandidates(MapConfig map, MapChunk chunk)
     {
-        // Клетка → область: индекс комнаты, −1 — открытая местность вне комнат.
+        // Cell → area: room index, −1 for open terrain outside rooms.
         var region = new Dictionary<(int c, int r), int>();
         var inAnyRoom = new HashSet<(int, int)>();
         var rooms = map.Rooms ?? [];
@@ -400,7 +400,7 @@ public static class LocationGrower
             var (ac, ar) = e.AnchorCell(chunk);
             Avoid(ac, ar, 2);
         }
-        // Средний этаж: лестница вниз уже стоит — вверх ставим не рядом с ней.
+        // A middle floor: the stairs down are already placed — put the stairs up away from them.
         for (int r = 0; r < MapChunk.Rows; r++)
             for (int c = 0; c < MapChunk.Cols; c++)
                 if (TerrainCatalog.IsStair(TerrainChar(chunk, c, r))) Avoid(chunk.OriginCol + c + 1, chunk.OriginRow + r + 1, 1);
@@ -408,23 +408,23 @@ public static class LocationGrower
         bool Free((int c, int r) x) => region.ContainsKey(x) && map.TerrainAt(chunk.OriginCol + x.c + 1, chunk.OriginRow + x.r + 1) is not { BlocksMove: true };
         (int, int)[] Around((int c, int r) x) => [(x.c + 1, x.r), (x.c - 1, x.r), (x.c, x.r + 1), (x.c, x.r - 1)];
 
-        // В комнате — у стены; на открытой местности — где угодно, кроме тропы. Есть комнаты (здание с двором) —
-        // лестница в доме, а не во дворе.
-        // Строго: не у дверей/выходов/другой лестницы; мягко — только не на самой двери и не на лестнице.
+        // In a room — by a wall; on open terrain — anywhere except the trail. If there are rooms (a building with a yard) —
+        // the stairs go in the house, not in the yard.
+        // Strict: not next to doors/exits/other stairs; relaxed: just not on a door or stairs itself.
         var exact = new HashSet<(int, int)>();
         foreach (var d in map.Doors ?? [])
             if (d.IsWindow != true)
                 foreach (var p in new[] { d.From, d.To })
                     if (p is { Count: >= 2 }) exact.Add((p[0] - chunk.OriginCol - 1, p[1] - chunk.OriginRow - 1));
         bool strict = true;
-        // В коридоре двери через каждые 3–4 клетки — там обходим только сами клетки дверей.
+        // Corridors have doors every 3–4 cells — there we avoid only the door cells themselves.
         bool InPassage((int c, int r) x) => region[x] >= 0 && rooms[region[x]].Passage == true;
         bool Avoided((int c, int r) x) => strict && !InPassage(x) ? avoid.Contains(x) : exact.Contains(x) || TerrainCatalog.IsStair(TerrainChar(chunk, x.c, x.r));
         List<(int c, int r)> Candidates(bool byWall) => region.Keys.Where(x => Free(x) && !Avoided(x) && TerrainChar(chunk, x.c, x.r) != '='
                 && (!byWall || region[x] < 0 || Around(x).Any(n => !region.TryGetValue(n, out int rn) || rn != region[x]))
                 && !CutsRegion(x, region, Free))
             .OrderBy(x => x).ToList();
-        // У стены не нашлось (тесный этаж башни со второй лестницей) — где угодно, лишь бы не перерезать комнату.
+        // Nothing by a wall (a cramped tower floor with a second staircase) — anywhere, as long as it does not cut the room in two.
         var list = Candidates(byWall: true);
         if (list.Count == 0) list = Candidates(byWall: false);
         if (list.Count == 0) { strict = false; list = Candidates(byWall: false); }
@@ -433,7 +433,7 @@ public static class LocationGrower
         return list.ToDictionary(x => x, Weight);
     }
 
-    // Клетка x — «перешеек»: без неё её область (комната / открытая местность) распадается.
+    // Cell x is a "chokepoint": without it its area (room / open terrain) falls apart.
     private static bool CutsRegion((int c, int r) x, Dictionary<(int c, int r), int> region, Func<(int c, int r), bool> free)
     {
         int id = region[x];
@@ -462,8 +462,8 @@ public static class LocationGrower
         chunk.Terrain[r] = new string(line);
     }
 
-    // Двор здания и улицы деревни — земля по клетке мира: в пустыне песок и колючки, в снегах снег и ели
-    // (полы домов, мебель, ограды не трогаются — у них свои коды).
+    // A building's yard and village streets — ground matching the world cell: sand and thorns in the desert, snow and firs in the snowlands
+    // (house floors, furniture, fences are untouched — they have their own codes).
     private static List<string> Reskin(List<string> terrain, string theme)
     {
         Func<char, char>? map = theme switch
@@ -476,18 +476,18 @@ public static class LocationGrower
         return map == null ? terrain : terrain.Select(row => new string(row.Select(map).ToArray())).ToList();
     }
 
-    // Клетка у входа снаружи (выход на карту мира) — сюда встаёт герой, вернувшийся в сохранённую локацию.
+    // The cell by the outside entrance (the exit to the world map) — where a hero returning to a saved location stands.
     public static (int col, int row)? EntranceCell(MapConfig map)
     {
         if (map.Chunks?.FirstOrDefault(c => c.Exits.Any(e => e.External)) is not { } start) return null;
         return start.Exits.First(e => e.External).AnchorCell(start);
     }
 
-    // Цвет двери выхода из локации на карту мира — отличается от обычных дверей.
+    // Colour of the location's exit door to the world map — distinct from ordinary doors.
     public static readonly List<int> WorldExitColor = [160, 90, 220];
 
-    // Вход снаружи (клетка anchor на краю блока) — дверь выхода на карту мира: закрытая, своего цвета.
-    // Заодно закрывает щель в стене, за которой пустота поля.
+    // The outside entrance (the anchor cell on the block edge) — the exit door to the world map: closed, in its own colour.
+    // It also plugs the gap in the wall with the grid's void behind it.
     private static void MarkWorldExit(MapConfig map, int col, int row)
     {
         foreach (var door in map.Doors ?? [])
@@ -500,7 +500,7 @@ public static class LocationGrower
         }
     }
 
-    // Ещё не наполненный блок, к которому герой подошёл (в TriggerDistance от его границ) — пора наполнить.
+    // A not-yet-populated block the hero has approached (within TriggerDistance of its edges) — time to populate it.
     public static MapChunk? UnpopulatedNearHero(WorldState ws)
     {
         if (ws.Map.Chunks is not { Count: > 0 } chunks || ws.Hero?.Position is not { Count: >= 2 } hp) return null;
@@ -510,7 +510,7 @@ public static class LocationGrower
             && hp[1] >= c.OriginRow + 1 - TriggerDistance && hp[1] <= c.OriginRow + MapChunk.Rows + TriggerDistance);
     }
 
-    // Комнаты и двери блока дописываются в конец списков — id уже существующих комнат/дверей не меняются.
+    // The block's rooms and doors are appended to the lists — ids of existing rooms/doors do not change.
     private static void AddChunk(MapConfig map, MapChunk chunk, List<ChunkExit> exits)
     {
         chunk.Exits = exits;
@@ -521,7 +521,7 @@ public static class LocationGrower
         (map.Chunks ??= []).Add(chunk);
     }
 
-    // Шов не у самого угла блока — коридоры к соседним выходам не слипаются.
+    // The seam is not right at the block corner — corridors to neighbouring exits do not merge.
     private static int RandomOffset(ChunkSide side, Random rng) => side is ChunkSide.Left or ChunkSide.Right
         ? rng.Next(3, MapChunk.Rows - 1)
         : rng.Next(3, MapChunk.Cols - 1);

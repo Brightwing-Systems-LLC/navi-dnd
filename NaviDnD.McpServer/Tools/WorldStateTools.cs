@@ -14,9 +14,9 @@ namespace NaviDnD.McpServer;
 [McpServerToolType]
 public sealed class WorldStateTools(McpServerConfig config)
 {
-    // Нет "combat"/"time": CombatState/GameTime целиком (все их поля без исключения) уже безусловно
-    // выводятся в начале контекста каждого вызова (AiContextBuilder.MinimalState) — запрашивать их
-    // через этот тул физически не может дать ничего нового.
+    // No "combat"/"time": CombatState/GameTime in full (every one of their fields) are already unconditionally
+    // output at the start of every call's context (AiContextBuilder.MinimalState) — requesting them
+    // through this tool physically cannot add anything new.
     private static readonly HashSet<string> _validKeys =
     [
         "hero.stats", "hero.skills", "hero.abilities", "hero.spells",
@@ -31,25 +31,25 @@ public sealed class WorldStateTools(McpServerConfig config)
 
     [McpServerTool]
     [Description("""
-        Возвращает поля состояния мира.
-        Запрашивай ТОЛЬКО то, чего реально не хватает в контексте выше (## Текущее состояние) — не
-        то, что там уже есть (HP/AC/скорость/позиция героя, его effects целиком с description,
-        экипировка, индексы имён, combat, time). keys НИКОГДА не должен быть пустым массивом —
-        вызов без единого реального ключа не вернёт ничего полезного.
-        Каждый ключ может включать опциональный фильтр по имени: "field:term1;term2" — вернёт
-        только элементы массива, чьё имя содержит любой из терминов (без учёта регистра).
-        Всегда используй фильтр, если знаешь имя — никогда не запрашивай весь массив, если нужны
-        конкретные элементы.
-        Ключи: hero.stats, hero.skills, hero.abilities, hero.spells, hero.inventory, hero.resources, hero.effects,
+        Returns world state fields.
+        Request ONLY what is actually missing from the context above (## Current state) — not
+        what is already there (the hero's HP/AC/speed/position, their effects in full with description,
+        equipment, name indexes, combat, time). keys must NEVER be an empty array —
+        a call without a single real key returns nothing useful.
+        Each key may include an optional name filter: "field:term1;term2" — returns
+        only array elements whose name contains any of the terms (case-insensitive).
+        Always use the filter if you know the name — never request the whole array when you need
+        specific elements.
+        Keys: hero.stats, hero.skills, hero.abilities, hero.spells, hero.inventory, hero.resources, hero.effects,
                map.cols, map.rows, map.rooms, map.doors, map.area, map.entities, map.objects,
                narrative.plotThreads, narrative.npcs, scheduledEvents.
-        Примеры:
-          ["hero.inventory:Дротик;Меч"] — предметы, чьё имя содержит "Дротик" или "Меч"
-          ["map.entities:Орк", "hero.abilities"] — отфильтрованные entities + все abilities
-          ["map.doors:0;2"] — двери с индексом (id) 0 и 2 (двери фильтруются по id, не по имени)
+        Examples:
+          ["hero.inventory:Dart;Sword"] — items whose name contains "Dart" or "Sword"
+          ["map.entities:Orc", "hero.abilities"] — filtered entities + all abilities
+          ["map.doors:0;2"] — doors with index (id) 0 and 2 (doors are filtered by id, not by name)
         """)]
     public string GetWorldState(
-        [Description("Ключи полей для получения, опционально с фильтром: \"field:term1;term2\"")]
+        [Description("Field keys to fetch, optionally with a filter: \"field:term1;term2\"")]
         string[] keys)
     {
         Log($"get_world_state → [{string.Join(", ", keys)}]");

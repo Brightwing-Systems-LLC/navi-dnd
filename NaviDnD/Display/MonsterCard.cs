@@ -3,9 +3,9 @@ using NaviDnD.Helpers;
 
 namespace NaviDnD;
 
-// Карточка статов монстра для правой панели: многоцветные строки (подписи приглушённые, значения и
-// заголовки секций — основным цветом, названия действий — цветом существа, уязвимости зелёным,
-// сопротивления/иммунитеты янтарным). Расстояния из базы («клетки») переводятся в футы, как во всей игре.
+// Monster stat card for the right panel: multicolored lines (labels dimmed, values and
+// section headers in the main color, action names in the creature's color, vulnerabilities green,
+// resistances/immunities amber). Distances from the database ("клетки", squares) are converted to feet, as everywhere in the game.
 public static class MonsterCard
 {
     public sealed record Palette(List<int> Dim, List<int> Accent, List<int> Good, List<int> Warn);
@@ -18,52 +18,52 @@ public static class MonsterCard
 
     private static Dictionary<string, string> SizeRu => new()
     {
-        ["T"] = L.T("крошечный"), ["S"] = L.T("маленький"), ["M"] = L.T("средний"),
-        ["L"] = L.T("большой"), ["H"] = L.T("огромный"), ["G"] = L.T("громадный"),
+        ["T"] = L.T("tiny"), ["S"] = L.T("small##size"), ["M"] = L.T("medium"),
+        ["L"] = L.T("large"), ["H"] = L.T("huge"), ["G"] = L.T("gargantuan"),
     };
 
     private static (string en, string ru)[] AbilityAbbr =>
-        [("Str", L.T("Сил")), ("Dex", L.T("Лов")), ("Con", L.T("Тел")), ("Int", L.T("Инт")), ("Wis", L.T("Мдр")), ("Cha", L.T("Хар"))];
+        [("Str", L.T("Str")), ("Dex", L.T("Dex")), ("Con", L.T("Con")), ("Int", L.T("Int")), ("Wis", L.T("Wis")), ("Cha", L.T("Cha"))];
 
     public static List<Line> Build(MonsterInfo info, int width, Palette p)
     {
         var lines = new List<Line>();
 
-        // Шапка: тип, размер, мировоззрение
+        // Header: type, size, alignment
         string size = SizeRu.GetValueOrDefault(info.Size, info.Size);
         AddWrapped(lines, width, (Capitalize(string.Join(", ", new[] { info.Type, size, info.Alignment }.Where(s => s.Length > 0))), p.Dim));
         lines.Add(new Line());
 
-        AddField(lines, width, p, L.T("КД"), info.Ac);
-        AddField(lines, width, p, L.T("ХП"), info.Hp);
-        AddField(lines, width, p, L.T("Скорость"), ToFeet(info.Speed));
+        AddField(lines, width, p, L.T("AC"), info.Ac);
+        AddField(lines, width, p, L.T("HP"), info.Hp);
+        AddField(lines, width, p, L.T("Speed"), ToFeet(info.Speed));
         lines.Add(new Line());
 
         AddAbilityGrid(lines, width, p, info);
         lines.Add(new Line());
 
-        AddField(lines, width, p, L.T("Уязвимость"), info.Vulnerable, p.Good);
-        AddField(lines, width, p, L.T("Сопротивление"), info.Resist, p.Warn);
-        AddField(lines, width, p, L.T("Иммунитет"), info.Immune, p.Warn);
-        AddField(lines, width, p, L.T("Не подвержен"), info.ConditionImmune, p.Warn);
-        AddField(lines, width, p, L.T("Спасброски"), TranslateAbilities(info.Save));
-        AddField(lines, width, p, L.T("Навыки"), info.Skill);
-        AddField(lines, width, p, L.T("Чувства"), JoinNonEmpty(ToFeet(info.Senses), info.Passive.Length > 0 ? L.F("пасс. Восприятие {0}", info.Passive) : ""));
-        AddField(lines, width, p, L.T("Языки"), info.Languages);
-        AddField(lines, width, p, L.T("Опасность"), info.Cr);
-        if (info.Spells.Length > 0) AddField(lines, width, p, L.T("Заклинания"), Clean(info.Spells));
+        AddField(lines, width, p, L.T("Vulnerable"), info.Vulnerable, p.Good);
+        AddField(lines, width, p, L.T("Resistant"), info.Resist, p.Warn);
+        AddField(lines, width, p, L.T("Immune"), info.Immune, p.Warn);
+        AddField(lines, width, p, L.T("Condition immune"), info.ConditionImmune, p.Warn);
+        AddField(lines, width, p, L.T("Saving throws"), TranslateAbilities(info.Save));
+        AddField(lines, width, p, L.T("Skills"), info.Skill);
+        AddField(lines, width, p, L.T("Senses"), JoinNonEmpty(ToFeet(info.Senses), info.Passive.Length > 0 ? L.F("passive Perception {0}", info.Passive) : ""));
+        AddField(lines, width, p, L.T("Languages"), info.Languages);
+        AddField(lines, width, p, L.T("Challenge"), info.Cr);
+        if (info.Spells.Length > 0) AddField(lines, width, p, L.T("Spells"), Clean(info.Spells));
 
-        AddSection(lines, width, p, L.T("ОСОБЕННОСТИ"), info.Traits, "");
-        AddSection(lines, width, p, L.T("ДЕЙСТВИЯ"), info.Actions, "");
-        AddSection(lines, width, p, L.T("РЕАКЦИИ"), info.Reactions, "");
-        AddSection(lines, width, p, L.T("ЛЕГЕНДАРНЫЕ ДЕЙСТВИЯ"), info.Legendary, info.LegendaryIntro);
+        AddSection(lines, width, p, L.T("TRAITS"), info.Traits, "");
+        AddSection(lines, width, p, L.T("ACTIONS"), info.Actions, "");
+        AddSection(lines, width, p, L.T("REACTIONS"), info.Reactions, "");
+        AddSection(lines, width, p, L.T("LEGENDARY ACTIONS"), info.Legendary, info.LegendaryIntro);
 
         while (lines.Count > 0 && lines[^1].Segments.Count == 0) lines.RemoveAt(lines.Count - 1);
         return lines;
     }
 
-    // Режет на страницы; пустая строка в начале страницы не нужна. Заголовок секции не остаётся
-    // последней строкой страницы — переносится на следующую вместе со своим содержимым.
+    // Splits into pages; a blank line at the top of a page is dropped. A section header never stays
+    // as the last line of a page: it moves to the next page together with its content.
     public static List<List<Line>> Paginate(List<Line> lines, int linesPerPage)
     {
         var pages = new List<List<Line>>();
@@ -93,7 +93,7 @@ public static class MonsterCard
 
     private static void AddAbilityGrid(List<Line> lines, int width, Palette p, MonsterInfo info)
     {
-        string[] names = [L.T("СИЛ"), L.T("ЛОВ"), L.T("ТЕЛ"), L.T("ИНТ"), L.T("МДР"), L.T("ХАР")];
+        string[] names = [L.T("STR"), L.T("DEX"), L.T("CON"), L.T("INT"), L.T("WIS"), L.T("CHA")];
         string[] raw = [info.Str, info.Dex, info.Con, info.Int, info.Wis, info.Cha];
         int col = Math.Clamp(width / 6, 4, 6);
 
@@ -118,7 +118,7 @@ public static class MonsterCard
     {
         if (entries.Count == 0 && string.IsNullOrWhiteSpace(intro)) return;
         lines.Add(new Line());
-        // Заголовок — основным цветом, линия — приглушённо: цвет существа остаётся за названиями действий.
+        // Header in the main color, rule line dimmed: the creature's color is reserved for action names.
         var header = new Line();
         header.Segments.Add((title + " ", null));
         header.Segments.Add((new string('─', Math.Max(0, width - title.Length - 1)), p.Dim));
@@ -127,13 +127,13 @@ public static class MonsterCard
         for (int i = 0; i < entries.Count; i++)
         {
             var (name, text) = entries[i];
-            if (i > 0 || !string.IsNullOrWhiteSpace(intro)) lines.Add(new Line()); // записи не сливаются
+            if (i > 0 || !string.IsNullOrWhiteSpace(intro)) lines.Add(new Line()); // entries don't run together
             if (string.IsNullOrWhiteSpace(name)) AddWrapped(lines, width, (Clean(text), null));
             else AddWrapped(lines, width, (Clean(name) + ". ", p.Accent), (Clean(text), null));
         }
     }
 
-    // Перенос по словам с сохранением цвета каждого слова.
+    // Word wrap that keeps each word's color.
     private static void AddWrapped(List<Line> lines, int width, params (string text, List<int>? color)[] parts)
     {
         var line = new Line();
@@ -151,7 +151,7 @@ public static class MonsterCard
                     line = new Line();
                     len = 0;
                 }
-                while (w.Length > width) // слово длиннее строки
+                while (w.Length > width) // word longer than the line
                 {
                     line.Segments.Add((w[..width], color));
                     lines.Add(line);
@@ -181,11 +181,12 @@ public static class MonsterCard
         line.Segments[^1] = (t.TrimEnd(), c);
     }
 
-    // «6 клеток» → «30 фт», «16/64 клетки» → «80/320 фт».
+    // "6 клеток" → "30 ft", "16/64 клетки" → "80/320 ft" (the bestiary data is Russian).
+
     private static string ToFeet(string s) => Regex.Replace(s ?? "", @"(\d+)(?:\s*/\s*(\d+))?\s*клет\p{L}*", m =>
         m.Groups[2].Success
-            ? L.F("{0}/{1} фт", int.Parse(m.Groups[1].Value) * 5, int.Parse(m.Groups[2].Value) * 5)
-            : L.F("{0} фт", int.Parse(m.Groups[1].Value) * 5));
+            ? L.F("{0}/{1} ft", int.Parse(m.Groups[1].Value) * 5, int.Parse(m.Groups[2].Value) * 5)
+            : L.F("{0} ft", int.Parse(m.Groups[1].Value) * 5));
 
     private static string TranslateAbilities(string s)
     {

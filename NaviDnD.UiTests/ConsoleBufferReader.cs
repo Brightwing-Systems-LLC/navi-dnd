@@ -2,8 +2,8 @@ using System.Runtime.InteropServices;
 
 namespace NaviDnD.UiTests;
 
-// Читает реальный буфер консоли через Windows Console API — так тест видит
-// ровно то же, что видел бы игрок, а не то, что программа думает, что написала.
+// Reads the real console buffer via the Windows Console API — so the test sees
+// exactly what the player would see, not what the program thinks it wrote.
 internal static class ConsoleBufferReader
 {
     [StructLayout(LayoutKind.Sequential)]
@@ -23,7 +23,7 @@ internal static class ConsoleBufferReader
         IntPtr hConsoleOutput, [Out] ushort[] lpAttribute, uint nLength,
         COORD dwReadCoord, out uint lpNumberOfAttrsRead);
 
-    // Читает length символов из строки row буфера консоли, начиная с колонки 0.
+    // Reads `length` characters from row `row` of the console buffer, starting at column 0.
     public static string ReadRow(int row, int length)
     {
         using var handle = ConsoleHandles.OpenOutput();
@@ -31,14 +31,14 @@ internal static class ConsoleBufferReader
         var coord = new COORD { X = 0, Y = (short)row };
 
         if (!ReadConsoleOutputCharacterW(handle.DangerousGetHandle(), buffer, (uint)length, coord, out uint read))
-            throw new InvalidOperationException("Не удалось прочитать буфер консоли.");
+            throw new InvalidOperationException("Failed to read the console buffer.");
 
         return new string(buffer, 0, (int)read);
     }
 
-    // Читает цветовые атрибуты строки (легаси 16-цветная палитра консоли). Игра красит
-    // текст 24-битным ANSI — легаси-атрибуты могут не отражать точный RGB, но разницу
-    // между "покрашено" и "не покрашено" (или между разными покрасками) уловить можно.
+    // Reads the color attributes of a row (the console's legacy 16-color palette). The game paints
+    // text with 24-bit ANSI — the legacy attributes may not reflect the exact RGB, but the difference
+    // between "colored" and "not colored" (or between different colorings) can be detected.
     public static ushort[] ReadRowAttributes(int row, int length)
     {
         using var handle = ConsoleHandles.OpenOutput();
@@ -46,7 +46,7 @@ internal static class ConsoleBufferReader
         var coord = new COORD { X = 0, Y = (short)row };
 
         if (!ReadConsoleOutputAttribute(handle.DangerousGetHandle(), buffer, (uint)length, coord, out uint read))
-            throw new InvalidOperationException("Не удалось прочитать цветовые атрибуты буфера консоли.");
+            throw new InvalidOperationException("Failed to read the console buffer's color attributes.");
 
         return buffer;
     }

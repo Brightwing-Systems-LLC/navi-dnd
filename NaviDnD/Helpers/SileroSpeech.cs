@@ -4,9 +4,9 @@ using System.Text.Json;
 
 namespace NaviDnD.Helpers;
 
-// Вызывается единственным потребителем Speech (по одному запросу за раз). На каждую модель — свой процесс, он остаётся в
-// памяти между репликами: голос «en_*» — английская (v3_en — файл игры Speech/models), остальные — русская (v5_5_ru —
-// в комплекте Silero). Обе можно загрузить заранее (Speech.WarmUp), переключение языка не перезагружает модель.
+// Called by its only consumer, Speech (one request at a time). Each model gets its own process, which stays in
+// memory between lines: "en_*" voices use the English model (v3_en — a game file in Speech/models), the rest the Russian one (v5_5_ru —
+// bundled with Silero). Both can be preloaded (Speech.WarmUp); switching language does not reload a model.
 internal static class SileroSpeech
 {
     private sealed record Worker(Process Process, Task<string> Errors);
@@ -21,7 +21,7 @@ internal static class SileroSpeech
 
     public static bool IsEnglishVoice(string voice) => voice.StartsWith("en_", StringComparison.Ordinal);
 
-    // Silero уже установлен (готовая сборка — всегда): заранее загружать модель можно, ничего не скачивая.
+    // Silero is already installed (always in a release build): the model can be preloaded without downloading anything.
     public static bool Installed => File.Exists(Path.Combine(Root, ".ready"));
 
     public static async Task SynthesizeAsync(string text, string? ssmlText, string voice, string wav, string python,
@@ -29,12 +29,12 @@ internal static class SileroSpeech
     {
         if (!Installed)
         {
-            status(L.T("Установка Silero и PyTorch"));
+            status(L.T("Installing Silero and PyTorch"));
             var setup = CreateStart("powershell.exe");
             foreach (var arg in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
                 Path.Combine(AppConfig.ProjectRoot, "Speech", "setup-silero.ps1"), "-Python", python, "-Destination", Root })
                 setup.ArgumentList.Add(arg);
-            using var process = Process.Start(setup) ?? throw new IOException(L.T("Не удалось начать установку Silero"));
+            using var process = Process.Start(setup) ?? throw new IOException(L.T("Could not start Silero installation"));
             using var kill = token.Register(() => Kill(process));
             var stdout = process.StandardOutput.ReadToEndAsync(token);
             var stderr = process.StandardError.ReadToEndAsync(token);
@@ -43,31 +43,31 @@ internal static class SileroSpeech
             Directory.CreateDirectory(Path.Combine(AppConfig.ProjectRoot, "logs"));
             await File.WriteAllTextAsync(Path.Combine(AppConfig.ProjectRoot, "logs", "silero-setup.log"),
                 stdout.Result + stderr.Result, token);
-            if (process.ExitCode != 0) throw new IOException(L.T("Установка Silero не удалась. Нужен Python 3.10–3.12 x64; проверь путь к Python и интернет."));
+            if (process.ExitCode != 0) throw new IOException(L.T("Silero installation failed. Python 3.10–3.12 x64 is required; check the Python path and your internet connection."));
         }
         string model = IsEnglishVoice(voice) ? EnglishModelPath : Path.Combine(Root, "v5_5_ru.pt");
-        if (!File.Exists(model)) throw new FileNotFoundException(L.T("Нет файла модели озвучки — переустанови игру."), model);
+        if (!File.Exists(model)) throw new FileNotFoundException(L.T("The voice model file is missing — reinstall the game."), model);
         var worker = await WorkerFor(model, status, token);
         try
         {
-            status(L.T("Синтез Silero"));
-            // Английская модель v3 на 48 кГц синтезирует вдвое дольше 24 кГц (а втрое — дольше русской v5.5); для речи 24 кГц хватает.
+            status(L.T("Silero synthesis"));
+            // The English v3 model takes twice as long at 48 kHz as at 24 kHz (and three times as long as the Russian v5.5); 24 kHz is enough for speech.
             int rate = IsEnglishVoice(voice) ? 24000 : 48000;
             string request = JsonSerializer.Serialize(new { text, ssml_text = ssmlText, voice, output = wav, sample_rate = rate });
             await worker.Process.StandardInput.WriteLineAsync(request.AsMemory(), CancellationToken.None);
             await worker.Process.StandardInput.FlushAsync(CancellationToken.None);
-            // Реплику остановили — синтез не обрываем (убитый процесс пришлось бы загружать заново, это дольше):
-            // ждём ответа, чтобы протокол не сбился, но не дольше 10 с — дальше процесс считается зависшим.
+            // The line was stopped — do not abort synthesis (a killed process would have to be reloaded, which takes longer):
+            // wait for the response so the protocol stays in sync, but no longer than 10 s — after that the process is considered hung.
             var read = worker.Process.StandardOutput.ReadLineAsync();
             await Task.WhenAny(read, Task.Delay(Timeout.Infinite, token)).ConfigureAwait(false);
             if (!read.IsCompleted && await Task.WhenAny(read, Task.Delay(TimeSpan.FromSeconds(10))) != read)
-                throw new TimeoutException(L.T("Silero завершился без ответа"));
-            string response = await read ?? throw new IOException(L.T("Silero завершился без ответа"));
+                throw new TimeoutException(L.T("Silero exited without a response"));
+            string response = await read ?? throw new IOException(L.T("Silero exited without a response"));
             token.ThrowIfCancellationRequested();
             using var result = JsonDocument.Parse(response);
-            if (!result.RootElement.GetProperty("ok").GetBoolean()) throw new LineFailedException(L.T("Silero не смог озвучить реплику"));
+            if (!result.RootElement.GetProperty("ok").GetBoolean()) throw new LineFailedException(L.T("Silero could not voice the line"));
         }
-        // Процесс сломан (не отвечает, вышел, протокол сбит) — закрыть; остановленная или неудачная реплика — процесс цел.
+        // The process is broken (not responding, exited, protocol out of sync) — close it; a stopped or failed line leaves the process intact.
         catch (Exception e) when (e is not OperationCanceledException and not LineFailedException)
         {
             Close(model);
@@ -81,22 +81,22 @@ internal static class SileroSpeech
     {
         if (Workers.TryGetValue(model, out var alive) && !alive.Process.HasExited) return alive;
         Close(model);
-        status(L.T("Загрузка модели Silero"));
+        status(L.T("Loading the Silero model"));
         var start = CreateStart(Python);
         start.Environment["PYTHONIOENCODING"] = "utf-8";
         foreach (var arg in new[] { "-u", Path.Combine(AppConfig.ProjectRoot, "Speech", "silero_worker.py"), model })
             start.ArgumentList.Add(arg);
-        var process = Process.Start(start) ?? throw new IOException(L.T("Не удалось запустить Silero"));
+        var process = Process.Start(start) ?? throw new IOException(L.T("Could not start Silero"));
         var worker = new Worker(process, process.StandardError.ReadToEndAsync());
         Workers[model] = worker;
         try
         {
             using var kill = token.Register(() => Kill(process));
             string? ready = await process.StandardOutput.ReadLineAsync(token);
-            if (ready == null) throw new IOException(L.T("Silero не загрузил модель"));
+            if (ready == null) throw new IOException(L.T("Silero did not load the model"));
             using var handshake = JsonDocument.Parse(ready);
             if (!handshake.RootElement.TryGetProperty("ready", out var readyValue) || !readyValue.GetBoolean())
-                throw new IOException(L.T("Silero не загрузил модель"));
+                throw new IOException(L.T("Silero did not load the model"));
             return worker;
         }
         catch { Close(model); throw; }

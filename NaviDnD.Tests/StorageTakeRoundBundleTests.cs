@@ -12,7 +12,7 @@ public class StorageTakeRoundBundleTests
     {
         Position = [col, row],
         Symbol = "HRO",
-        Name = "Герой"
+        Name = "Hero"
     };
 
     // ── Effects ──────────────────────────────────────────────────────────────
@@ -34,9 +34,9 @@ public class StorageTakeRoundBundleTests
         [
             new StatusEffect
             {
-                Name = "Яд",
+                Name = "Poison",
                 ExpiresAtRound = 8,
-                OnExpire = new TriggerEffect { Effect = "Яд прошёл", Once = true }
+                OnExpire = new TriggerEffect { Effect = "The poison wears off", Once = true }
             }
         ];
 
@@ -44,7 +44,7 @@ public class StorageTakeRoundBundleTests
 
         Assert.NotNull(bundle);
         Assert.Single(bundle.ExpiredEffects);
-        Assert.Equal("Яд", bundle.ExpiredEffects[0].Effect.Name);
+        Assert.Equal("Poison", bundle.ExpiredEffects[0].Effect.Name);
         Assert.Equal(0, bundle.ExpiredEffects[0].EffectId);
     }
 
@@ -57,9 +57,9 @@ public class StorageTakeRoundBundleTests
         [
             new StatusEffect
             {
-                Name = "Яд",
+                Name = "Poison",
                 ExpiresAtRound = 8,
-                OnExpire = new TriggerEffect { Effect = "Яд прошёл", Once = true }
+                OnExpire = new TriggerEffect { Effect = "The poison wears off", Once = true }
             }
         ];
 
@@ -77,7 +77,7 @@ public class StorageTakeRoundBundleTests
         storage.WorldState.Hero = MakeHero();
         storage.WorldState.Hero.Effects =
         [
-            new StatusEffect { Name = "Ожог", ExpiresAtRound = 5, OnExpire = null }
+            new StatusEffect { Name = "Burn", ExpiresAtRound = 5, OnExpire = null }
         ];
 
         Assert.Null(storage.TakeRoundBundle());
@@ -90,13 +90,13 @@ public class StorageTakeRoundBundleTests
         storage.WorldState.Hero = MakeHero();
         storage.WorldState.Hero.Effects =
         [
-            new StatusEffect { Name = "Ожог", ExpiresAtRound = 5, OnExpire = null }
+            new StatusEffect { Name = "Burn", ExpiresAtRound = 5, OnExpire = null }
         ];
 
         storage.TakeRoundBundle();
 
         Assert.True(storage.WorldState.Hero.Effects[0].Deleted,
-            "Эффект без onExpire должен тихо удаляться движком после истечения, а не висеть вечно с просроченной длительностью.");
+            "An effect without onExpire must be silently removed by the engine once it expires, not linger forever with an expired duration.");
     }
 
     [Fact]
@@ -108,9 +108,9 @@ public class StorageTakeRoundBundleTests
         [
             new StatusEffect
             {
-                Name = "Регенерация",
+                Name = "Regeneration",
                 ExpiresAtRound = 10,
-                OnRound = new TriggerEffect { Effect = "Восстанови 1d4 HP", Once = false }
+                OnRound = new TriggerEffect { Effect = "Regain 1d4 HP", Once = false }
             }
         ];
 
@@ -118,7 +118,7 @@ public class StorageTakeRoundBundleTests
 
         Assert.NotNull(bundle);
         Assert.Single(bundle.OnRoundEffects);
-        Assert.Equal("Регенерация", bundle.OnRoundEffects[0].Effect.Name);
+        Assert.Equal("Regeneration", bundle.OnRoundEffects[0].Effect.Name);
     }
 
     [Fact]
@@ -130,9 +130,9 @@ public class StorageTakeRoundBundleTests
         [
             new StatusEffect
             {
-                Name = "Регенерация",
+                Name = "Regeneration",
                 ExpiresAtRound = 10,
-                OnRound = new TriggerEffect { Effect = "Восстанови 1d4 HP", Once = false }
+                OnRound = new TriggerEffect { Effect = "Regain 1d4 HP", Once = false }
             }
         ];
 
@@ -151,9 +151,9 @@ public class StorageTakeRoundBundleTests
         [
             new StatusEffect
             {
-                Name = "Регенерация",
+                Name = "Regeneration",
                 ExpiresAtRound = 10,
-                OnRound = new TriggerEffect { Effect = "Восстанови 1d4 HP", Once = false }
+                OnRound = new TriggerEffect { Effect = "Regain 1d4 HP", Once = false }
             }
         ];
 
@@ -176,7 +176,7 @@ public class StorageTakeRoundBundleTests
         [
             new StatusEffect
             {
-                Name = "Яд",
+                Name = "Poison",
                 ExpiresAtRound = 5,
                 OnExpire = new TriggerEffect { Effect = "end", Once = true },
                 Deleted = true
@@ -195,7 +195,7 @@ public class StorageTakeRoundBundleTests
         [
             new StatusEffect
             {
-                Name = "Проклятие",
+                Name = "Curse",
                 ExpiresAtRound = null,
                 OnExpire = new TriggerEffect { Effect = "end", Once = true }
             }
@@ -214,15 +214,15 @@ public class StorageTakeRoundBundleTests
             new LivingEntity
             {
                 Symbol = "ORC",
-                Name = "Орк",
+                Name = "Orc",
                 Position = [1, 1],
                 Effects =
                 [
                     new StatusEffect
                     {
-                        Name = "Горит",
+                        Name = "Burning",
                         ExpiresAtRound = 12,
-                        OnRound = new TriggerEffect { Effect = "1d4 урона от огня", Once = false }
+                        OnRound = new TriggerEffect { Effect = "1d4 fire damage", Once = false }
                     }
                 ]
             }
@@ -235,8 +235,8 @@ public class StorageTakeRoundBundleTests
         var effectRef = bundle.OnRoundEffects[0];
         Assert.Equal("map.entities", effectRef.OwnerPath);
         Assert.Equal(0, effectRef.EntityId);
-        Assert.Equal("Орк", effectRef.OwnerName);
-        Assert.Equal("Горит", effectRef.Effect.Name);
+        Assert.Equal("Orc", effectRef.OwnerName);
+        Assert.Equal("Burning", effectRef.Effect.Name);
     }
 
     [Fact]
@@ -249,16 +249,16 @@ public class StorageTakeRoundBundleTests
             new LivingEntity
             {
                 Symbol = "ORC",
-                Name = "Орк",
+                Name = "Orc",
                 Position = [1, 1],
                 Deleted = true,
                 Effects =
                 [
                     new StatusEffect
                     {
-                        Name = "Горит",
+                        Name = "Burning",
                         ExpiresAtRound = 12,
-                        OnRound = new TriggerEffect { Effect = "1d4 урона от огня", Once = false }
+                        OnRound = new TriggerEffect { Effect = "1d4 fire damage", Once = false }
                     }
                 ]
             }
@@ -276,14 +276,14 @@ public class StorageTakeRoundBundleTests
         storage.WorldState.Hero = MakeHero();
         storage.WorldState.ScheduledEvents =
         [
-            new ScheduledEvent { Name = "Взрыв", FireAtRound = 10, Effect = "Бомба взрывается" }
+            new ScheduledEvent { Name = "Explosion", FireAtRound = 10, Effect = "The bomb explodes" }
         ];
 
         var bundle = storage.TakeRoundBundle();
 
         Assert.NotNull(bundle);
         Assert.Single(bundle.FiredScheduledEvents);
-        Assert.Equal("Взрыв", bundle.FiredScheduledEvents[0].ev.Name);
+        Assert.Equal("Explosion", bundle.FiredScheduledEvents[0].ev.Name);
     }
 
     [Fact]
@@ -293,7 +293,7 @@ public class StorageTakeRoundBundleTests
         storage.WorldState.Hero = MakeHero();
         storage.WorldState.ScheduledEvents =
         [
-            new ScheduledEvent { Name = "Взрыв", FireAtRound = 10, Effect = "Бомба взрывается" }
+            new ScheduledEvent { Name = "Explosion", FireAtRound = 10, Effect = "The bomb explodes" }
         ];
 
         storage.TakeRoundBundle();
@@ -307,7 +307,7 @@ public class StorageTakeRoundBundleTests
         storage.WorldState.Hero = MakeHero();
         storage.WorldState.ScheduledEvents =
         [
-            new ScheduledEvent { Name = "Взрыв", FireAtRound = 10, Effect = "Бомба взрывается" }
+            new ScheduledEvent { Name = "Explosion", FireAtRound = 10, Effect = "The bomb explodes" }
         ];
 
         Assert.Null(storage.TakeRoundBundle());
@@ -320,7 +320,7 @@ public class StorageTakeRoundBundleTests
         storage.WorldState.Hero = MakeHero();
         storage.WorldState.ScheduledEvents =
         [
-            new ScheduledEvent { Name = "Взрыв", FireAtRound = 10, Effect = "Бомба взрывается", Deleted = true }
+            new ScheduledEvent { Name = "Explosion", FireAtRound = 10, Effect = "The bomb explodes", Deleted = true }
         ];
 
         Assert.Null(storage.TakeRoundBundle());
@@ -337,11 +337,11 @@ public class StorageTakeRoundBundleTests
         [
             new Area
             {
-                Name = "Ядовитый туман",
+                Name = "Poison Fog",
                 Positions = [[3, 3], [3, 4]],
                 Triggers = new AreaTriggers
                 {
-                    OnRound = new TriggerEffect { Effect = "1d4 яда", Once = false }
+                    OnRound = new TriggerEffect { Effect = "1d4 poison", Once = false }
                 }
             }
         ];
@@ -350,7 +350,7 @@ public class StorageTakeRoundBundleTests
 
         Assert.NotNull(bundle);
         Assert.Single(bundle.AreaRoundTriggers);
-        Assert.Equal("Ядовитый туман", bundle.AreaRoundTriggers[0].area.Name);
+        Assert.Equal("Poison Fog", bundle.AreaRoundTriggers[0].area.Name);
     }
 
     [Fact]
@@ -362,11 +362,11 @@ public class StorageTakeRoundBundleTests
         [
             new Area
             {
-                Name = "Ядовитый туман",
+                Name = "Poison Fog",
                 Positions = [[3, 3], [3, 4]],
                 Triggers = new AreaTriggers
                 {
-                    OnRound = new TriggerEffect { Effect = "1d4 яда", Once = false }
+                    OnRound = new TriggerEffect { Effect = "1d4 poison", Once = false }
                 }
             }
         ];
@@ -383,11 +383,11 @@ public class StorageTakeRoundBundleTests
         [
             new Area
             {
-                Name = "Ядовитый туман",
+                Name = "Poison Fog",
                 Positions = [[3, 3]],
                 Triggers = new AreaTriggers
                 {
-                    OnRound = new TriggerEffect { Effect = "1d4 яда", Once = false }
+                    OnRound = new TriggerEffect { Effect = "1d4 poison", Once = false }
                 }
             }
         ];
@@ -405,11 +405,11 @@ public class StorageTakeRoundBundleTests
         [
             new Area
             {
-                Name = "Ядовитый туман",
+                Name = "Poison Fog",
                 Positions = [[3, 3]],
                 Triggers = new AreaTriggers
                 {
-                    OnRound = new TriggerEffect { Effect = "1d4 яда", Once = false }
+                    OnRound = new TriggerEffect { Effect = "1d4 poison", Once = false }
                 }
             }
         ];

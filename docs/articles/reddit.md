@@ -1,17 +1,17 @@
-# Reddit-посты
+# Reddit posts
 
-Reddit плохо относится к одному посту, разосланному в 10 сабреддитов. Ниже два варианта: для разработчиков и для игроков. Публикуй с разницей в несколько дней и проверяй правила каждого саба про self-promotion.
+Reddit dislikes a single post blasted across 10 subreddits. Below are two variants: one for developers and one for players. Post them a few days apart and check each sub's self-promotion rules.
 
 ---
 
-## Вариант A — для разработчиков
+## Variant A: for developers
 
-**Куда:** r/csharp, r/dotnet, r/aigamedev, r/LocalLLaMA (только если будет поддержка локальных моделей), r/gamedev (по правилам — только в тред Screenshot Saturday или с флером)
+**Where:** r/csharp, r/dotnet, r/aigamedev, r/LocalLLaMA (only once local models are supported), r/gamedev (per the rules, only in the Screenshot Saturday thread or with a flair)
 
 **Title:**
 I built a minimalist terminal D&D game in C# where an LLM is the Dungeon Master but never touches the dice. Looking for contributors
 
-**Media:** первым вложением `docs/media/g4_combat_turn.gif`, затем `07_dice_disadvantage.png`, `g2_map_hover.gif`, `03_hero.png`.
+**Media:** `docs/media/en/combat_turn.gif` as the first attachment, then `docs/media/07_dice_disadvantage.png`, `g2_map_hover.gif`, `03_hero.png`.
 
 **Body:**
 
@@ -48,14 +48,14 @@ It's free and the source is open. The license is non-commercial: you can use, mo
 
 ---
 
-## Вариант B — для игроков
+## Variant B: for players
 
-**Куда:** r/rpg, r/DnD (обычно только с флером [OC]/[Resource] или в тредах для self-promo), r/AIDungeon, r/solorpgplay, r/Solo_Roleplaying
+**Where:** r/rpg, r/DnD (usually only with an [OC]/[Resource] flair or in self-promo threads), r/AIDungeon, r/solorpgplay, r/Solo_Roleplaying
 
 **Title:**
 I made a free, minimalist terminal D&D 5e game where an AI is the DM, but the dice, HP and map are handled by real game code
 
-**Media:** `docs/media/g3_intro.gif` первым, затем `07_dice_disadvantage.png`, `08_combat_crit.png`, `09_world_map.png`.
+**Media:** `docs/media/g3_intro.gif` first, then `07_dice_disadvantage.png`, `08_combat_crit.png`, `docs/media/en/world_map.png`.
 
 **Body:**
 
@@ -78,9 +78,9 @@ It's a solo project and I'm looking for playtesters and contributors. Tell me wh
 
 ---
 
-## Ответы на вопросы, которые точно зададут
+## Answers to the questions people will definitely ask
 
-- **«Почему не локальные модели (Ollama)?»** — Сейчас модель должна надёжно вызывать много инструментов подряд. Поддержку локальных моделей через MCP-совместимый клиент можно обсудить, будем рады PR.
-- **«Почему не GitHub?»** — [ответ; либо сделай зеркало на GitHub, на Reddit так проще найти проект и поставить звезду]
-- **«Это open source?»** — Исходники открыты, но лицензия некоммерческая, это не OSI open source. Лучше сказать это прямо, иначе в комментариях поправят.
-- **«Сколько стоит?»** — Игра бесплатная. Нужна подписка Claude или ChatGPT, которая даёт доступ к CLI.
+- **"Why not local models (Ollama)?"** Right now the model has to reliably call many tools in a row. Support for local models through an MCP-compatible client is open for discussion; PRs welcome.
+- **"Why not GitHub?"** [answer; or set up a GitHub mirror, since on Reddit that makes it easier to find the project and star it]
+- **"Is it open source?"** The source is open, but the license is non-commercial, so it isn't OSI open source. Better to say so up front, or someone will correct you in the comments.
+- **"How much does it cost?"** The game is free. You need a Claude or ChatGPT subscription that gives access to the CLI.

@@ -6,7 +6,7 @@ namespace NaviDnD.Display;
 public class BorderDrawer
 {
     private readonly List<int> _mainFg;
-    private readonly List<int> _frameFg;   // линии рамок — приглушённо (MouseUiHelper.FrameColor), текст — основным цветом
+    private readonly List<int> _frameFg;   // frame lines are muted (MouseUiHelper.FrameColor), text uses the main color
     private readonly List<int> _mainBg;
     private readonly int _innerWidth;
 
@@ -37,9 +37,9 @@ public class BorderDrawer
 
     private void Write(char ch) => Write(ch.ToString());
 
-    // Симметрия с обязательным столбцом-предохранителем справа (см. ConsoleSetup.SetConsoleConfig —
-    // без него автоперенос на последней колонке буфера ломает SafeNewLine) — тот же отступ слева,
-    // чисто визуально, перед самой рамкой.
+    // Mirrors the mandatory guard column on the right (see ConsoleSetup.SetConsoleConfig;
+    // without it, auto-wrap on the buffer's last column breaks SafeNewLine): the same margin on the left,
+    // purely visual, before the frame itself.
     private void WriteLeftMargin() => Write(new string(' ', DisplayConfig.LeftMargin));
 
     public void DrawSeparatorWithMiddle(char middle)
@@ -209,8 +209,8 @@ public class BorderDrawer
         SafeNewLine();
     }
 
-    // Внутренний разделитель колонок (под заголовками): крестики ┼ на пересечениях, линия во всю ширину,
-    // но без стыков ├ ┤ с боковой рамкой — рамка остаётся │.
+    // Inner column divider (under the headers): ┼ crosses at intersections, a line across the full width,
+    // but without ├ ┤ joints to the side frame; the frame stays │.
     public void DrawInnerSeparatorWith4Parts(int w1, int w2, int w3, int w4)
     {
         WriteLeftMargin();
@@ -262,7 +262,7 @@ public class BorderDrawer
         SafeNewLine();
     }
 
-    // junction — позиция в правой части, куда сверху приходит вертикальная линия (┴), или null.
+    // junction: position in the right part where a vertical line comes in from above (┴), or null.
     public void DrawContentLine2ColumnsRightSeparator(Action drawLeftContent, int leftWidth, int rightWidth, int? junction = null, char junctionChar = SeparatorBottom)
     {
         WriteLeftMargin();
@@ -292,7 +292,7 @@ public class BorderDrawer
         SafeNewLine();
     }
 
-    // junctionChar: ┴ — вертикальная линия приходит сверху, ┬ — уходит вниз.
+    // junctionChar: ┴ means the vertical line comes in from above, ┬ means it goes down.
     public static string SeparatorLine(int width, int? junction, char junctionChar = SeparatorBottom)
     {
         var line = new string(Horizontal, width).ToCharArray();

@@ -11,7 +11,7 @@ public class SpeechTests
     [InlineData("DM", "<speak voice=\"female\">Текст.</speak>", "eugene", false)]
     [InlineData("Анна", "<speak voice=\"female\">Текст.</speak>", "baya", false)]
     [InlineData("Борис", "<speak voice=\"male\">Текст.</speak>", "eugene", false)]
-    // Английская игра — голоса английской модели: рассказчик — выбранный, персонажи — по полю voice.
+    // English game — the English model's voices: the narrator uses the selected one, characters follow the voice field.
     [InlineData("DM", "<speak voice=\"female\">Text.</speak>", "eugene", true)]
     [InlineData("Anna", "<speak voice=\"female\">Text.</speak>", "en_6", true)]
     [InlineData("Boris", "<speak voice=\"male\">Text.</speak>", "en_23", true)]
@@ -26,7 +26,7 @@ public class SpeechTests
     {
         var speech = typeof(AppConfig).Assembly.GetType("NaviDnD.Helpers.Speech")!;
         var style = speech.GetMethod("ApplyVoiceStyle", BindingFlags.NonPublic | BindingFlags.Static)!;
-        string result = (string)style.Invoke(null, ["Текст.", "<speak voice=\"male\"><prosody pitch=\"high\" rate=\"slow\">Текст.</prosody></speak>", "DM"])!;
+        string result = (string)style.Invoke(null, ["Text.", "<speak voice=\"male\"><prosody pitch=\"high\" rate=\"slow\">Text.</prosody></speak>", "DM"])!;
         Assert.Contains("pitch=\"low\"", result);
         Assert.Contains("rate=\"slow\"", result);
         Assert.DoesNotContain("pitch=\"high\"", result);
@@ -42,19 +42,19 @@ public class SpeechTests
         var complete = typeof(GameAiClient).GetMethod("CompleteConfigured", BindingFlags.NonPublic | BindingFlags.Instance)!;
         string[] blocks = ["instructions"];
         await (Task<string>)complete.Invoke(client, [blocks, "action", "path", "model"])!;
-        Assert.Equal("lang:ru\nspeechEnabled:false\naction", provider.Message);
+        Assert.Equal("lang:en\nspeechEnabled:false\naction", provider.Message);
         Assert.Same(blocks, provider.Blocks);
         config.SpeechEnabled = true;
         await (Task<string>)complete.Invoke(client, [blocks, "action", "path", "model"])!;
-        Assert.Equal("lang:ru\nspeechEnabled:true\naction", provider.Message);
-        // Язык игры — язык мира загруженного сохранения.
+        Assert.Equal("lang:en\nspeechEnabled:true\naction", provider.Message);
+        // The game's language is the world language of the loaded save.
         try
         {
-            storage.ApplyUpdateWorldState("""{"language":"en"}""");
+            storage.ApplyUpdateWorldState("""{"language":"ru"}""");
             await (Task<string>)complete.Invoke(client, [blocks, "action", "path", "model"])!;
-            Assert.Equal("lang:en\nspeechEnabled:true\naction", provider.Message);
+            Assert.Equal("lang:ru\nspeechEnabled:true\naction", provider.Message);
         }
-        finally { L.SetWorld(L.Russian); }
+        finally { L.SetWorld(L.English); }
     }
 
     private sealed class CapturingProvider : IAiProvider
@@ -71,10 +71,10 @@ public class SpeechTests
             => Complete(systemBlocks, userMessage, actionPath, model);
     }
     [Theory]
-    [InlineData("<speak><prosody rate=\"slow\">Тихо.</prosody><break time=\"500ms\"/>*Шаги*.</speak>", true)]
+    [InlineData("<speak><prosody rate=\"slow\">Quiet.</prosody><break time=\"500ms\"/>*Footsteps*.</speak>", true)]
     [InlineData("<speak><break time=\"999999ms\"/></speak>", false)]
     [InlineData("<speak><audio src=\"https://example.com\"/></speak>", false)]
-    [InlineData("<speak>сломанный XML", false)]
+    [InlineData("<speak>broken XML", false)]
     [InlineData("<!DOCTYPE speak [<!ENTITY x SYSTEM 'file:///secret'>]><speak>&x;</speak>", false)]
     public void SpeechAcceptsSupportedMarkupAndRejectsInvalidOrExternalContent(string markup, bool valid)
     {
@@ -88,12 +88,12 @@ public class SpeechTests
     {
         var storage = new Storage();
         storage.WorldState.History = [];
-        storage.ApplyUpdateWorldState("""{"history":[{"author":"DM","text":"<speak>Тихо.</speak>"}]}""");
-        Assert.Equal("<speak>Тихо.</speak>", storage.WorldState.History.Single().SpeechText);
+        storage.ApplyUpdateWorldState("""{"history":[{"author":"DM","text":"<speak>Quiet.</speak>"}]}""");
+        Assert.Equal("<speak>Quiet.</speak>", storage.WorldState.History.Single().SpeechText);
         string context = new AiContextBuilder(storage.WorldState).Serialize(["history"]);
         Assert.DoesNotContain("speechText", context);
         Assert.DoesNotContain("speak", context);
-        Assert.Contains("Тихо.", context);
+        Assert.Contains("Quiet.", context);
     }
 
     [Fact]
@@ -106,9 +106,9 @@ public class SpeechTests
         var player = Activator.CreateInstance(playerType, storage.WorldState, storage, new JsonSerializerOptions(),
             (Action<string>)(chunk => shown += chunk), null, null, null)!;
         var task = (Task<List<DialogMessage>>)playerType.GetMethod("PlayAsync")!.Invoke(player,
-            ["""{"history":[{"text":"<speak><prosody rate=\"slow\">Тихо.</prosody></speak>"}]}"""])!;
+            ["""{"history":[{"text":"<speak><prosody rate=\"slow\">Quiet.</prosody></speak>"}]}"""])!;
         var result = await task;
-        Assert.Equal("Тихо.", shown);
+        Assert.Equal("Quiet.", shown);
         Assert.Contains("prosody", result.Single().SpeechText);
     }
 
@@ -125,8 +125,8 @@ public class SpeechTests
         Assert.DoesNotContain("HP", ssml);
     }
     [Theory]
-    [InlineData("**Гоблин** атакует! [Атака 15, урон 4]", "Гоблин атакует!")]
-    [InlineData("Впереди\n\rтёмный   лес.", "Впереди тёмный лес.")]
+    [InlineData("**Goblin** attacks! [Attack 15, damage 4]", "Goblin attacks!")]
+    [InlineData("Ahead lies a\n\rdark   forest.", "Ahead lies a dark forest.")]
     [InlineData("[HP 10→7]", "")]
     public void SpeechOmitsMechanicsButPreservesNarration(string input, string expected)
     {

@@ -1,40 +1,40 @@
-# Открытые задачи
+# Open tasks
 
-Перенесено из прежнего журнала разработки. Наблюдения требуют воспроизведения на текущей сборке; выполненные пункты и устаревшие планы удалены.
+Carried over from the former development log. Observations need to be reproduced on the current build; completed items and outdated plans have been removed.
 
-## Корректность игры
+## Game correctness
 
-- Проверить и исправить создание счётчиков использований способностей, расход при применении и восстановление после короткого отдыха для способностей, которым оно положено по правилам.
-- Различимые имена одинаковых существ, чтобы мастер не путал особей.
-- Согласование описаний с механическими патчами и перемещениями.
-- Проверка порядка истечения эффектов на границе раунда и возврата хода герою.
-- Стабильность тестов смежности двери и переключения карты/мира.
-- Недоставленное путешествие: учёт еды и времени вместе с рассказом о дороге.
-- Размещение героя внутри корчмы при ночлеге; известные места на отдалённой карте.
+- Check and fix the creation of feature usage counters, their spending on use, and recovery after a short rest for the features that get it under the rules.
+- Distinguishable names for identical creatures, so the DM doesn't mix up individuals.
+- Keeping descriptions consistent with mechanical patches and movement.
+- Checking the order in which effects expire at a round boundary and the turn returns to the hero.
+- Stability of the door adjacency tests and of switching between map and world.
+- Undelivered travel: accounting for food and time together with the story of the road.
+- Placing the hero inside the inn when staying the night; known places on a distant map.
 
-## Проверки
+## Checks
 
-- Скрытность, внезапность, многошаговые боевые ходы с реальными моделями.
-- Планирование и наполнение dungeon/cave/outdoor, проходимость клеток существ.
-- Ночная видимость, тёмное зрение, свет и контраст на разных мониторах.
-- Переполнение легенды и её отображение при сдвиге камеры.
-- Журнал: шаги заданий, статусы, места и ручные заметки.
-- Полный UI-прогон после изменений меню, вкладок и редактора персонажа.
-- Применение моделей, путей и звука после изменения настроек.
-- Автопоиск Claude/Codex на компьютерах игроков: устаревшие пути, npm, расширения редакторов и Claude Desktop; сообщения об отсутствии входа, доступа и лимитах при создании мира и описания героя.
-- Скролл двумя пальцами на реальном тачпаде ноутбука, включая плавные короткие жесты.
-- Сворачивание во время ожидания, печати и броска: отсутствие звука в фоне, уведомление на панели задач, восстановление полноэкранного окна и озвучки текущей реплики.
-- Формы областей, видимость и дистанции в `TargetGeometry`.
+- Stealth, surprise, multi-step combat turns with real models.
+- Planning and populating dungeon/cave/outdoor, passability of creature cells.
+- Night visibility, darkvision, light and contrast on different monitors.
+- Legend overflow and its display when the camera moves.
+- Journal: quest steps, statuses, places and manual notes.
+- A full UI run after changes to the menu, tabs and character editor.
+- Applying models, paths and sound after changing settings.
+- Auto-discovery of Claude/Codex on players' machines: stale paths, npm, editor extensions and Claude Desktop; messages about missing sign-in, access and limits when creating a world and the hero description.
+- Two-finger scrolling on a real laptop touchpad, including smooth short gestures.
+- Minimizing while waiting, typing and rolling: no sound in the background, a taskbar notification, restoring the fullscreen window and the voice-over of the current line.
+- Area shapes, visibility and distances in `TargetGeometry`.
 
-## Развитие
+## Development
 
-- Объекты, блокирующие движение и видимость; дистанции пути и прямой линии в подсказке.
-- Этажи, окна, особые переходы и порталы.
-- Переназначение клавиш; переключение экранов во время ответа редактора героя.
-- Полноценный спутник и сетевая игра.
-- Уровни: мультикласс; проверка вариантов `LevelUpOptions`/`LevelUpApply` с реальными моделями.
-- Английский текст справочника монстров (`GameData/DnD5e_monsters_BD.dtn`): сейчас по-английски только имя — статья бестиария и карточка монстра в английской игре остаются русскими. Добавить английские поля (размер, тип, мировоззрение, особенности, действия, реакции, легендарные действия) и показывать их по языку мира (`MonsterInfo`, `MonsterCard`). Подробности — [localization.md](localization.md).
-- Настроение музыки и позиционные звуки источников на карте.
-- Закрепление голоса и тембра озвучки за NPC на стороне кода (без выбора моделью), с учётом пола NPC: один и тот же персонаж всегда звучит одинаково.
-- Сокращение задержки ИИ с сохранением игровых правил; показ готовых записей по мере получения.
-- Возможный MCP-инструмент для эффектов после определения общего контракта.
+- Objects that block movement and visibility; path and straight-line distances in the tooltip.
+- Floors, windows, special transitions and portals.
+- Key remapping; switching screens while the hero editor is responding.
+- A full-fledged companion and multiplayer.
+- Levels: multiclassing; checking the `LevelUpOptions`/`LevelUpApply` options with real models.
+- English text for the monster reference (`GameData/DnD5e_monsters_BD.dtn`): currently only the name is in English — the bestiary entry and the monster card in an English game stay Russian. Add English fields (size, type, alignment, traits, actions, reactions, legendary actions) and show them according to the world's language (`MonsterInfo`, `MonsterCard`). Details: [localization.md](localization.md).
+- Music mood and positional sounds for sources on the map.
+- Pinning a voice-over voice and timbre to each NPC on the code side (not chosen by the model), taking the NPC's gender into account: the same character always sounds the same.
+- Reducing AI latency while keeping the game rules; showing finished entries as they arrive.
+- A possible MCP tool for effects once a common contract is defined.

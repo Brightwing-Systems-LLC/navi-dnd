@@ -5,12 +5,12 @@ using NaviDnD.Helpers;
 
 namespace NaviDnD.Display;
 
-// «Новый уровень» — на вкладке «Персонаж» вместо диалогового окна (F10 / кнопка на карточке). Сверху остаётся карточка
-// героя: она показывает героя после повышения, изменения — золотым (HeroDisplay.Preview), подвкладки F6–F9 листаются.
-// Внизу слева — выбор (хиты, улучшение характеристик, варианты мастера), справа в блоке картинки — карточка заклинания
-// из справочника или описание пункта под курсором, иначе портрет героя. Строка ввода — просьба к мастеру о своём
-// варианте: мастер добавляет его в группу («★») или отказывает — героя напрямую никто не правит. «Принять» — мастер
-// вносит выбранное в лист (LevelUp.Apply). Отмена ничего не меняет; выбор и бросок хитов помнятся до принятия.
+// «Level Up» appears on the «Character» tab instead of the dialog window (F10 / the button on the sheet). The hero sheet stays
+// on top: it shows the hero after leveling, with changes in gold (HeroDisplay.Preview); sub-tabs F6–F9 can be flipped.
+// Bottom left: the choices (hit points, ability score improvement, the DM's options); on the right, in the picture block, a spell card
+// from the compendium or a description of the item under the cursor, otherwise the hero's portrait. The input line asks the DM for an option
+// of your own: the DM adds it to a group («★») or refuses; nobody edits the hero directly. «Accept»: the DM
+// writes the choices into the sheet (LevelUp.Apply). Cancel changes nothing; choices and the hit point roll are remembered until accepted.
 public class LevelUpDisplay
 {
     private readonly WorldState _settings;
@@ -19,7 +19,7 @@ public class LevelUpDisplay
     private readonly Storage _storage;
     private readonly BorderDrawer _border;
     private LevelUp? _session;
-    private Task<string?>? _planTask;   // варианты мастера для _session (вышел и вернулся, пока он думает, — тот же запрос)
+    private Task<string?>? _planTask;   // the DM's options for _session (if you leave and come back while it's thinking, it's the same request)
 
     private readonly List<(int y, int x, int w, string id)> _hits = [];
     private string? _hovered, _titleHover;
@@ -39,15 +39,15 @@ public class LevelUpDisplay
         _border = new BorderDrawer(settings, display);
     }
 
-    // Строка списка: заголовок раздела или пояснение (не выбираются) либо пункт; Activate — Enter/клик;
-    // Spell — заклинание справочника (справа его карточка).
+    // A list row: a section heading or a note (not selectable), or an item; Activate is Enter/click;
+    // Spell is a compendium spell (its card is shown on the right).
     private sealed record Row(string Text, List<int> Color, string? Description = null, Action? Activate = null,
         bool Header = false, HeroSpell? Spell = null);
 
-    // Содержимое блока картинки: строки, цвет (первой строки или всех), текст — с верха, картинка — по центру.
+    // Picture block content: lines, a color (for the first line or all), text from the top, a picture centered.
     private sealed record Panel(string[] Lines, List<int>? Color = null, bool ColorAll = false, bool Top = false);
 
-    // null — назад на карточку героя; иначе команда заголовка («F1»…«F5», «Esc»).
+    // null means back to the hero sheet; otherwise a title command («F1»…«F5», «Esc»).
     public async Task<string?> Run(string title, HeroDisplay heroDisplay)
     {
         var hero = _settings.Hero;
@@ -64,31 +64,31 @@ public class LevelUpDisplay
         Task<string?>? customTask = null;
         Task<Hero?>? applyTask = null;
         string message = "", request = "";
-        string? masterText = null;   // ответ мастера на просьбу — целиком в блоке картинки, пока не выбрал другое
+        string? masterText = null;   // the DM's answer to a request, shown in full in the picture block until something else is chosen
         int focus = 0, scroll = 0, spin = 0, notePage = 0;
         int? lastHoverRow = null;
         string? describedKey = null;
-        var pages = new Dictionary<string, int>();   // страница карточки заклинания/записки — у каждой своя
-        string? pinnedCard = null, shownCard = null;   // предмет/заклинание карточки («inv:3», «spell:1») — в блоке картинки
+        var pages = new Dictionary<string, int>();   // page of a spell card/note; each has its own
+        string? pinnedCard = null, shownCard = null;   // item/spell from the sheet («inv:3», «spell:1») shown in the picture block
         bool follow = true, toAccept = false, cardDirty = true;
-        bool inputActive = false;   // строка ввода в фокусе (клик по ней или печать) — тогда в ней курсор
+        bool inputActive = false;   // the input line has focus (clicked or typed into); the cursor is in it then
 
         try
         {
             while (true)
             {
-                // ── Ответы мастера ──
+                // ── DM answers ──
                 if (_planTask is { IsCompleted: true } done)
                 {
-                    if (!done.IsCompletedSuccessfully || done.Result is not { } plan || !s.LoadPlan(plan)) message = SetupError(done) ?? L.T("Мастер не ответил — нажми «Повторить».");
+                    if (!done.IsCompletedSuccessfully || done.Result is not { } plan || !s.LoadPlan(plan)) message = SetupError(done) ?? L.T("The DM did not answer — press “Retry”.");
                     else SaveDraft(s);
                     _planTask = null;
                 }
                 if (customTask is { IsCompleted: true })
                 {
                     message = customTask.IsCompletedSuccessfully && customTask.Result is { } json
-                        ? s.MergeCustom(json) ?? SaveDraft(s, L.T("Мастер добавил вариант — он отмечен ★."))
-                        : SetupError(customTask) ?? L.T("Мастер не ответил — попробуй ещё раз.");
+                        ? s.MergeCustom(json) ?? SaveDraft(s, L.T("The DM added an option — it is marked ★."))
+                        : SetupError(customTask) ?? L.T("The DM did not answer — try again.");
                     masterText = message;
                     customTask = null;
                 }
@@ -99,15 +99,15 @@ public class LevelUpDisplay
                         Accept(s, leveled);
                         return null;
                     }
-                    message = SetupError(applyTask) ?? L.T("Мастер не ответил — попробуй ещё раз.");
+                    message = SetupError(applyTask) ?? L.T("The DM did not answer — try again.");
                     applyTask = null;
                 }
-                // Пока мастер вносит выбор или думает над просьбой — ничего не нажимается; пока готовит варианты —
-                // хиты и характеристики уже можно.
+                // While the DM applies the choices or thinks about a request, nothing can be pressed; while it prepares options,
+                // hit points and ability scores are already available.
                 _frozen = applyTask != null || customTask != null;
                 bool loading = _planTask != null;
 
-                // ── Карточка героя — после повышения, изменения золотым ──
+                // ── Hero sheet, after leveling, changes in gold ──
                 if (cardDirty)
                 {
                     heroDisplay.PreviewBase = hero;
@@ -119,16 +119,16 @@ public class LevelUpDisplay
                     cardDirty = false;
                 }
 
-                // ── Панель ──
+                // ── Panel ──
                 int innerW = _display.InnerWidth(_display.ViewCols(_settings.Map));
                 int rightW = _display.DialogRightPanelWidth, leftW = rightW > 0 ? innerW - 1 - rightW : innerW;
-                int listH = Math.Max(3, _display.MaxHistoryLines - 2);   // последние строки — кнопки
+                int listH = Math.Max(3, _display.MaxHistoryLines - 2);   // the last lines are buttons
                 var rows = ChoiceRows(s, loading, spin, leftW - 4);
                 var focusable = Enumerable.Range(0, rows.Count).Where(i => rows[i].Activate != null).ToList();
                 var buttons = new List<(string id, string text, bool enabled)>
                 {
-                    s.PlanLoaded || loading ? ("accept", L.T("ПРИНЯТЬ"), s.Ready) : ("retry", L.T("ПОВТОРИТЬ"), true),
-                    ("cancel", L.T("ОТМЕНА"), true),
+                    s.PlanLoaded || loading ? ("accept", L.T("ACCEPT"), s.Ready) : ("retry", L.T("RETRY"), true),
+                    ("cancel", L.T("CANCEL"), true),
                 };
                 int focusCount = focusable.Count + buttons.Count;
                 if (toAccept) { focus = focusable.Count; toAccept = false; }
@@ -141,8 +141,8 @@ public class LevelUpDisplay
                 }
                 scroll = Math.Clamp(scroll, 0, Math.Max(0, rows.Count - listH));
 
-                // Блок картинки: под мышью — то, что под ней (пункт выбора, предмет или заклинание карточки); мышь ни на
-                // чём (ушла листать ◄ ►) — закреплённое: ответ мастера, предмет карточки по клику или выбранный пункт.
+                // Picture block: under the mouse, whatever is under it (a choice item, an item or spell on the sheet); when the mouse is on
+                // nothing (went off to flip ◄ ►), the pinned thing: the DM's answer, a sheet item clicked, or the selected item.
                 int? hoveredRow = _hovered?.StartsWith("row:") == true ? int.Parse(_hovered[4..]) : null;
                 string? hoveredCard = _hovered is { } hv && (hv.StartsWith("inv:") || hv.StartsWith("spell:")) ? hv : null;
                 if (hoveredRow != null && hoveredRow != lastHoverRow) masterText = null;
@@ -169,13 +169,13 @@ public class LevelUpDisplay
                     _display.SelectedInventoryIndex = _display.SelectedSpellIndex = -1;
                     heroDisplay.RefreshSelection();
                 }
-                // Мастер думает — в строке ввода (печатать нельзя): готовит варианты или отвечает на просьбу.
-                string? busy = applyTask != null ? Spinner.Frames[spin % Spinner.Frames.Length] + " " + L.T("Мастер вносит изменения в лист героя…")
-                    : customTask != null ? Spinner.Frames[spin % Spinner.Frames.Length] + " " + L.T("Мастер думает над твоей просьбой…")
-                    : loading ? Spinner.Frames[spin % Spinner.Frames.Length] + " " + L.T("Мастер готовит варианты…") : null;
+                // The DM is thinking, shown in the input line (no typing): preparing options or answering a request.
+                string? busy = applyTask != null ? Spinner.Frames[spin % Spinner.Frames.Length] + " " + L.T("The DM is updating the character sheet…")
+                    : customTask != null ? Spinner.Frames[spin % Spinner.Frames.Length] + " " + L.T("The DM is considering your request…")
+                    : loading ? Spinner.Frames[spin % Spinner.Frames.Length] + " " + L.T("The DM is preparing options…") : null;
                 string status = applyTask != null ? ""
                     : message.Length > 0 ? message
-                    : !s.Ready && s.PlanLoaded ? L.F("Осталось выбрать: {0}", string.Join(", ", Missing(s))) : "";
+                    : !s.Ready && s.PlanLoaded ? L.F("Still to choose: {0}", string.Join(", ", Missing(s))) : "";
                 var right = cardItem != null ? new Panel(_display.SelectedImageLines ?? _display.DefaultImageLines ?? [],
                         _display.SelectedImageColor, !_display.SelectedImageColorTitleOnly)
                     : showMaster ? MasterPanel(masterText!, rightW) : RightPanel(described, rightW, notePage);
@@ -183,7 +183,7 @@ public class LevelUpDisplay
                 DrawPanel(panelTop, s, rows, scroll, listH, focusRow, focus - focusable.Count, buttons, status,
                     right, request, busy, inputActive, leftW, rightW);
 
-                // ── Ввод ──
+                // ── Input ──
                 var input = await WaitInput(_frozen || loading ? 120 : 0, title, heroDisplay);
                 if (_frozen || loading) spin++;
                 if (input == null) continue;
@@ -216,7 +216,7 @@ public class LevelUpDisplay
                     inputActive = false;
                     if (click.StartsWith("row:") && int.Parse(click[4..]) is int ci && focusable.IndexOf(ci) is int fi and >= 0)
                     {
-                        // Выбранный кликом пункт — закреплён: уведёшь мышь, его описание останется справа.
+                        // An item selected by click is pinned: move the mouse away and its description stays on the right.
                         pinnedCard = null;
                         masterText = null;
                         focus = fi;
@@ -230,8 +230,8 @@ public class LevelUpDisplay
                     if (_frozen && k.Key != ConsoleKey.Escape) continue;
                     if (k.Key is ConsoleKey.UpArrow or ConsoleKey.DownArrow or ConsoleKey.Tab)
                     {
-                        // Клавиши ведут выбор сами: стрелка и описание — у выбранного, а не у пункта под мышью
-                        // (до следующего движения мыши).
+                        // Keys drive the selection themselves: the arrow and description belong to the selected item, not the one under the mouse
+                        // (until the mouse moves again).
                         _hovered = null;
                         masterText = null;
                         pinnedCard = null;
@@ -265,8 +265,8 @@ public class LevelUpDisplay
                             act = focus < focusable.Count ? "row" : buttons[focus - focusable.Count].id;
                             break;
                         default:
-                            if (busy != null) continue;   // мастер думает — строка ввода занята
-                            inputActive = true;           // печать — в строку ввода
+                            if (busy != null) continue;   // the DM is thinking; the input line is busy
+                            inputActive = true;           // typing goes into the input line
                             if (ClipboardText.IsPasteKey(k))
                                 request += ClipboardText.Get().Replace("\r", " ").Replace("\n", " ");
                             else if (!char.IsControl(k.KeyChar) && request.Length < 200)
@@ -276,14 +276,14 @@ public class LevelUpDisplay
                 }
                 if (act == null || _frozen) continue;
 
-                // ── Действие ──
+                // ── Action ──
                 if (act == "row" && focus < focusable.Count && rows[focusable[focus]].Activate is { } activate)
                 {
                     Sound.PlayClick();
                     message = "";
                     activate();
                     cardDirty = true;
-                    toAccept = s.Ready;   // всё выбрано — фокус на «Принять»
+                    toAccept = s.Ready;   // everything is chosen: focus on «Accept»
                     continue;
                 }
                 if (act == "ask")
@@ -318,22 +318,22 @@ public class LevelUpDisplay
         }
     }
 
-    // Новый герой вместо старого; в историю — что получено.
+    // The new hero replaces the old one; the history records what was gained.
     private void Accept(LevelUp s, Hero leveled)
     {
-        var got = new List<string> { L.F("хиты +{0}", s.HpGain) };
+        var got = new List<string> { L.F("hit points +{0}", s.HpGain) };
         got.AddRange(s.AsiPicks.Distinct().Select(a => $"{AbilityNames.Find(s.Hero, a)?.Name ?? a} {s.NewScore(a)}"));
         got.AddRange(s.Gains.Select(g => g.Name));
         got.AddRange(s.VisibleChoices.SelectMany(c => c.Picked.Order().Select(i => c.Options[i].Name)));
         _settings.Hero = leveled;
         _settings.History ??= [];
-        _settings.History.Add(new DialogMessage { Text = L.WF("[Новый уровень: {0} {1} — {2}]", s.ClassName, s.To, string.Join(", ", got)) });
+        _settings.History.Add(new DialogMessage { Text = L.WF("[Level up: {0} {1} — {2}]", s.ClassName, s.To, string.Join(", ", got)) });
         _storage.Save();
         _session = null;
         _planTask = null;
     }
 
-    // Варианты и бросок — в сохранение игры (LevelUp.SaveDraft): отмена и перезапуск их не теряют.
+    // Options and the roll go into the game save (LevelUp.SaveDraft): cancel and restart don't lose them.
     private string? SaveDraft(LevelUp s, string? result = null)
     {
         s.SaveDraft();
@@ -344,7 +344,7 @@ public class LevelUpDisplay
     private static string? SetupError(Task task) =>
         task.Exception?.InnerException is AiSetupException setup ? setup.Message : null;
 
-    // Подвкладки и страницы карточки (F6–F9, ←→, клик по названию) — как на вкладке «Персонаж». true — перерисовать.
+    // Sub-tabs and sheet pages (F6–F9, ←→, click on a name) work as on the «Character» tab. true means redraw.
     private bool CardCommand(string command, HeroDisplay heroDisplay)
     {
         var d = _display;
@@ -379,7 +379,7 @@ public class LevelUpDisplay
         return false;
     }
 
-    // ── Отрисовка панели ────────────────────────────────────────────────────
+    // ── Panel drawing ───────────────────────────────────────────────────────
 
     private void DrawPanel(int top, LevelUp s, List<Row> rows, int scroll, int listH, int? focusRow, int focusButton,
         List<(string id, string text, bool enabled)> buttons, string status, Panel right,
@@ -391,7 +391,7 @@ public class LevelUpDisplay
         int leftX = DisplayConfig.LeftMargin + 1;
         int rowsN = _display.MaxHistoryLines;
 
-        string title = L.F("НОВЫЙ УРОВЕНЬ · {0} {1} → {2}", s.ClassName, s.From, s.To);
+        string title = L.F("LEVEL UP · {0} {1} → {2}", s.ClassName, s.From, s.To);
         _border.DrawTitleLine(() => ColorHelper.WriteColored(title, Gold), title.Length);
         if (rightW > 0) _border.DrawSeparatorWith2Parts('┬', leftW, rightW); else _border.DrawSeparator();
 
@@ -408,7 +408,7 @@ public class LevelUpDisplay
                 if (i < rows.Count)
                 {
                     var row = rows[i];
-                    // Стрелка — у одного пункта: под мышью, а без неё — выбранного клавишами.
+                    // The arrow is on one item: the one under the mouse, or without it, the one selected by keys.
                     bool mouseOnRow = _hovered?.StartsWith("row:") == true;
                     bool on = row.Activate != null && (mouseOnRow ? _hovered == $"row:{i}" : focusRow == i);
                     if (row.Activate != null) _hits.Add((y, leftX, leftW - (hasBar ? 1 : 0), $"row:{i}"));
@@ -421,7 +421,7 @@ public class LevelUpDisplay
                         ColorHelper.WriteColored(text, color);
                     };
                 }
-                // Полоса прокрутки — у правого края списка.
+                // Scrollbar at the right edge of the list.
                 if (barMarks != null)
                 {
                     var inner = leftContent;
@@ -438,7 +438,7 @@ public class LevelUpDisplay
             }
             else if (r == rowsN - 1)
             {
-                // Кнопки-плашки и статус.
+                // Button plates and status.
                 int bx = leftX + 2;
                 var plan = new List<(string text, List<int> fg, List<int> bg)>();
                 for (int b = 0; b < buttons.Count; b++)
@@ -473,7 +473,7 @@ public class LevelUpDisplay
                 if (line.Length > rightW) line = line[..rightW];
                 int pad = Math.Max(0, (rightW - line.Length) / 2);
                 var lineColor = right.Color != null && (right.ColorAll || li == 0) ? right.Color : Fg;
-                // «◄ 1/2 ►» внизу карточки заклинания — листание.
+                // «◄ 1/2 ►» at the bottom of a spell card: paging.
                 string trimmed = line.Trim();
                 if (li == right.Lines.Length - 1 && trimmed.StartsWith('◄') && trimmed.EndsWith('►'))
                 {
@@ -491,8 +491,8 @@ public class LevelUpDisplay
         }
 
         if (rightW > 0) _border.DrawSeparatorWith2Parts('┴', leftW, rightW); else _border.DrawSeparator();
-        // Строка ввода: просьба мастеру о своём варианте; пока мастер думает — его статус, печатать нельзя.
-        string prompt = " " + L.T("Ввод: ");
+        // Input line: asking the DM for an option of your own; while the DM is thinking it shows its status and typing is disabled.
+        string prompt = " " + L.T("Input: ");
         int inputW = _display.InnerWidth(_display.ViewCols(_settings.Map)) - prompt.Length - 2;
         int inputY = Console.CursorTop;
         _hits.Add((inputY, DisplayConfig.LeftMargin + 1, _display.InnerWidth(_display.ViewCols(_settings.Map)), "input"));
@@ -502,25 +502,25 @@ public class LevelUpDisplay
             Console.Write(prompt);
             if (busy != null) ColorHelper.WriteColored(Fit(busy, inputW), Gold);
             else if (request.Length == 0 && !inputActive)
-                ColorHelper.WriteColored(Fit(L.T("попроси мастера о своём варианте — например, «хочу Туманный шаг вместо Щита»"), inputW), Dim);
+                ColorHelper.WriteColored(Fit(L.T("ask the DM for your own option — e.g. “I want Misty Step instead of Shield”"), inputW), Dim);
             else
                 ColorHelper.WriteColored(visible, Bright);
         });
         _border.DrawBottomBorder();
-        // Курсор печати — в строке ввода, когда она в фокусе (клик по ней или печать).
+        // The typing cursor is in the input line when it has focus (clicked or typed into).
         bool typing = inputActive && busy == null && !_frozen;
         if (typing) Console.SetCursorPosition(DisplayConfig.LeftMargin + 1 + prompt.Length + visible.Length, inputY);
         Console.CursorVisible = typing;
     }
 
-    // Блок картинки: заклинание — карточка из справочника, пункт с описанием — название и текст, иначе портрет героя.
+    // Picture block: a spell shows its compendium card, an item with a description shows its name and text, otherwise the hero's portrait.
     private Panel RightPanel(Row? row, int width, int page)
     {
         if (width <= 0) return new([]);
         if (row?.Spell is { } spell)
         {
             MouseUiHelper.SetSelectedSpell(_display, spell, page);
-            if (_display.SelectedImageLines is { Length: > 0 } card) return new(card, Gold);   // карточка во всю высоту, ◄ ► внизу
+            if (_display.SelectedImageLines is { Length: > 0 } card) return new(card, Gold);   // card at full height, ◄ ► at the bottom
         }
         if (row?.Description is { Length: > 0 } desc)
         {
@@ -532,8 +532,8 @@ public class LevelUpDisplay
         return new(_display.DefaultImageLines ?? [], _display.DefaultImageColor, ColorAll: true);
     }
 
-    // Предмет инвентаря или заклинание героя с карточки — как на вкладке «Персонаж» (картинка, записка, карточка
-    // заклинания); строка на карточке — со стрелкой выбора.
+    // An inventory item or hero spell from the sheet, as on the «Character» tab (picture, note, spell
+    // card); the line on the sheet gets the selection arrow.
     private void ShowCardItem(string item, HeroDisplay heroDisplay, int page)
     {
         var h = heroDisplay.Preview ?? _settings.Hero;
@@ -542,7 +542,7 @@ public class LevelUpDisplay
         _display.SelectedInventoryIndex = _display.SelectedSpellIndex = -1;
         if (item.StartsWith("inv:") && idx < h.Inventory.Count)
         {
-            _display.SelectedImageLines = null;   // картинка готовится в фоне — пока портрет
+            _display.SelectedImageLines = null;   // the picture is prepared in the background; portrait for now
             _display.SelectedInventoryIndex = idx;
             MouseUiHelper.SetSelectedInventoryItem(_display, h.Inventory[idx], page);
         }
@@ -554,28 +554,28 @@ public class LevelUpDisplay
         heroDisplay.RefreshSelection();
     }
 
-    // Ответ мастера на просьбу — целиком (в строке статуса не помещается).
+    // The DM's answer to a request, in full (it doesn't fit in the status line).
     private Panel MasterPanel(string text, int width)
     {
         if (width <= 0) return new([]);
         int w = Math.Max(1, width - 2);
-        var lines = new List<string> { L.T("ОТВЕТ МАСТЕРА").PadRight(w), new string('─', w) };
+        var lines = new List<string> { L.T("DM'S ANSWER").PadRight(w), new string('─', w) };
         lines.AddRange(Wrap(text, w).Select(l => l.PadRight(w)));
         return new(lines.Take(_display.MaxHistoryLines - 1).ToArray(), Gold, Top: true);
     }
 
-    // «( ) Оборона ★» → «Оборона».
+    // «( ) Defense ★» → «Defense».
     private static string CleanName(string text) => text.TrimStart(' ', '(', '•', ')', '[', 'x', ']').Replace(" ★", "").Trim();
 
-    // Что ещё не выбрано — подсказка у кнопки «Принять».
+    // What isn't chosen yet: a hint next to the «Accept» button.
     private static IEnumerable<string> Missing(LevelUp s)
     {
-        if (s.HpRoll == null) yield return L.T("хиты");
-        if (!s.AsiDone) yield return L.T("улучшение характеристик");
+        if (s.HpRoll == null) yield return L.T("hit points");
+        if (!s.AsiDone) yield return L.T("ability score improvement");
         foreach (var c in s.VisibleChoices.Where(c => !c.Done)) yield return c.Title.ToLowerInvariant();
     }
 
-    // ── Список выбора ───────────────────────────────────────────────────────
+    // ── Choice list ─────────────────────────────────────────────────────────
 
     private List<Row> ChoiceRows(LevelUp s, bool loading, int spin, int width)
     {
@@ -594,26 +594,26 @@ public class LevelUpDisplay
         HeroSpell? SpellOf(string name) => SpellDatabase.Find(name) is { } info ? new HeroSpell { Name = name, Level = info.Level } : null;
 
         int con = AbilityNames.Modifier(s.Score(AbilityNames.Con));
-        Section(L.T("ХИТЫ"));
-        Note(L.F("Кость хитов d{0} + Телосложение {1}. Бросок — один раз, без повтора.", s.HitDie, AbilityNames.Signed(con)));
-        string hpDesc = L.T("Хиты за уровень: кость хитов класса + модификатор Телосложения (не меньше 1). Среднее — гарантированно, бросок — один раз, без повтора.");
+        Section(L.T("HIT POINTS"));
+        Note(L.F("Hit die d{0} + Constitution {1}. The roll happens once, no rerolls.", s.HitDie, AbilityNames.Signed(con)));
+        string hpDesc = L.T("Hit points per level: the class hit die + Constitution modifier (at least 1). Average is guaranteed; the roll happens once, no rerolls.");
         bool rolled = s.HpRoll == true;
-        rows.Add(new(Radio(s.HpRoll == false) + L.F("Среднее: +{0}", s.HpAverage), rolled ? Dim : s.HpRoll == false ? Gold : Fg, hpDesc,
+        rows.Add(new(Radio(s.HpRoll == false) + L.F("Average: +{0}", s.HpAverage), rolled ? Dim : s.HpRoll == false ? Gold : Fg, hpDesc,
             rolled ? null : s.ChooseAverage));
         if (s.HpDie is int die)
-            rows.Add(new(Radio(true) + L.F("Бросок d{0}: выпало {1} → +{2}", s.HitDie, die, Math.Max(1, die + con)), Gold, hpDesc, () => { }));
+            rows.Add(new(Radio(true) + L.F("Roll d{0}: rolled {1} → +{2}", s.HitDie, die, Math.Max(1, die + con)), Gold, hpDesc, () => { }));
         else
-            rows.Add(new(Radio(false) + L.F("Бросить d{0}{1}", s.HitDie, AbilityNames.Signed(con)), Fg, hpDesc, () => { RollHp(s); SaveDraft(s); }));
+            rows.Add(new(Radio(false) + L.F("Roll d{0}{1}", s.HitDie, AbilityNames.Signed(con)), Fg, hpDesc, () => { RollHp(s); SaveDraft(s); }));
 
         if (s.IsAsi)
         {
-            Section(L.T("УЛУЧШЕНИЕ ХАРАКТЕРИСТИК"));
-            string asiDesc = L.F("+2 к одной характеристике или +1 к двум (не выше {0}) — либо черта вместо улучшения.", s.Rules.MaxScore);
+            Section(L.T("ABILITY SCORE IMPROVEMENT"));
+            string asiDesc = L.F("+2 to one ability score or +1 to two (up to {0}) — or a feat instead of the improvement.", s.Rules.MaxScore);
             Note(asiDesc);
-            rows.Add(new(Radio(s.Asi == LevelUp.AsiMode.Plus2) + L.T("+2 к одной"), s.Asi == LevelUp.AsiMode.Plus2 ? Gold : Fg, asiDesc, () => s.SetAsi(LevelUp.AsiMode.Plus2)));
-            rows.Add(new(Radio(s.Asi == LevelUp.AsiMode.Plus1x2) + L.T("+1 к двум"), s.Asi == LevelUp.AsiMode.Plus1x2 ? Gold : Fg, asiDesc, () => s.SetAsi(LevelUp.AsiMode.Plus1x2)));
+            rows.Add(new(Radio(s.Asi == LevelUp.AsiMode.Plus2) + L.T("+2 to one"), s.Asi == LevelUp.AsiMode.Plus2 ? Gold : Fg, asiDesc, () => s.SetAsi(LevelUp.AsiMode.Plus2)));
+            rows.Add(new(Radio(s.Asi == LevelUp.AsiMode.Plus1x2) + L.T("+1 to two"), s.Asi == LevelUp.AsiMode.Plus1x2 ? Gold : Fg, asiDesc, () => s.SetAsi(LevelUp.AsiMode.Plus1x2)));
             if (s.HasFeats)
-                rows.Add(new(Radio(s.Asi == LevelUp.AsiMode.Feat) + L.T("Черта"), s.Asi == LevelUp.AsiMode.Feat ? Gold : Fg, asiDesc, () => s.SetAsi(LevelUp.AsiMode.Feat)));
+                rows.Add(new(Radio(s.Asi == LevelUp.AsiMode.Feat) + L.T("Feat"), s.Asi == LevelUp.AsiMode.Feat ? Gold : Fg, asiDesc, () => s.SetAsi(LevelUp.AsiMode.Feat)));
             if (s.Asi is LevelUp.AsiMode.Plus2 or LevelUp.AsiMode.Plus1x2)
                 foreach (string a in AbilityNames.All)
                 {
@@ -629,8 +629,8 @@ public class LevelUpDisplay
 
         if (s.Gains.Count > 0)
         {
-            Section(L.T("ПОЛУЧЕНО"));
-            // Пункт для просмотра (описание и карточка заклинания справа), не выбор.
+            Section(L.T("GAINED"));
+            // An item to view (description and spell card on the right), not a choice.
             foreach (var g in s.Gains)
                 rows.Add(new("• " + g.Name, Fg, g.Description, () => { }, Spell: SpellOf(g.Name)));
         }
@@ -648,20 +648,20 @@ public class LevelUpDisplay
         }
         if (s.Gains.Count == 0 && !s.VisibleChoices.Any())
         {
-            Section(L.T("ПОЛУЧЕНО"));
-            Note(L.T("Новых умений на этом уровне нет."));
+            Section(L.T("GAINED"));
+            Note(L.T("No new features at this level."));
         }
         return rows;
     }
 
-    // Бросок кости хитов — один раз, со звуком кубика.
+    // Roll the hit die once, with the dice sound.
     private static void RollHp(LevelUp s)
     {
         s.RollHp(Random.Shared);
         _ = Sound.PlayDiceRoll();
     }
 
-    // ── Ввод ────────────────────────────────────────────────────────────────
+    // ── Input ───────────────────────────────────────────────────────────────
 
     private async Task<(ConsoleKeyInfo? key, string? click)?> WaitInput(int timeoutMs, string title, HeroDisplay heroDisplay)
     {
@@ -702,7 +702,7 @@ public class LevelUpDisplay
                 if (CardItemAt(c, heroDisplay) is { } item) return (null, "pin:" + item);
             }
             if (ConsoleMouseReader.TakeWheel(out _) is int notches and not 0) return (null, $"wheel:{notches}");
-            if (MouseUiHelper.ApplyPreparedPicture(_display)) return null;   // картинка предмета готова — перерисовать
+            if (MouseUiHelper.ApplyPreparedPicture(_display)) return null;   // the item picture is ready: redraw
             if (ConsoleMouseReader.TryReadKey() is { } key)
             {
                 if (!_frozen && key.Key is >= ConsoleKey.F1 and <= ConsoleKey.F5) return (null, "title:" + key.Key);
@@ -713,7 +713,7 @@ public class LevelUpDisplay
         }
     }
 
-    // Предмет инвентаря или заклинание на карточке под точкой: «inv:N» / «spell:N» (индекс как у HeroDisplay).
+    // The inventory item or spell on the sheet under the point: «inv:N» / «spell:N» (index as in HeroDisplay).
     private string? CardItemAt((short x, short y) p, HeroDisplay heroDisplay)
     {
         if (_display.CharacterSubTab == CharacterSubTab.Inventory)
@@ -735,7 +735,7 @@ public class LevelUpDisplay
         return null;
     }
 
-    // Клик по названию подвкладки карточки или стрелкам её страниц.
+    // Click on a sheet sub-tab name or its page arrows.
     private static string? CardClick((short x, short y) p, HeroDisplay heroDisplay)
     {
         var si = heroDisplay.SubTabInfo;

@@ -30,12 +30,12 @@ public class AnimationDragTests
                 world["id"] = worldId;
                 File.WriteAllText(Path.Combine(worldDir, "world.json"), world.ToJsonString());
             }
-            Navigation.MenuSelect(game.Pid, "ПРОДОЛЖИТЬ");
-            Assert.True(GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ КАРТА ←", 5000));
+            Navigation.MenuSelect(game.Pid, "CONTINUE");
+            Assert.True(GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ MAP ←", 5000));
             GameConsole.SendText(game.Pid, "wait");
             GameConsole.SendKey(game.Pid, ConsoleKey.Enter);
             Assert.True(GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount,
-                GameConsole.TitleReadWidth, "Ожидание", 2000));
+                GameConsole.TitleReadWidth, "Waiting", 2000));
 
             string requestPath = Path.Combine(game.RealStorageDir, "roll_request.json");
             if (rolling)
@@ -46,7 +46,7 @@ public class AnimationDragTests
                     modifiers = new[] { new { name = "test", value = 2 } }
                 }));
                 Assert.True(GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount,
-                    GameConsole.TitleReadWidth, "бросить", 2500));
+                    GameConsole.TitleReadWidth, "Space/Enter] roll", 2500));
                 GameConsole.SendKey(game.Pid, ConsoleKey.Spacebar);
                 Thread.Sleep(120);
             }
@@ -55,7 +55,7 @@ public class AnimationDragTests
             {
                 GameConsole.SendKey(game.Pid, ConsoleKey.F2);
                 Assert.True(GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth,
-                    "→ МИР ←", 1200));
+                    "→ WORLD ←", 1200));
                 GameConsole.SendMouseWheel(game.Pid, 45, 10, 3);
                 Thread.Sleep(150);
             }
@@ -69,7 +69,7 @@ public class AnimationDragTests
             if (rolling)
             {
                 Assert.True(GameConsole.WaitForAnyRowContainsAny(game.Pid, 0, GameConsole.ScanRowCount,
-                    GameConsole.TitleReadWidth, ["УСПЕХ", "ПРОВАЛ"], 7000) != null,
+                    GameConsole.TitleReadWidth, ["SUCCESS", "FAILURE"], 7000) != null,
                     "Dragging interrupted the dice result.");
             }
         }

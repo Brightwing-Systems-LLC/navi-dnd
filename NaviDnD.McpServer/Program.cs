@@ -15,13 +15,13 @@ string? logPath = args
     .Skip(1)
     .FirstOrDefault();
 
-// Инструменты use_reaction/roll_dice ждут ответа игрока через диалоговое окно (DialogDisplay).
-// Для действий без такого UI (CreateNewGame, StartNewGame) клиент передаёт --no-interactive,
-// иначе они просто виснут до таймаута.
+// The use_reaction/roll_dice tools wait for the player's answer through the dialog window (DialogDisplay).
+// For actions without such a UI (CreateNewGame, StartNewGame) the client passes --no-interactive,
+// otherwise they just hang until the timeout.
 bool interactive = !args.Contains("--no-interactive");
 
-// --tools a,b,c — отдавать клиенту только эти инструменты (у Claude CLI это делает --allowedTools; у других
-// клиентов, например Codex CLI, такого флага может не быть — тогда фильтр здесь, на стороне сервера).
+// --tools a,b,c — expose only these tools to the client (Claude CLI does this with --allowedTools; other
+// clients, e.g. Codex CLI, may have no such flag — then the filter is here, on the server side).
 string? toolsArg = args.SkipWhile(a => a != "--tools").Skip(1).FirstOrDefault();
 HashSet<string>? allowedTools = toolsArg == null ? null
     : [.. toolsArg.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
@@ -29,12 +29,12 @@ HashSet<string>? allowedTools = toolsArg == null ? null
 if (!File.Exists(worldStatePath))
     throw new FileNotFoundException($"worldState.json not found: {worldStatePath}");
 
-// Язык игры (поле language сохранения): названия из справочников и генератора — на нём, как пишет мастер.
+// The game's language (the save's language field): names from the catalogs and the generator are in it, as the DM writes.
 try
 {
     NaviDnD.L.SetWorld(System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(worldStatePath))?["language"]?.GetValue<string>());
 }
-catch { /* не прочиталось — русский */ }
+catch { /* unreadable — keep the default language */ }
 
 var builder = Host.CreateApplicationBuilder(Array.Empty<string>());
 

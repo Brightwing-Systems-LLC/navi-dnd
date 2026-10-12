@@ -2,9 +2,9 @@ using System.Runtime.InteropServices;
 
 namespace NaviDnD.Helpers;
 
-// Стандартное окно Windows «Открыть файл» (comdlg32 GetOpenFileNameW) — без WinForms: подключение
-// WinForms сменило бы целевую платформу проекта (net9.0-windows) и пути сборки, от которых зависят
-// MCP-сервер и UI-тесты. Окно показывается в отдельном STA-потоке поверх окна консоли.
+// The standard Windows "Open file" dialog (comdlg32 GetOpenFileNameW) — without WinForms: referencing
+// WinForms would change the project's target platform (net9.0-windows) and the build paths that the
+// MCP server and UI tests depend on. The dialog is shown on a separate STA thread above the console window.
 public static class FileDialog
 {
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -43,7 +43,7 @@ public static class FileDialog
     private const int OFN_FILEMUSTEXIST = 0x00001000, OFN_PATHMUSTEXIST = 0x00000800, OFN_EXPLORER = 0x00080000,
         OFN_NOCHANGEDIR = 0x00000008;
 
-    // Путь к выбранному файлу или null (отмена). filter — пары «описание\0маски» через \0.
+    // Path to the chosen file, or null (cancelled). filter is "description\0masks" pairs separated by \0.
     public static string? OpenFile(string title, string filter)
     {
         string? result = null;

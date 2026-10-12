@@ -3,45 +3,45 @@ using Xunit.Abstractions;
 
 namespace NaviDnD.PromptTests;
 
-// РЕАЛЬНЫЕ вызовы Claude — см. класс SendActionPromptTests для общих правил (платно, медленно,
-// запускать редко и осознанно). Сценарии боя проверяют § БОЙ из systemPrompt.md, в частности
-// пункт 10 самопроверки промпта: финальная запись хода врагов ОБЯЗАНА вернуть ход герою,
-// продвинуть раунд и сбросить действия/скорость — если промпт это перестанет делать, тест упадёт.
+// REAL Claude calls — see the SendActionPromptTests class for the general rules (costly, slow,
+// run rarely and deliberately). The combat scenarios check § COMBAT from systemPrompt.md, in particular
+// item 10 of the prompt's self-check: the final entry of the enemies' turn MUST hand the turn back to the hero,
+// advance the round and reset actions/speed — if the prompt stops doing this, the test fails.
 public class CombatPromptTests
 {
     private readonly ITestOutputHelper _output;
 
     public CombatPromptTests(ITestOutputHelper output) => _output = output;
 
-    // Тот же сценарий, что и NaviDnD.UiTests.OpportunityAttackScenarioTests — герой отступает из
-    // клетки, смежной с орком, во время боя → триггер opportunity_attack_on_hero (существо атакует
-    // героя само, без ask_player — "это не выбор героя", см. промпт).
+    // The same scenario as NaviDnD.UiTests.OpportunityAttackScenarioTests — the hero moves away from
+    // a cell adjacent to the orc during combat → the opportunity_attack_on_hero trigger (the creature attacks
+    // the hero on its own, without ask_player — "this is not the hero's choice", see the prompt).
     [Fact]
     public async Task OpportunityAttackOnHero_ResolvesWithoutAskingPlayer()
     {
         var storage = PromptScenario.LoadUiTestFixture("opportunity_attack_game.json");
-        var orc = storage.WorldState.Map.Entities![0]; // "Орк"
+        var orc = storage.WorldState.Map.Entities![0]; // "Orc"
 
         var ctx = new AiContextBuilder(storage.WorldState);
         string userMessage = ctx.TriggerState([(orc, "opportunity_attack_on_hero")], [], []);
 
-        // Автоответчик — подстраховка: промпт явно запрещает ask_player для этого триггера, но если
-        // модель всё же его вызовет, тест не должен зависнуть на реальный таймаут MCP (50с).
+        // The auto-responder is a safety net: the prompt explicitly forbids ask_player for this trigger, but if
+        // the model calls it anyway, the test must not hang until the real MCP timeout (50s).
         var result = await PromptScenario.CallRealAiWithAutoAnswersAsync("Dnd5e", "SendAction", storage, userMessage);
-        _output.WriteLine("Ответ модели:\n" + result.RawResponse);
+        _output.WriteLine("Model response:\n" + result.RawResponse);
 
-        Assert.False(result.AskPlayerTriggered, "Промпт явно запрещает ask_player для opportunity_attack_on_hero — это не выбор героя.");
+        Assert.False(result.AskPlayerTriggered, "The prompt explicitly forbids ask_player for opportunity_attack_on_hero — it's not the hero's choice.");
 
         var parsed = PromptScenario.ApplyAndParse(storage, result.RawResponse);
-        Assert.True(parsed.HistoryTexts.Count > 0, "Атака по возможности должна быть описана в history.");
+        Assert.True(parsed.HistoryTexts.Count > 0, "The opportunity attack must be described in history.");
         Assert.Contains(parsed.HistoryTexts, t => t.Contains('[') && t.Contains(']'));
 
         PromptScenario.RecordAsMock(result.RawResponse, mockResponsesFolder: "OpportunityAttack", action: "SendAction");
     }
 
-    // Тот же сценарий, что и NaviDnD.UiTests.EnemyTurnBehaviorScenarioTests — ход гоблина
-    // (CombatTurnState). Проверяет пункт 10 самопроверки промпта: финальная запись ОБЯЗАНА вернуть
-    // ход герою, продвинуть раунд и сбросить действия/скорость героя на максимум.
+    // The same scenario as NaviDnD.UiTests.EnemyTurnBehaviorScenarioTests — a goblin's turn
+    // (CombatTurnState). Checks item 10 of the prompt's self-check: the final entry MUST hand the
+    // turn back to the hero, advance the round and reset the hero's actions/speed to maximum.
     [Fact]
     public async Task EnemyTurn_FinalEntryHandsControlBackToHero()
     {
@@ -53,19 +53,19 @@ public class CombatPromptTests
         string userMessage = ctx.CombatTurnState();
 
         var result = await PromptScenario.CallRealAiWithAutoAnswersAsync("Dnd5e", "SendAction", storage, userMessage);
-        _output.WriteLine("Ответ модели:\n" + result.RawResponse);
+        _output.WriteLine("Model response:\n" + result.RawResponse);
 
         var parsed = PromptScenario.ApplyAndParse(storage, result.RawResponse);
-        Assert.True(parsed.HistoryTexts.Count > 0, "Ход врага должен быть описан в history.");
+        Assert.True(parsed.HistoryTexts.Count > 0, "The enemy's turn must be described in history.");
 
         Assert.Equal(heroSymbol, storage.WorldState.Combat?.CurrentTurn);
         Assert.True(storage.WorldState.Time.TotalRounds > initialRound,
-            $"Раунд должен был продвинуться: было {initialRound}, стало {storage.WorldState.Time.TotalRounds}.");
+            $"The round should have advanced: was {initialRound}, now {storage.WorldState.Time.TotalRounds}.");
 
         var actions = storage.WorldState.Hero!.Actions ?? [];
-        Assert.True(actions.Count > 0, "У героя должны остаться действия (Действие/Бон.действие/Реакция).");
+        Assert.True(actions.Count > 0, "The hero must still have actions (Action/Bonus action/Reaction).");
         Assert.All(actions.Where(a => a.Deleted != true), a =>
-            Assert.True(a.Value == a.MaxValue, $"Действие «{a.Name}» должно быть сброшено на максимум: value={a.Value}, maxValue={a.MaxValue}."));
+            Assert.True(a.Value == a.MaxValue, $"Action \"{a.Name}\" must be reset to maximum: value={a.Value}, maxValue={a.MaxValue}."));
         Assert.Equal(storage.WorldState.Hero.SpeedMax, storage.WorldState.Hero.SpeedLeft);
 
         PromptScenario.RecordAsMock(result.RawResponse, mockResponsesFolder: "EnemyAttack", action: "SendAction");

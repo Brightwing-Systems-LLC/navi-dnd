@@ -11,7 +11,7 @@ public class StorageApplyUpdateTests
         s.WorldState.Hero = new Hero
         {
             Symbol = "HRO",
-            Name = "Герой",
+            Name = "Hero",
             Position = [1, 1],
             Inventory = [],
             Abilities = [],
@@ -37,8 +37,8 @@ public class StorageApplyUpdateTests
     public void UpdatesHeroName()
     {
         var storage = MakeStorage();
-        storage.ApplyUpdateWorldState("""{"hero":{"name":"Арагорн"}}""");
-        Assert.Equal("Арагорн", storage.WorldState.Hero!.Name);
+        storage.ApplyUpdateWorldState("""{"hero":{"name":"Aragorn"}}""");
+        Assert.Equal("Aragorn", storage.WorldState.Hero!.Name);
     }
 
     [Fact]
@@ -64,8 +64,8 @@ public class StorageApplyUpdateTests
     public void UpdatesPartOfDay()
     {
         var storage = MakeStorage();
-        storage.ApplyUpdateWorldState("""{"time":{"partOfDay":"Полдень"}}""");
-        Assert.Equal("Полдень", storage.WorldState.Time.PartOfDay);
+        storage.ApplyUpdateWorldState("""{"time":{"partOfDay":"Twilight"}}""");
+        Assert.Equal("Twilight", storage.WorldState.Time.PartOfDay);
     }
 
     // ── History ───────────────────────────────────────────────────────────────
@@ -74,10 +74,10 @@ public class StorageApplyUpdateTests
     public void AppendsHistory()
     {
         var storage = MakeStorage();
-        storage.WorldState.History = [new DialogMessage { Text = "Начало" }];
-        storage.ApplyUpdateWorldState("""{"history":[{"text":"Продолжение"}]}""");
+        storage.WorldState.History = [new DialogMessage { Text = "Beginning" }];
+        storage.ApplyUpdateWorldState("""{"history":[{"text":"Continuation"}]}""");
         Assert.Equal(2, storage.WorldState.History.Count);
-        Assert.Equal("Продолжение", storage.WorldState.History[1].Text);
+        Assert.Equal("Continuation", storage.WorldState.History[1].Text);
     }
 
     // ── PatchByIndex — Inventory ──────────────────────────────────────────────
@@ -87,10 +87,10 @@ public class StorageApplyUpdateTests
     {
         var storage = MakeStorage();
         storage.ApplyUpdateWorldState("""
-            {"hero":{"inventory":[{"name":"Меч","description":"Длинный меч","quantity":1,"color":[200,200,200]}]}}
+            {"hero":{"inventory":[{"name":"Sword","description":"Longsword","quantity":1,"color":[200,200,200]}]}}
             """);
         Assert.Single(storage.WorldState.Hero!.Inventory);
-        Assert.Equal("Меч", storage.WorldState.Hero.Inventory[0].Name);
+        Assert.Equal("Sword", storage.WorldState.Hero.Inventory[0].Name);
     }
 
     [Fact]
@@ -99,13 +99,13 @@ public class StorageApplyUpdateTests
         var storage = MakeStorage();
         storage.WorldState.Hero!.Inventory =
         [
-            new HeroInventory { Name = "Меч", Description = "Стандартный", Quantity = 1, Color = [200, 200, 200] }
+            new HeroInventory { Name = "Sword", Description = "Standard", Quantity = 1, Color = [200, 200, 200] }
         ];
 
         storage.ApplyUpdateWorldState("""{"hero":{"inventory":[{"id":0,"quantity":3}]}}""");
 
         Assert.Single(storage.WorldState.Hero.Inventory);
-        Assert.Equal("Меч", storage.WorldState.Hero.Inventory[0].Name); // name preserved
+        Assert.Equal("Sword", storage.WorldState.Hero.Inventory[0].Name); // name preserved
         Assert.Equal(3, storage.WorldState.Hero.Inventory[0].Quantity);  // quantity updated
     }
 
@@ -115,14 +115,14 @@ public class StorageApplyUpdateTests
         var storage = MakeStorage();
         storage.WorldState.Hero!.Inventory =
         [
-            new HeroInventory { Name = "Меч", Description = "Длинный меч", Quantity = 1, Color = [200, 200, 200] },
-            new HeroInventory { Name = "Щит", Description = "Деревянный", Quantity = 1, Color = [150, 100, 50] }
+            new HeroInventory { Name = "Sword", Description = "Longsword", Quantity = 1, Color = [200, 200, 200] },
+            new HeroInventory { Name = "Shield", Description = "Wooden", Quantity = 1, Color = [150, 100, 50] }
         ];
 
         storage.ApplyUpdateWorldState("""{"hero":{"inventory":[{"id":0,"deleted":true}]}}""");
 
         Assert.Single(storage.WorldState.Hero.Inventory);
-        Assert.Equal("Щит", storage.WorldState.Hero.Inventory[0].Name);
+        Assert.Equal("Shield", storage.WorldState.Hero.Inventory[0].Name);
     }
 
     [Fact]
@@ -131,15 +131,15 @@ public class StorageApplyUpdateTests
         var storage = MakeStorage();
         storage.WorldState.Hero!.Inventory =
         [
-            new HeroInventory { Name = "Меч", Description = "d", Quantity = 1, Color = [200, 200, 200] }
+            new HeroInventory { Name = "Sword", Description = "d", Quantity = 1, Color = [200, 200, 200] }
         ];
 
         storage.ApplyUpdateWorldState("""
-            {"hero":{"inventory":[{"id":99,"name":"Лук","description":"d","quantity":1,"color":[100,100,100]}]}}
+            {"hero":{"inventory":[{"id":99,"name":"Bow","description":"d","quantity":1,"color":[100,100,100]}]}}
             """);
 
         Assert.Equal(2, storage.WorldState.Hero.Inventory.Count);
-        Assert.Equal("Лук", storage.WorldState.Hero.Inventory[1].Name);
+        Assert.Equal("Bow", storage.WorldState.Hero.Inventory[1].Name);
     }
 
     // ── PatchByIndex — Effects ────────────────────────────────────────────────
@@ -149,10 +149,10 @@ public class StorageApplyUpdateTests
     {
         var storage = MakeStorage();
         storage.ApplyUpdateWorldState("""
-            {"hero":{"effects":[{"name":"Яд","expiresAtRound":10}]}}
+            {"hero":{"effects":[{"name":"Poison","expiresAtRound":10}]}}
             """);
         Assert.Single(storage.WorldState.Hero!.Effects!);
-        Assert.Equal("Яд", storage.WorldState.Hero.Effects![0].Name);
+        Assert.Equal("Poison", storage.WorldState.Hero.Effects![0].Name);
         Assert.Equal(10, storage.WorldState.Hero.Effects![0].ExpiresAtRound);
     }
 
@@ -162,13 +162,13 @@ public class StorageApplyUpdateTests
         var storage = MakeStorage();
         storage.WorldState.Hero!.Effects =
         [
-            new StatusEffect { Name = "Яд", ExpiresAtRound = 10 }
+            new StatusEffect { Name = "Poison", ExpiresAtRound = 10 }
         ];
 
         storage.ApplyUpdateWorldState("""{"hero":{"effects":[{"id":0,"expiresAtRound":15}]}}""");
 
         Assert.Single(storage.WorldState.Hero.Effects!);
-        Assert.Equal("Яд", storage.WorldState.Hero.Effects![0].Name);
+        Assert.Equal("Poison", storage.WorldState.Hero.Effects![0].Name);
         Assert.Equal(15, storage.WorldState.Hero.Effects![0].ExpiresAtRound);
     }
 
@@ -178,14 +178,14 @@ public class StorageApplyUpdateTests
         var storage = MakeStorage();
         storage.WorldState.Hero!.Effects =
         [
-            new StatusEffect { Name = "Яд", ExpiresAtRound = 10 },
-            new StatusEffect { Name = "Благословение", ExpiresAtRound = 20 }
+            new StatusEffect { Name = "Poison", ExpiresAtRound = 10 },
+            new StatusEffect { Name = "Bless", ExpiresAtRound = 20 }
         ];
 
         storage.ApplyUpdateWorldState("""{"hero":{"effects":[{"id":0,"deleted":true}]}}""");
 
         Assert.Single(storage.WorldState.Hero.Effects!);
-        Assert.Equal("Благословение", storage.WorldState.Hero.Effects![0].Name);
+        Assert.Equal("Bless", storage.WorldState.Hero.Effects![0].Name);
     }
 
     // ── Nested effects (map.entities[i].effects, patched by id like hero.effects) ──
@@ -195,18 +195,18 @@ public class StorageApplyUpdateTests
     {
         var storage = MakeStorage();
         storage.ApplyUpdateWorldState("""
-            {"map":{"entities":[{"symbol":"ORC","name":"Орк","position":[2,2],"effects":[{"name":"Патрулирует"}]}]}}
+            {"map":{"entities":[{"symbol":"ORC","name":"Orc","position":[2,2],"effects":[{"name":"Patrolling"}]}]}}
             """);
 
         // add a second effect to the same (already-existing) entity by patching just "effects"
         storage.ApplyUpdateWorldState("""
-            {"map":{"entities":[{"id":0,"effects":[{"name":"Горит","expiresAtRound":12}]}]}}
+            {"map":{"entities":[{"id":0,"effects":[{"name":"Burning","expiresAtRound":12}]}]}}
             """);
 
         var effects = storage.WorldState.Map.Entities![0].Effects!;
         Assert.Equal(2, effects.Count);
-        Assert.Equal("Патрулирует", effects[0].Name);
-        Assert.Equal("Горит", effects[1].Name);
+        Assert.Equal("Patrolling", effects[0].Name);
+        Assert.Equal("Burning", effects[1].Name);
         Assert.Equal(12, effects[1].ExpiresAtRound);
     }
 
@@ -215,8 +215,8 @@ public class StorageApplyUpdateTests
     {
         var storage = MakeStorage();
         storage.ApplyUpdateWorldState("""
-            {"map":{"entities":[{"symbol":"ORC","name":"Орк","position":[2,2],
-              "effects":[{"name":"Яд","expiresAtRound":10},{"name":"Горит","expiresAtRound":12}]}]}}
+            {"map":{"entities":[{"symbol":"ORC","name":"Orc","position":[2,2],
+              "effects":[{"name":"Poison","expiresAtRound":10},{"name":"Burning","expiresAtRound":12}]}]}}
             """);
 
         storage.ApplyUpdateWorldState("""
@@ -225,7 +225,7 @@ public class StorageApplyUpdateTests
 
         var effects = storage.WorldState.Map.Entities![0].Effects!;
         Assert.Single(effects);
-        Assert.Equal("Яд", effects[0].Name);
+        Assert.Equal("Poison", effects[0].Name);
         Assert.Equal(15, effects[0].ExpiresAtRound);
     }
 
@@ -236,10 +236,10 @@ public class StorageApplyUpdateTests
     {
         var storage = MakeStorage();
         storage.ApplyUpdateWorldState("""
-            {"scheduledEvents":[{"name":"Взрыв","fireAtRound":15,"effect":"Бомба взрывается"}]}
+            {"scheduledEvents":[{"name":"Explosion","fireAtRound":15,"effect":"The bomb explodes"}]}
             """);
         Assert.Single(storage.WorldState.ScheduledEvents!);
-        Assert.Equal("Взрыв", storage.WorldState.ScheduledEvents![0].Name);
+        Assert.Equal("Explosion", storage.WorldState.ScheduledEvents![0].Name);
     }
 
     [Fact]
@@ -258,14 +258,14 @@ public class StorageApplyUpdateTests
         var storage = MakeStorage();
         storage.WorldState.ScheduledEvents =
         [
-            new ScheduledEvent { Name = "Взрыв", FireAtRound = 10, Effect = "Бомба" },
-            new ScheduledEvent { Name = "Враги", FireAtRound = 20, Effect = "Подкрепление" }
+            new ScheduledEvent { Name = "Explosion", FireAtRound = 10, Effect = "Bomb" },
+            new ScheduledEvent { Name = "Enemies", FireAtRound = 20, Effect = "Reinforcements" }
         ];
 
         storage.ApplyUpdateWorldState("""{"scheduledEvents":[{"id":0,"deleted":true}]}""");
 
         Assert.Single(storage.WorldState.ScheduledEvents!);
-        Assert.Equal("Враги", storage.WorldState.ScheduledEvents![0].Name);
+        Assert.Equal("Enemies", storage.WorldState.ScheduledEvents![0].Name);
     }
 
     // ── MergeInto — partial update preserves other fields ────────────────────
@@ -276,15 +276,15 @@ public class StorageApplyUpdateTests
         var storage = MakeStorage();
         storage.WorldState.Hero!.Inventory =
         [
-            new HeroInventory { Name = "Меч", Description = "Длинный меч", Quantity = 5, Color = [200, 200, 200] }
+            new HeroInventory { Name = "Sword", Description = "Longsword", Quantity = 5, Color = [200, 200, 200] }
         ];
 
         // Update only quantity, description should survive
         storage.ApplyUpdateWorldState("""{"hero":{"inventory":[{"id":0,"quantity":2}]}}""");
 
         var item = storage.WorldState.Hero.Inventory[0];
-        Assert.Equal("Меч", item.Name);
-        Assert.Equal("Длинный меч", item.Description);
+        Assert.Equal("Sword", item.Name);
+        Assert.Equal("Longsword", item.Description);
         Assert.Equal(2, item.Quantity);
     }
 
@@ -294,8 +294,8 @@ public class StorageApplyUpdateTests
     public void UpdatesNarrativeWorld()
     {
         var storage = MakeStorage();
-        storage.ApplyUpdateWorldState("""{"narrative":{"world":"Тёмное фэнтези"}}""");
-        Assert.Equal("Тёмное фэнтези", storage.WorldState.Narrative!.World);
+        storage.ApplyUpdateWorldState("""{"narrative":{"world":"Dark fantasy"}}""");
+        Assert.Equal("Dark fantasy", storage.WorldState.Narrative!.World);
     }
 
     [Fact]
@@ -304,10 +304,10 @@ public class StorageApplyUpdateTests
         var storage = MakeStorage();
         storage.WorldState.Narrative = new Narrative { PlotThreads = [] };
         storage.ApplyUpdateWorldState("""
-            {"narrative":{"plotThreads":[{"name":"Заговор","status":"активна","description":"Тайный орден"}]}}
+            {"narrative":{"plotThreads":[{"name":"Conspiracy","status":"active","description":"A secret order"}]}}
             """);
         Assert.Single(storage.WorldState.Narrative.PlotThreads!);
-        Assert.Equal("Заговор", storage.WorldState.Narrative.PlotThreads![0].Name);
+        Assert.Equal("Conspiracy", storage.WorldState.Narrative.PlotThreads![0].Name);
     }
 
     // ── Map ───────────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 {
   "history": [
-    { "text": "Пламя на рукаве наконец гаснет, оставляя последний ожог. [Эффект «Горящий» истёк: 1 урон огнём. HRO: hp 9→8]" }
+    { "text": "The flames on your sleeve finally go out, leaving one last burn. [Effect «Burning» expired: 1 fire damage. HRO: hp 9→8]" }
   ],
   "hero": { "hp": "8/10", "effects": [{ "id": 0, "deleted": true }] }
 }

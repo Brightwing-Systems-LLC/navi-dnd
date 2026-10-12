@@ -1,11 +1,11 @@
 {
     "name":  "NaviDnD 2.2.3",
     "tag_name":  "v2.2.3",
-    "description":  "# NaviDnD 2.2.3\n\n- Исправлено: повторные клики по ярлыку, пока игра запускалась, открывали несколько копий игры сразу — с озвучкой это могло занять всю память компьютера. Теперь игра всегда одна: новый запуск выводит вперёд окно уже открытой игры.\n- Окно игры при запуске всегда появляется поверх остальных, а не позади них.\n- Настройки консоли Windows при одновременных запусках больше не меняются.\n\nОбновление распространяется патчем; сохранения и настройки сохраняются.\n\n## English\n\n- Fixed: clicking the shortcut again while the game was starting opened several copies at once — with voice-over this could take up all of the computer\u0027s memory. Now only one copy runs: launching again brings the open game window to the front.\n- The game window now always opens on top of other windows, not behind them.\n- Windows console settings are no longer changed by simultaneous launches.\n\nThe update is delivered as a patch; saves and settings are kept.\n",
+    "description":  "# NaviDnD 2.2.3\n\n- Fixed: clicking the shortcut again while the game was starting opened several copies at once — with voice-over this could take up all of the computer\u0027s memory. Now only one copy runs: launching again brings the open game window to the front.\n- The game window now always opens on top of other windows, not behind them.\n- Windows console settings are no longer changed by simultaneous launches.\n\nThe update is delivered as a patch; saves and settings are kept.\n",
     "assets":  {
                    "links":  [
                                  {
-                                     "name":  "📦 Скачать NaviDnD (все файлы установки)",
+                                     "name":  "📦 Download NaviDnD (all setup files)",
                                      "url":  "https://gitlab.com/navitalevich/navi-dnd/-/archive/v2.2.3/navi-dnd-v2.2.3-releases.zip?path=releases",
                                      "link_type":  "package"
                                  },

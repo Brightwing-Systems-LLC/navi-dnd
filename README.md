@@ -1,39 +1,54 @@
 # 🐉 NaviDnD
 
-**Русский** · [English](README.en.md)
+**A tabletop RPG where the Dungeon Master is an AI.**
+Create a hero, explore the world and fight on a tactical map. The DM runs the story, plays the characters and keeps the D&D 5e rules.
 
-**Настольная ролевая игра, где мастер — нейросеть.**
-Создай героя, исследуй мир и сражайся на тактической карте. Мастер ведёт историю, отыгрывает персонажей и следит за правилами D&D 5e.
+## About this fork
 
-### [⬇️ Скачать последнюю версию](https://gitlab.com/navitalevich/navi-dnd/-/releases/permalink/latest)
+This is an English translation fork of [NaviDnD](https://github.com/AlexandrNemashkalo/navi-dnd), created by its original author ([navitalevich1 on GitLab](https://gitlab.com/navitalevich1), [original releases](https://gitlab.com/navitalevich/navi-dnd/-/releases)). The fork is maintained by Brightwing Systems.
 
-[Все релизы](https://gitlab.com/navitalevich/navi-dnd/-/releases) · [Что нового](RELEASE_NOTES.md) · Windows x64
+- The whole project — code, AI prompts and documentation — has been translated to English. English is now the source and default language; Russian is kept as an optional translation (`NaviDnD.Data/Localization/ru.json`), selectable in Settings.
+- The game remains under the original author's non-commercial license: [LICENSE](LICENSE) (governing, in Russian) and [LICENSE.en.md](LICENSE.en.md) (unofficial English translation).
+- Remaining limitation: in the bestiary (`GameData/DnD5e_monsters_BD.dtn`) only monster names have English versions; the lore and stat-block text (traits, actions) is still Russian-only.
 
-![Ход в бою: действие, бросок кубика, рассказ мастера](docs/media/g4_combat_turn.gif)
+### [⬇️ Download the latest version](https://gitlab.com/navitalevich/navi-dnd/-/releases/permalink/latest)
 
-| Честный бросок с помехой | Карта мира |
+[All releases](https://gitlab.com/navitalevich/navi-dnd/-/releases) · [What's new](RELEASE_NOTES.md) · Windows x64
+
+![A combat turn: the hero tries to intimidate goblins, rolls the d20 on screen, the DM narrates the result](docs/media/en/combat_turn.gif)
+
+| Your roll, not the AI's | World map |
 | --- | --- |
-| ![Бросок с помехой](docs/media/07_dice_disadvantage.png) | ![Карта мира](docs/media/09_world_map.png) |
+| ![Intimidation check: d20 roll against DC 13](docs/media/en/dice_roll.png) | ![World map with regions and the hero's location](docs/media/en/world_map.png) |
+
+**Leveling up** — pick hit points, subclass and spells; the character sheet shows every change in gold before you accept.
+
+![Level up: the druid chooses a circle, changes are highlighted on the character sheet](docs/media/en/level_up.gif)
+
+| Character sheet | Spell card from the manual |
+| --- | --- |
+| ![Character sheet](docs/media/en/character_sheet.png) | ![Thunderwave spell card](docs/media/en/spell_card.png) |
 
 ---
 
-## ✨ Что внутри
+## ✨ Features
 
-- 🎲 **ИИ-мастер** — Claude или OpenAI Codex ведут игру по правилам D&D 5e
-- 🗺️ **Тактическая карта и карта мира** — бои по клеткам и путешествия между локациями
-- 📜 **Журнал и лист персонажа** — всё о герое и приключении под рукой
-- 🌐 **Русский или английский** — интерфейс, рассказ и названия; выбирается в настройках
-- 🔊 **Озвучка** — рассказчик читает реплики вслух, работает без интернета
-- 🔄 **Автообновления** — игра сама скачивает только изменённые файлы
+- 🎲 **AI Dungeon Master** — Claude or OpenAI Codex runs the game by the D&D 5e rules
+- 🗺️ **Tactical and world maps** — grid combat and travel between locations
+- 📜 **Journal and character sheet** — everything about your hero and adventure at hand
+- ⬆️ **Experience and levels** — the DM awards XP, you choose how your hero grows
+- 🌐 **English or Russian** — interface, story and generated names; choose in Settings
+- 🔊 **Voice-over** — the narrator reads lines aloud, offline
+- 🔄 **Auto-updates** — the game downloads only changed files
 
-## 🚀 Как начать
+## 🚀 Getting started
 
-1. Скачай установщик по ссылке выше и запусти его.
-2. Войди в [Claude Code](https://code.claude.com/docs/en/quickstart) или [Codex CLI](https://developers.openai.com/codex/cli) — игра найдёт их сама.
-3. Нажми **Новая игра** и создай персонажа.
+1. Download the installer from the link above and run it.
+2. Sign in to [Claude Code](https://code.claude.com/docs/en/quickstart) or [Codex CLI](https://developers.openai.com/codex/cli) — the game finds them itself.
+3. Choose **New game** and create a character. To play in Russian, set **LANGUAGE** in **Settings** first.
 
 ---
 
-Для разработчиков: [сборка, тесты и релизы](docs/development.md).
+For developers: [build, tests and releases](docs/development.md).
 
-**Лицензия:** бесплатно для некоммерческого использования с сохранением авторства. Продажа и коммерческое использование — только с письменного разрешения автора. Подробнее — [LICENSE](LICENSE).
+**License:** free for non-commercial use with attribution. Selling or commercial use only with the author's written permission. Details — [LICENSE](LICENSE) ([unofficial English translation](LICENSE.en.md)).

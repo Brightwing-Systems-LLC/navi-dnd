@@ -5,7 +5,7 @@
     "colors": { "mapBackground": [18, 18, 22], "mapForeground": [200, 190, 160] },
     "rooms": [
       {
-        "name": "Тестовая комната",
+        "name": "Test Room",
         "color": [90, 65, 40],
         "positions": [[2,2],[3,2],[4,2],[2,3],[3,3],[4,3],[2,4],[3,4],[4,4]]
       }
@@ -13,26 +13,26 @@
     "doors": [],
     "area": [],
     "entities": [
-      { "symbol": "NPC", "position": [4, 2], "name": "Тестовый нпс", "state": "стоит", "color": [200, 50, 50] }
+      { "symbol": "NPC", "position": [4, 2], "name": "Test NPC", "state": "standing", "color": [200, 50, 50] }
     ],
     "objects": [
-      { "symbol": "[C]", "position": [2, 4], "name": "Тестовый сундук", "state": "закрыт", "color": [139, 90, 43] }
+      { "symbol": "[C]", "position": [2, 4], "name": "Test Chest", "state": "closed", "color": [139, 90, 43] }
     ]
   },
   "hero": {
     "position": [3, 3]
   },
   "narrative": {
-    "world": "Тестовый мир для e2e-проверки создания новой игры.",
-    "currentArc": "Тестовая арка",
+    "world": "A test world for the new game creation e2e check.",
+    "currentArc": "Test arc",
     "plotThreads": [
-      { "name": "Тестовая сюжетная линия", "status": "активна", "description": "Проверка создания новой игры в e2e-тесте." }
+      { "name": "Test Storyline", "status": "active", "description": "Checking new game creation in the e2e test." }
     ],
     "npcs": [
-      { "name": "Тестовый нпс", "attitude": "нейтральный", "notes": "Мок-нпс для e2e-теста." }
+      { "name": "Test NPC", "attitude": "neutral", "notes": "Mock NPC for the e2e test." }
     ]
   },
   "history": [
-    { "text": "Test Hero начинает приключение в тестовой комнате." }
+    { "text": "Test Hero begins the adventure in the test room." }
   ]
 }

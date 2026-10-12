@@ -6,17 +6,17 @@ public class LivingEntity : CellEntity
     public int? SpeedMax { get; set; }
     public int? SpeedLeft { get; set; }
     /// <summary>
-    /// Дальность зрения в футах для обнаружения героя.
-    /// -1 = без ограничений, 0 = слепой, null = стандарт 30ft, >0 = радиус в футах (1 клетка = 5 фут).
+    /// Sight range in feet for spotting the hero.
+    /// -1 = unlimited, 0 = blind, null = the default 30 ft, >0 = radius in feet (1 cell = 5 ft).
     /// </summary>
     public int? VisionFt { get; set; }
 
-    // Дальность зрения в темноте. В неосвещённой клетке существо видит героя только в её пределах.
-    // null — не задано (темнота не учитывается, как в старых сейвах), 0 — в темноте не видит.
+    // Darkvision range. In an unlit cell the creature sees the hero only within this range.
+    // null — not set (darkness is ignored, as in old saves), 0 — can't see in darkness.
     public int? DarkvisionFt { get; set; }
 
-    // Ссылка на вид в MonsterDatabase (GameData/DnD5e_monsters_BD.dtn), например "Гоблин" — НЕ полный
-    // statblock (по аналогии с HeroSpell.Name → SpellDatabase). Полные статы движок сам достаёт из
-    // базы по этому ключу. Только для враждебных существ карты — у героя/NPC не используется.
+    // A reference to a kind in MonsterDatabase (GameData/DnD5e_monsters_BD.dtn), e.g. "Goblin" — NOT a full
+    // statblock (like HeroSpell.Name → SpellDatabase). The engine pulls the full stats from the
+    // database by this key itself. Only for hostile map creatures — not used for the hero/NPCs.
     public string? MonsterKey { get; set; }
 }

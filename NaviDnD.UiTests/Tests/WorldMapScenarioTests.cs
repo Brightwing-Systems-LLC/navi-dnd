@@ -2,20 +2,20 @@ using Xunit.Abstractions;
 
 namespace NaviDnD.UiTests;
 
-// E2E: карта мира ([F2] Мир) и местность ([F1] Карта). Fixtures/world_game.json — игра без тактической карты (герой в
-// деревне Ключи мира world-uitest, Fixtures/world_uitest.json: хроника — Эрдвальд, Лесогорье, столица Светлоград):
-// «Продолжить» открывает мир («@ Вы: Ключи»), вкладка Карта серая и по F1 не открывается, журнал [F8] «Локации» —
-// известные места, клик по столице — маршрут в легенде, [F10] — путешествие (ответ мастера — мок SendAction).
-// Встреча в пути случайна — проверяется, что герой ушёл из Ключей, а не куда именно пришёл.
+// E2E: the world map ([F2] World) and the local area ([F1] Map). Fixtures/world_game.json is a game without a tactical map (the hero is in
+// the village of Springs in world world-uitest, Fixtures/world_uitest.json: chronicle — Erdwald, Forestridge, the capital Brightburg):
+// "Continue" opens the world ("@ You: Springs"), the Map tab is gray and F1 does not open it, the journal's [F8] "Locations" —
+// known places, a click on the capital — a route in the legend, [F10] — travel (the DM's reply is the SendAction mock).
+// An encounter on the road is random — the test checks that the hero left Springs, not where exactly they arrived.
 public class WorldMapScenarioTests
 {
     private readonly ITestOutputHelper _output;
 
     public WorldMapScenarioTests(ITestOutputHelper output) => _output = output;
 
-    // Fixtures/world_location_game.json — та же игра в Ключах, но с тактической картой (подход + деревня по
-    // клетке мира, герой у входа снизу). F2 — мир, F1 — местность; шаг вниз через выход на карту мира — герой
-    // уходит в мир, локация сохраняется за Ключами (Worlds/<id>/locations), вкладка Карта становится серой.
+    // Fixtures/world_location_game.json is the same game in Springs, but with a tactical map (approach + village for the
+    // world cell, the hero at the bottom entrance). F2 — world, F1 — local area; a step down through the exit to the world map takes the hero
+    // out into the world, the location is saved for Springs (Worlds/<id>/locations), and the Map tab turns gray.
     [Fact]
     public void Location_F1TogglesWorld_StepOutThroughWorldExit_SavesLocation()
     {
@@ -25,28 +25,28 @@ public class WorldMapScenarioTests
         File.Copy(Path.Combine(AppContext.BaseDirectory, "Fixtures", "world_uitest.json"), Path.Combine(worldDir, "world.json"), overwrite: true);
         try
         {
-            Navigation.MenuSelect(game.Pid, "ПРОДОЛЖИТЬ");
-            Assert.True(GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ КАРТА ←", 5000), "Не открылась вкладка Карта.");
-            bool local = GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Время:", 5000);
+            Navigation.MenuSelect(game.Pid, "CONTINUE");
+            Assert.True(GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ MAP ←", 5000), "The Map tab did not open.");
+            bool local = GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Time:", 5000);
             if (!local) Dump(game.Pid);
-            Assert.True(local, "С тактической картой вкладка Карта должна открыться на местности (легенда «Время:»).");
+            Assert.True(local, "With a tactical map the Map tab should open on the local area (legend \"Time:\").");
 
             GameConsole.SendKey(game.Pid, ConsoleKey.F2);
-            Assert.True(GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Вы: Ключи", 5000),
-                "F2 не открыл мир.");
+            Assert.True(GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "You: Springs", 5000),
+                "F2 did not open the world.");
             GameConsole.SendKey(game.Pid, ConsoleKey.F1);
-            Assert.True(GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Время:", 5000),
-                "F1 не вернул местность.");
+            Assert.True(GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Time:", 5000),
+                "F1 did not return to the local area.");
             TestPacing.Step();
 
-            // Шаг наружу через выход на карту мира.
+            // Step out through the exit to the world map.
             GameConsole.SendKey(game.Pid, ConsoleKey.DownArrow);
-            bool left = GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Вы: Ключи", 6000);
+            bool left = GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "You: Springs", 6000);
             if (!left) Dump(game.Pid);
-            Assert.True(left, "Шаг через выход не увёл героя на карту мира.");
-            Assert.True(GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ МИР ←", 5000), "После выхода — не вкладка Мир.");
+            Assert.True(left, "Stepping through the exit did not take the hero to the world map.");
+            Assert.True(GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ WORLD ←", 5000), "After leaving — not the World tab.");
             Assert.True(Directory.Exists(Path.Combine(worldDir, "locations")) && Directory.GetFiles(Path.Combine(worldDir, "locations")).Length > 0,
-                "Локация не сохранилась за местом при выходе.");
+                "The location was not saved for the place on leaving.");
         }
         finally
         {
@@ -64,58 +64,58 @@ public class WorldMapScenarioTests
     public void NoLocation_ShowsWorld_JournalPlaces_TravelByClickAndF10()
     {
         using var game = GameSession.Launch(fixtureFileName: "world_game.json", mockedActions: ["SendAction"], mockResponsesFolder: "WorldTravel");
-        // Мир игры — в библиотеке миров рядом с сохранением; после теста убираем.
+        // The game's world lives in the world library next to the save; removed after the test.
         string worldDir = Path.Combine(game.RealStorageDir, "Worlds", "world-uitest");
         Directory.CreateDirectory(worldDir);
         File.Copy(Path.Combine(AppContext.BaseDirectory, "Fixtures", "world_uitest.json"), Path.Combine(worldDir, "world.json"), overwrite: true);
         try
         {
-            Navigation.MenuSelect(game.Pid, "ПРОДОЛЖИТЬ");
-            Assert.True(GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ МИР ←", 5000),
-                "Без тактической карты ПРОДОЛЖИТЬ должно открыть вкладку Мир.");
-            bool worldShown = GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Вы: Ключи", 5000);
+            Navigation.MenuSelect(game.Pid, "CONTINUE");
+            Assert.True(GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ WORLD ←", 5000),
+                "Without a tactical map CONTINUE should open the World tab.");
+            bool worldShown = GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "You: Springs", 5000);
             if (!worldShown) Dump(game.Pid);
-            Assert.True(worldShown, "Без тактической карты вкладка Карта должна показывать мир с героем («Вы: Ключи» в легенде).");
+            Assert.True(worldShown, "Without a tactical map the Map tab should show the world with the hero (\"You: Springs\" in the legend).");
             TestPacing.Step();
 
-            // Карта серая — F1 её не открывает.
+            // The Map tab is gray — F1 does not open it.
             GameConsole.SendKey(game.Pid, ConsoleKey.F1);
             Thread.Sleep(600);
-            Assert.Contains("→ МИР ←", GameConsole.ReadRow(game.Pid, 1, GameConsole.TitleReadWidth));
+            Assert.Contains("→ WORLD ←", GameConsole.ReadRow(game.Pid, 1, GameConsole.TitleReadWidth));
 
-            // Журнал → Локации: известные места.
+            // Journal → Locations: known places.
             GameConsole.SendKey(game.Pid, ConsoleKey.F3);
-            Assert.True(GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ ЖУРНАЛ ←", 5000), "Не открылся журнал по [F3].");
+            Assert.True(GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ JOURNAL ←", 5000), "The journal did not open on [F3].");
             GameConsole.SendKey(game.Pid, ConsoleKey.F8);
             Assert.True(GameConsole.WaitForRowsMatch(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth,
-                rows => rows.Any(r => r.Contains("Ключи")) && rows.Any(r => r.Contains("Светлоград")), 5000),
-                "В журнале «Локации» нет известных мест (Ключи, Светлоград).");
+                rows => rows.Any(r => r.Contains("Springs")) && rows.Any(r => r.Contains("Brightburg")), 5000),
+                "The journal's \"Locations\" has no known places (Springs, Brightburg).");
             TestPacing.Step();
 
-            // Назад в мир.
+            // Back to the world.
             GameConsole.SendKey(game.Pid, ConsoleKey.F2);
-            Assert.True(GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Вы: Ключи", 5000),
-                "После [F2] из журнала не открылась карта мира.");
+            Assert.True(GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "You: Springs", 5000),
+                "After [F2] from the journal the world map did not open.");
 
-            // Клик по значку столицы на карте (подпись « Светлоград» справа от значка; самая левая — на карте,
-            // правее — список мест в легенде).
+            // Click the capital's icon on the map (the label " Brightburg" is to the right of the icon; the leftmost one is on the map,
+            // further right is the list of places in the legend).
             var rows = GameConsole.ReadRows(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth);
-            var label = rows.Select((r, i) => (row: i, col: r.IndexOf("Светлоград", StringComparison.Ordinal)))
+            var label = rows.Select((r, i) => (row: i, col: r.IndexOf("Brightburg", StringComparison.Ordinal)))
                 .Where(t => t.col > 0).OrderBy(t => t.col).FirstOrDefault();
-            Assert.True(label.col > 0, "На карте мира не видно подписи столицы Светлоград.");
-            _output.WriteLine($"Подпись столицы: строка {label.row}, колонка {label.col}");
+            Assert.True(label.col > 0, "The label of the capital Brightburg is not visible on the world map.");
+            _output.WriteLine($"Capital label: row {label.row}, column {label.col}");
             GameConsole.SendLeftClick(game.Pid, label.col - 2, label.row);
-            Assert.True(GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Путь: Светлоград", 5000),
-                "После клика по столице в легенде нет строки пути.");
+            Assert.True(GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Path: Brightburg", 5000),
+                "After clicking the capital there is no route row in the legend.");
             TestPacing.Step();
 
-            // В путь.
+            // Set off.
             GameConsole.SendKey(game.Pid, ConsoleKey.F10);
-            Assert.True(GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "разбиваешь лагерь", 20000),
-                "Не появился рассказ мастера о пути (мок SendAction).");
+            Assert.True(GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "make camp", 20000),
+                "The DM's travel narration did not appear (SendAction mock).");
             Assert.True(GameConsole.WaitForRowsMatch(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth,
-                r => r.Any(x => x.Contains("Вы: ")) && !r.Any(x => x.Contains("Вы: Ключи")), 8000),
-                "После путешествия герой остался в Ключах.");
+                r => r.Any(x => x.Contains("You: ")) && !r.Any(x => x.Contains("You: Springs")), 8000),
+                "After travelling the hero stayed in Springs.");
         }
         finally
         {

@@ -11,14 +11,14 @@ public class AnimationHoverTests
     public void FirstStreamingVisitSupportsHover(bool journal)
     {
         using var game = GameSession.Launch(mockedActions: ["SendAction"], mockResponsesFolder: "HoverTyping");
-        Navigation.MenuSelect(game.Pid, "\u041f\u0420\u041e\u0414\u041e\u041b\u0416\u0418\u0422\u042c");
-        Assert.True(GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "\u2192 \u041a\u0410\u0420\u0422\u0410 \u2190", 5000));
+        Navigation.MenuSelect(game.Pid, "CONTINUE");
+        Assert.True(GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "\u2192 MAP \u2190", 5000));
         GameConsole.SendText(game.Pid, "wait");
         GameConsole.SendKey(game.Pid, ConsoleKey.Enter);
         Assert.True(GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount,
             GameConsole.TitleReadWidth, "tick000", 15000));
         GameConsole.SendKey(game.Pid, journal ? ConsoleKey.F3 : ConsoleKey.F4);
-        string marker = journal ? "\u0417\u0410\u0414\u0410\u041d\u0418\u042f" : "\u0414\u043b\u0438\u043d\u043d\u044b\u0439 \u043c\u0435\u0447";
+        string marker = journal ? "QUESTS" : "Longsword";
         Assert.True(GameConsole.WaitForAnyRowContains(game.Pid, 3, GameConsole.ScanRowCount - 3,
             GameConsole.TitleReadWidth, marker, 3000));
         var rows = GameConsole.ReadRows(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth);
@@ -58,7 +58,7 @@ public class AnimationHoverTests
         {
             using var game = GameSession.Launch(fixtureFileName: fixtureName,
                 mockedActions: ["SendAction"], mockResponsesFolder: "HoverTyping");
-            Navigation.MenuSelect(game.Pid, "\u041f\u0420\u041e\u0414\u041e\u041b\u0416\u0418\u0422\u042c");
+            Navigation.MenuSelect(game.Pid, "CONTINUE");
             Assert.True(GameConsole.WaitForAnyRowContains(game.Pid, 3, GameConsole.ScanRowCount - 3, 90, "NPC", 5000), string.Join("\n", GameConsole.ReadRows(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth)));
             var map = GameConsole.ReadRows(game.Pid, 3, GameConsole.ScanRowCount - 3, 90);
             int row = map.FindIndex(r => r.Contains("NPC"));

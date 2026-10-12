@@ -2,9 +2,9 @@ using System.Runtime.InteropServices;
 
 namespace NaviDnD.UiTests;
 
-// Позиционирует СОБСТВЕННОЕ окно консоли драйвера (не игры) — прижимает к правому
-// краю экрана, чтобы не перекрывать окно игры, которое GameConsole.MoveToTopLeft
-// прижимает к левому верхнему углу.
+// Positions the driver's OWN console window (not the game's) — pins it to the right
+// edge of the screen so it doesn't cover the game window, which GameConsole.MoveToTopLeft
+// pins to the top-left corner.
 internal static class SelfWindow
 {
     [DllImport("kernel32.dll", ExactSpelling = true)]
@@ -26,14 +26,14 @@ internal static class SelfWindow
     private const uint SWP_NOSIZE = 0x0001;
     private const uint SWP_NOZORDER = 0x0004;
 
-    // Фиксированная ширина окна драйвера (не игры), в символах — не зависит от того,
-    // с какой ширины стартовал терминал.
+    // Fixed width of the driver's (not the game's) window, in characters — independent of
+    // the width the terminal started with.
     public const int FixedWidthColumns = 60;
 
     public static void ApplyFixedWidth()
     {
         try { Console.WindowWidth = FixedWidthColumns; }
-        catch { /* нет своей консоли — не критично */ }
+        catch { /* no console of our own — not critical */ }
     }
 
     public static void MoveToRightEdge()

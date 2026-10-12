@@ -5,13 +5,13 @@ using NaviDnD.Helpers;
 
 namespace NaviDnD.McpServer;
 
-// Справочник заклинаний DnD5e (NaviDnD.Helpers.SpellDatabase, GameData/DnD5e_spells_BD.dtn) — до
-// этого тула ИИ сам придумывал русское название и описание заклинания, из-за чего имя у героя
-// (hero.spells[].name) часто не совпадало с каноничным русским названием в базе, и карточка
-// заклинания (MouseUiHelper.SetSelectedSpell) не находила данные по имени — показывала только
-// круг, без школы/времени/дистанции/текста. Поиск — по АНГЛИЙСКОМУ названию (ИИ обычно надёжно
-// помнит его из обучения, в отличие от точного русского перевода), результат — русское имя,
-// которое нужно использовать как есть.
+// The D&D 5e spell catalog (NaviDnD.Helpers.SpellDatabase, GameData/DnD5e_spells_BD.dtn) — before
+// this tool the AI invented the spell's localized name and description itself, so the hero's spell name
+// (hero.spells[].name) often didn't match the canonical name in the database, and the spell
+// card (MouseUiHelper.SetSelectedSpell) couldn't find the data by name — it showed only the
+// level, with no school/casting time/range/text. Search is by ENGLISH name (the AI reliably
+// remembers it from training, unlike an exact translation); the result is the name in the game's language,
+// to be used as is.
 [McpServerToolType]
 public sealed class SpellTools(McpServerConfig config)
 {
@@ -19,18 +19,18 @@ public sealed class SpellTools(McpServerConfig config)
 
     [McpServerTool]
     [Description("""
-        Ищет заклинание D&D 5e в справочнике по АНГЛИЙСКОМУ названию — НЕ выдумывай и не описывай
-        заклинание сам, сначала найди его здесь. query = английское название или его часть
-        ("fireball", "cure wounds"). level = круг заклинания (0 = заговор) — если указан, в
-        результат попадут ТОЛЬКО заклинания этого круга; не уверены — не указывайте.
-        Возвращает через запятую названия совпадений на языке игры (lang) по убыванию релевантности —
-        возьмите лучшее и используйте БУКВАЛЬНО как hero.spells[].name, не меняя ни буквы. Пустая строка —
-        ничего не нашлось (в этом круге, если он указан): только тогда можно придумать собственное
-        (гомбрю) заклинание и его описание.
+        Finds a D&D 5e spell in the catalog by its ENGLISH name — do NOT invent or describe
+        the spell yourself, find it here first. query = the English name or part of it
+        ("fireball", "cure wounds"). level = the spell level (0 = cantrip) — if given, the
+        result contains ONLY spells of that level; if unsure, leave it out.
+        Returns comma-separated names of matches in the game's language (lang), most relevant first —
+        take the best one and use it LITERALLY as hero.spells[].name, without changing a letter. An empty string means
+        nothing was found (at that level, if given): only then may you invent your own
+        (homebrew) spell and its description.
         """)]
     public string FindSpell(
         string query,
-        [Description("Круг заклинания (0 = заговор) — жёсткий фильтр, не обязателен")] int? level = null)
+        [Description("Spell level (0 = cantrip) — a strict filter, optional")] int? level = null)
     {
         Log($"find_spell → \"{query}\" level={level?.ToString() ?? "?"}");
         try

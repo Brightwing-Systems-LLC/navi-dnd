@@ -5,9 +5,9 @@ using NaviDnD.MapGen.Generators;
 
 namespace NaviDnD;
 
-// Библиотека миров: Storage/Worlds/<id>/world.json — геометрия мира и его хроника (лор и места, общие для всех
-// игр этого мира), Storage/Worlds/<id>/locations/*.json — сохранённые локации мест. Активный мир
-// (Storage/Worlds/active.txt) — для новой игры по умолчанию и для старых сохранений без мира игры.
+// The world library: Storage/Worlds/<id>/world.json — the world's geometry and its chronicle (lore and places shared by all
+// games in this world), Storage/Worlds/<id>/locations/*.json — saved place locations. The active world
+// (Storage/Worlds/active.txt) — the default for a new game and for old saves without a game world.
 public static class WorldLibrary
 {
     public static string Dir => Path.Combine(AppConfig.ProjectRoot, "Storage", "Worlds");
@@ -34,7 +34,7 @@ public static class WorldLibrary
         }
     }
 
-    // Мир по id (мир игры) — читается с диска один раз за запуск. Не создаёт новый.
+    // A world by id (the game's world) — read from disk once per run. Does not create a new one.
     public static WorldMap? Get(string? id)
     {
         if (string.IsNullOrEmpty(id)) return null;
@@ -44,7 +44,7 @@ public static class WorldLibrary
         return w;
     }
 
-    // Сделать мир активным (по умолчанию для новой игры).
+    // Make a world active (the default for a new game).
     public static void SetActive(string id)
     {
         if (Get(id) is not { } w) return;
@@ -53,8 +53,8 @@ public static class WorldLibrary
         Changed?.Invoke();
     }
 
-    // Миры библиотеки для анкеты новой игры: активный и те, где уже играли (есть хроника) — пустые миры
-    // (отладка, F12) не показываются. id, название (хроники или генератора), размер, мест в хронике.
+    // Library worlds for the new game sheet: the active one and those already played (they have a chronicle) — empty worlds
+    // (debug, F12) are not shown. id, name (from the chronicle or the generator), size, number of places in the chronicle.
     public static List<(string id, string name, string size, int places)> All()
     {
         var list = new List<(string, string, string, int)>();
@@ -70,7 +70,7 @@ public static class WorldLibrary
         return list;
     }
 
-    // Есть ли в файле мира хроника (без разбора всего JSON): у пустой — ни имени, ни королевств.
+    // Whether the world file has a chronicle (without parsing all the JSON): an empty one has neither a name nor kingdoms.
     private static bool HasChronicle(string path)
     {
         try
@@ -83,7 +83,7 @@ public static class WorldLibrary
         catch { return false; }
     }
 
-    // Чтение файла мира (и MCP-сервером — по своему пути); старые миры дополняются (острова, места не на воде).
+    // Reads a world file (the MCP server does too, by its own path); old worlds are filled in (islands, places off the water).
     public static WorldMap? LoadFrom(string path)
     {
         try
@@ -105,12 +105,12 @@ public static class WorldLibrary
             Directory.CreateDirectory(Path.Combine(Dir, world.Id));
             File.WriteAllText(WorldPath(world.Id), JsonSerializer.Serialize(world), Encoding.UTF8);
         }
-        catch { /* не сохранилось — изменения живут до конца сеанса */ }
+        catch { /* not saved — the changes live until the end of the session */ }
         _loaded[world.Id] = world;
         Changed?.Invoke();
     }
 
-    // Мир, сгенерированный заранее (анкета новой игры: превью до выбора), — в библиотеку и активным.
+    // A world generated in advance (new game sheet: preview before choosing) — into the library and made active.
     public static void Register(WorldMap world)
     {
         Save(world);
@@ -119,8 +119,8 @@ public static class WorldLibrary
         Changed?.Invoke();
     }
 
-    // Игры (слоты «Мои игры»), которые играют в этом мире: номер и имя героя. Сохранение без мира игры — в
-    // активном мире.
+    // Games ("My games" slots) played in this world: number and hero name. A save without a game world counts as
+    // being in the active world.
     public static List<(int slot, string hero)> GamesUsing(string id)
     {
         var list = new List<(int, string)>();
@@ -134,14 +134,14 @@ public static class WorldLibrary
                 var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path, Encoding.UTF8));
                 string? worldId = (string?)(root?["world"]?["id"] ?? root?["World"]?["Id"]);
                 if (worldId == id || worldId == null && id == active)
-                    list.Add((slot, (string?)(root?["hero"]?["name"] ?? root?["Hero"]?["Name"]) ?? L.F("игра {0}", slot)));
+                    list.Add((slot, (string?)(root?["hero"]?["name"] ?? root?["Hero"]?["Name"]) ?? L.F("game {0}", slot)));
             }
-            catch { list.Add((slot, L.F("игра {0}", slot))); }   // не прочиталось — лучше не удалять
+            catch { list.Add((slot, L.F("game {0}", slot))); }   // could not be read — better not to delete
         }
         return list;
     }
 
-    // Удалить мир с его локациями (проверка, что в нём нет игр, — GamesUsing, до вызова).
+    // Delete a world with its locations (checking that it has no games is GamesUsing, before the call).
     public static bool Delete(string id)
     {
         try
@@ -160,7 +160,7 @@ public static class WorldLibrary
         return true;
     }
 
-    // Новый мир: сгенерировать, сохранить, сделать активным.
+    // A new world: generate, save, make active.
     public static WorldMap Create(string size, int seed)
     {
         var world = WorldGenerator.Generate(new WorldGenerator.Options(seed, size, Language: L.Language));
@@ -170,7 +170,7 @@ public static class WorldLibrary
             File.WriteAllText(WorldPath(world.Id), JsonSerializer.Serialize(world), Encoding.UTF8);
             File.WriteAllText(ActivePath, world.Id);
         }
-        catch { /* не сохранилось — мир живёт до конца сеанса */ }
+        catch { /* not saved — the world lives until the end of the session */ }
         _loaded[world.Id] = world;
         _current = world;
         Changed?.Invoke();

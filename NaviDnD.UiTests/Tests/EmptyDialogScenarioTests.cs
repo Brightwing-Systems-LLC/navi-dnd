@@ -3,10 +3,10 @@ using Xunit.Abstractions;
 
 namespace NaviDnD.UiTests;
 
-// E2E: с пустой историей (DialogDisplay.Draw) диалоговый блок раньше схлопывался до заголовка +
-// разделителя без единой строки контента — вместо фиксированной высоты в MaxHistoryLines строк,
-// как при непустой истории. Fixtures/effects_game.json задаёт "history": [] (и полный hero, включая
-// equipmentSlots, — нужен для безопасного рендера экрана Персонажа).
+// E2E: with an empty history (DialogDisplay.Draw) the dialog block used to collapse to the title +
+// separator with not a single content row — instead of the fixed height of MaxHistoryLines rows
+// it has with a non-empty history. Fixtures/effects_game.json sets "history": [] (and a full hero, including
+// equipmentSlots — needed to render the Character screen safely).
 public class EmptyDialogScenarioTests
 {
     private readonly ITestOutputHelper _output;
@@ -17,46 +17,46 @@ public class EmptyDialogScenarioTests
     public void DialogBlock_WithEmptyHistory_StillRendersFixedHeight()
     {
         using var game = GameSession.Launch(fixtureFileName: "effects_game.json");
-        _output.WriteLine($"Игра запущена (pid {game.Pid}).");
+        _output.WriteLine($"Game launched (pid {game.Pid}).");
 
         Navigation.ToCharacterScreen(game.Pid);
-        _output.WriteLine("Экран Персонажа отрисован.");
+        _output.WriteLine("Character screen rendered.");
         TestPacing.Step();
 
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "ДИАЛОГОВОЕ ОКНО", 5000),
-            "Заголовок «ДИАЛОГОВОЕ ОКНО» не найден на экране.");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "DIALOG", 5000),
+            "Title \"DIALOG\" not found on screen.");
 
         var rows = GameConsole.ReadRows(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth);
         var failures = new List<string>();
 
-        int titleIdx = rows.FindIndex(r => r.Contains("ДИАЛОГОВОЕ ОКНО"));
-        Assert.True(titleIdx >= 0); // уже проверено WaitForAnyRowContains выше, но нужен индекс
+        int titleIdx = rows.FindIndex(r => r.Contains("DIALOG"));
+        Assert.True(titleIdx >= 0); // already checked by WaitForAnyRowContains above, but we need the index
 
         int maxHistoryLines = new DisplayConfig().MaxHistoryLines;
 
-        _output.WriteLine($"Заголовок диалога — строка {titleIdx}. Проверяю {maxHistoryLines} строк контента под ним, несмотря на пустую историю...");
+        _output.WriteLine($"Dialog title is row {titleIdx}. Checking {maxHistoryLines} content rows below it despite the empty history...");
 
         int topSeparatorIdx = titleIdx + 1;
         if (topSeparatorIdx >= rows.Count || !rows[topSeparatorIdx].TrimStart().StartsWith('├'))
-            failures.Add($"Строка {topSeparatorIdx} (сразу под заголовком) — не разделитель «├...»: «{rows.ElementAtOrDefault(topSeparatorIdx)?.TrimEnd()}»");
+            failures.Add($"Row {topSeparatorIdx} (right below the title) is not a \"├...\" separator: \"{rows.ElementAtOrDefault(topSeparatorIdx)?.TrimEnd()}\"");
 
         for (int i = 0; i < maxHistoryLines; i++)
         {
             int rowIdx = topSeparatorIdx + 1 + i;
             if (rowIdx >= rows.Count || !rows[rowIdx].TrimStart().StartsWith('│'))
             {
-                failures.Add($"Строка {rowIdx} (контент диалога, {i + 1}-я из {maxHistoryLines}) — не строка контента «│...»: «{rows.ElementAtOrDefault(rowIdx)?.TrimEnd()}». Блок схлопнулся раньше фиксированной высоты.");
+                failures.Add($"Row {rowIdx} (dialog content, {i + 1} of {maxHistoryLines}) is not a \"│...\" content row: \"{rows.ElementAtOrDefault(rowIdx)?.TrimEnd()}\". The block collapsed before reaching its fixed height.");
                 break;
             }
         }
 
         int bottomSeparatorIdx = topSeparatorIdx + 1 + maxHistoryLines;
         if (bottomSeparatorIdx >= rows.Count || !rows[bottomSeparatorIdx].TrimStart().StartsWith('├'))
-            failures.Add($"Строка {bottomSeparatorIdx} (нижняя граница блока после {maxHistoryLines} строк контента) — не разделитель «├...»: «{rows.ElementAtOrDefault(bottomSeparatorIdx)?.TrimEnd()}»");
+            failures.Add($"Row {bottomSeparatorIdx} (bottom edge of the block after {maxHistoryLines} content rows) is not a \"├...\" separator: \"{rows.ElementAtOrDefault(bottomSeparatorIdx)?.TrimEnd()}\"");
 
         TestPacing.Step();
-        _output.WriteLine(failures.Count == 0 ? "Все проверки пройдены." : $"Провалено проверок: {failures.Count}.");
-        Assert.True(failures.Count == 0, "UI-тест FAIL:\n" + string.Join("\n", failures.Select(f => "  - " + f)));
+        _output.WriteLine(failures.Count == 0 ? "All checks passed." : $"Failed checks: {failures.Count}.");
+        Assert.True(failures.Count == 0, "UI test FAIL:\n" + string.Join("\n", failures.Select(f => "  - " + f)));
     }
 }

@@ -10,19 +10,19 @@ using NaviDnD.Data.Models;
 
 namespace NaviDnD.McpServer;
 
-// Механические патч-помощники: раунд/отдых/двери — детерминированная бухгалтерия, которую раньше
-// ИИ приходилось безошибочно воспроизводить по текстовым правилам промпта. Источник как минимум
-// двух реальных багов: забытый speedMax при снятии эффекта (§ СОСТОЯНИЯ) и открытая дверь без
-// проверки, что герой рядом (§ КАРТА И ОБЪЕКТЫ). Каждый инструмент только ВОЗВРАЩАЕТ кусок патча,
-// ничего не пишет сам — McpServer это отдельный процесс, читающий worldState.json с диска, а игра
-// держит WorldState в памяти и патчит его из JSON-ответа ИИ, не перечитывая файл; прямая запись
-// тут рассинхронила бы процессы.
+// Mechanical patch helpers: round/rest/doors — deterministic bookkeeping that the AI used to have to
+// reproduce flawlessly from the prompt's text rules. The source of at least
+// two real bugs: a forgotten speedMax when removing an effect (§ CONDITIONS) and a door opened without
+// checking that the hero is next to it (§ MAP AND OBJECTS). Each tool only RETURNS a piece of a patch and
+// writes nothing itself — McpServer is a separate process that reads worldState.json from disk, while the game
+// keeps WorldState in memory and patches it from the AI's JSON response without rereading the file; writing directly
+// here would desync the processes.
 [McpServerToolType]
 public sealed class GameActionTools(McpServerConfig config)
 {
-    // Без DefaultIgnoreCondition.WhenWritingNull намеренно: "break" должен вернуть color:null
-    // явно (движок различает "поле отсутствует" и "поле = null" — см. Storage.ApplyMapUpdate),
-    // а не потерять его из-за глобального игнора null-полей.
+    // Deliberately without DefaultIgnoreCondition.WhenWritingNull: "break" must return color:null
+    // explicitly (the engine distinguishes "field missing" from "field = null" — see Storage.ApplyMapUpdate),
+    // rather than losing it to a global ignore of null fields.
     private static readonly JsonSerializerOptions _writeOptions = new()
     {
         Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
@@ -36,18 +36,18 @@ public sealed class GameActionTools(McpServerConfig config)
 
     [McpServerTool]
     [Description("""
-        Продвигает раунд: totalRounds+1, сброс actions. triggeringActionId = id ресурса, который
-        дошёл до 0 в этом ходу (→maxValue-1, остальные→maxValue); не указывать — полный сброс
-        (передача хода в бою). Возвращает патч ("time"+"hero") для слияния — combat.currentTurn
-        добавь сам, если нужно.
-        В бою (combat.active==true): вызывай ТОЛЬКО когда ход героя полностью закончен (потрачены
-        Действие/Бон.действие/скорость, либо герой сам явно закончил ход) И герой ПОСЛЕДНИЙ по
-        combat.initiative (наименьший score) — тогда раунд закрывает герой. Иначе раунд закрывает
-        тот враг, что последний по combat.initiative, в финальном entry его хода — никогда посреди
-        хода и никогда просто потому, что один ресурс дошёл до 0, а другие ещё есть.
+        Advances the round: totalRounds+1, resets actions. triggeringActionId = the id of the resource that
+        reached 0 this turn (→maxValue-1, the rest →maxValue); omit for a full reset
+        (passing the turn in combat). Returns a patch ("time"+"hero") to merge — add combat.currentTurn
+        yourself if needed.
+        In combat (combat.active==true): call ONLY when the hero's turn is completely over (Action/
+        Bonus Action/speed spent, or the hero explicitly ended the turn) AND the hero is LAST in
+        combat.initiative (lowest score) — then the hero closes the round. Otherwise the round is closed by
+        whichever enemy is last in combat.initiative, in the final entry of its turn — never in the middle of
+        a turn and never just because one resource reached 0 while others remain.
         """)]
     public string AdvanceRound(
-        [Description("id ресурса, который дошёл до 0 в этом ходу, либо не указывать для полного сброса")]
+        [Description("id of the resource that reached 0 this turn, or omit for a full reset")]
         int? triggeringActionId)
     {
         Log($"advance_round → triggeringActionId:{triggeringActionId?.ToString() ?? "null"}");
@@ -83,20 +83,20 @@ public sealed class GameActionTools(McpServerConfig config)
 
     [McpServerTool]
     [Description("""
-        Долгий отдых (вызывай только если уже решил, что он разрешён — нет активного эффекта
-        onRound с уроном): partOfDay+2, day+1 при переходе через night, totalRounds→1, сбрасывает
-        actions до maxValue и speedLeft до speedMax, удаляет эффекты с expiresAtRound+untilLongRest.
-        Возвращает патч ("time"+"hero") — восстановление ХП/ресурсов слей в тот же "hero". НЕ
-        вызывай следом advance_round — экономика действий уже сброшена этим тулом.
+        Long Rest (call only if you've already decided it's allowed — no active damaging
+        onRound effect): partOfDay+2, day+1 when passing through night, totalRounds→1, resets
+        actions to maxValue and speedLeft to speedMax, removes effects with expiresAtRound+untilLongRest.
+        Returns a patch ("time"+"hero") — merge HP/resource recovery into the same "hero". Do NOT
+        call advance_round afterwards — this tool has already reset the action economy.
         """)]
     public string LongRest() => Rest(isLong: true);
 
     [McpServerTool]
     [Description("""
-        Короткий отдых (вызывай только если уже решил, что он разрешён): partOfDay+1, day+1 при
-        переходе через night, totalRounds→1, сбрасывает actions до maxValue и speedLeft до speedMax,
-        удаляет эффекты с expiresAtRound (untilLongRest сохраняются). Возвращает патч
-        ("time"+"hero") — восстановление ресурсов слей в тот же "hero". НЕ вызывай следом
+        Short Rest (call only if you've already decided it's allowed): partOfDay+1, day+1 when
+        passing through night, totalRounds→1, resets actions to maxValue and speedLeft to speedMax,
+        removes effects with expiresAtRound (untilLongRest ones are kept). Returns a patch
+        ("time"+"hero") — merge resource recovery into the same "hero". Do NOT call
         advance_round.
         """)]
     public string ShortRest() => Rest(isLong: false);
@@ -126,9 +126,9 @@ public sealed class GameActionTools(McpServerConfig config)
                 if (remove) deletions.Add(new { id = i, deleted = true });
             }
 
-            // Отдых — фактически новый раунд для героя: сбрасываем действия/скорость тем же
-            // патчем, чтобы ИИ не пришлось отдельно звать advance_round (и рисковать затереть
-            // totalRounds:1, который здесь же вычислен, вторым, несогласованным значением).
+            // A rest is effectively a new round for the hero: reset actions/speed in the same
+            // patch so the AI doesn't have to call advance_round separately (and risk overwriting
+            // totalRounds:1, computed right here, with a second, inconsistent value).
             var actionPatches = new List<object>();
             var actions = hero.Actions ?? [];
             for (int i = 0; i < actions.Count; i++)
@@ -163,13 +163,13 @@ public sealed class GameActionTools(McpServerConfig config)
 
     [McpServerTool]
     [Description("""
-        Действие с дверью: open/close/break (герой должен стоять ровно на From или To) или
-        hide/reveal (без требования к позиции). Возвращает {"success":true,"patch":{...}} для
-        слияния, либо {"success":false,"reason":"..."} — опиши отказ, не резолви сам.
+        Door action: open/close/break (the hero must stand exactly on From or To) or
+        hide/reveal (no position requirement). Returns {"success":true,"patch":{...}} to
+        merge, or {"success":false,"reason":"..."} — describe the refusal, don't resolve it yourself.
         """)]
     public string DoorAction(
-        [Description("id двери из map.doors")] int doorId,
-        [Description("вариант действия: open|close|break|hide|reveal")] string action)
+        [Description("door id from map.doors")] int doorId,
+        [Description("action variant: open|close|break|hide|reveal")] string action)
     {
         string logName = $"door_action({action})";
         Log($"{logName} → id:{doorId}");
@@ -195,18 +195,18 @@ public sealed class GameActionTools(McpServerConfig config)
             {
                 bool isPhysicalDoor = door.IsDoor ?? (door.Color?.Count == 3);
                 if (!isPhysicalDoor)
-                    return Fail(logName, $"map.doors id:{doorId} — это проход, не дверь, действие недоступно.");
+                    return Fail(logName, $"map.doors id:{doorId} is a passage, not a door; the action isn't available.");
 
                 var hero = ws.Hero ?? throw new InvalidOperationException("hero missing");
                 var pos = hero.Position ?? throw new InvalidOperationException("hero.position missing");
-                // Дверь — это граница МЕЖДУ From и To, не отдельная клетка: герой должен стоять
-                // ровно в одной из них, а не рядом (Chebyshev ≤1 до From/To пропускал бы клетку
-                // ЗА дверью — герой "через одну клетку" от неё, а не вплотную).
+                // A door is the boundary BETWEEN From and To, not a separate cell: the hero must stand
+                // exactly on one of them, not next to it (Chebyshev ≤1 to From/To would allow the cell
+                // BEYOND the door — the hero "one cell away" from it, not right up against it).
                 int dist = Math.Min(ChebyshevDistance(pos, door.From), ChebyshevDistance(pos, door.To));
                 if (dist > 0)
                     return Fail(logName,
-                        $"Дверь id:{doorId} слишком далеко (герой на [{pos[0]},{pos[1]}], дверь между " +
-                        $"[{door.From[0]},{door.From[1]}] и [{door.To[0]},{door.To[1]}]) — нужно встать вплотную (на From или To).");
+                        $"Door id:{doorId} is too far (hero at [{pos[0]},{pos[1]}], door between " +
+                        $"[{door.From[0]},{door.From[1]}] and [{door.To[0]},{door.To[1]}]) — step right up to it (onto From or To).");
             }
 
             var result = new { success = true, patch = new { map = new { doors = new[] { fields } } } };
@@ -231,7 +231,7 @@ public sealed class GameActionTools(McpServerConfig config)
     private static int ChebyshevDistance(List<int> a, List<int> b) =>
         Math.Max(Math.Abs(a[0] - b[0]), Math.Abs(a[1] - b[1]));
 
-    // ── IO helpers (см. CalculateMovementTools для того же паттерна) ─────────
+    // ── IO helpers (see CalculateMovementTools for the same pattern) ─────────
 
     private WorldState LoadWorldState()
     {

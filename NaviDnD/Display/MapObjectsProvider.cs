@@ -22,7 +22,7 @@ public class MapObjectsProvider
     private static (int, int, int, int) EdgeKey(int x1, int y1, int x2, int y2) =>
         x1 < x2 || (x1 == x2 && y1 <= y2) ? (x1, y1, x2, y2) : (x2, y2, x1, y1);
     private HashSet<(int X, int Y)> _roomPositions = [];
-    private Dictionary<(int X, int Y), int> _roomIndex = [];  // позиция → индекс комнаты
+    private Dictionary<(int X, int Y), int> _roomIndex = [];  // position → room index
     private int _heroRoomIndex = -1;
 
     private Dictionary<(int X, int Y), CellEntity> _objects = [];
@@ -31,9 +31,9 @@ public class MapObjectsProvider
     private Dictionary<(int X, int Y), List<int>> _roomColors = [];
     private Dictionary<(int R, int G, int B), int> _areaCellCounts = [];
     private readonly Dictionary<(int X, int Y), TerrainKind> _terrain = [];
-    private readonly Dictionary<(int X, int Y), TerrainKind> _ground = [];        // рельеф/пол без мебели
-    private readonly Dictionary<(int X, int Y), Furniture> _furnitureOf = [];   // клетка → предмет мебели
-    private readonly HashSet<(int X, int Y)> _projected = [];                   // вид из окна верхнего этажа
+    private readonly Dictionary<(int X, int Y), TerrainKind> _ground = [];        // terrain/floor without furniture
+    private readonly Dictionary<(int X, int Y), Furniture> _furnitureOf = [];   // cell → furniture item
+    private readonly HashSet<(int X, int Y)> _projected = [];                   // view from an upper floor window
     private bool _heroOnTerrain;
     private int _heroFloor;
 
@@ -45,7 +45,7 @@ public class MapObjectsProvider
         _storage = storage;
         _config = config ?? new AppConfig();
 
-        // Статичные данные: комнаты, зоны, двери — не меняются при локальном движении
+        // Static data: rooms, zones, doors; they don't change with local movement
         if (settings.Map.Rooms != null && settings.Map.Rooms.Count > 0)
         {
             for (int roomIdx = 0; roomIdx < settings.Map.Rooms.Count; roomIdx++)
@@ -63,7 +63,7 @@ public class MapObjectsProvider
         }
 
         _doors = settings.Map.Doors ?? [];
-        // Двери по стене (пара клеток) — обзор проверяет стену на каждом шаге каждого луча.
+        // Doors by wall (a pair of cells): line of sight checks the wall at every step of every ray.
         foreach (var door in _doors)
             if (door.From is { Count: >= 2 } f && door.To is { Count: >= 2 } t)
             {
@@ -89,8 +89,8 @@ public class MapObjectsProvider
             }
         }
 
-        // Рельеф открытой местности: фон клеток — как у зон (зона поверх рельефа важнее), линии сетки
-        // между клетками берут тот же фон.
+        // Open-terrain relief: cell backgrounds like zones (a zone over terrain takes precedence); grid lines
+        // between cells take the same background.
         foreach (var chunk in settings.Map.Chunks ?? [])
         {
             if (chunk.Terrain is not { } rows) continue;
@@ -101,7 +101,7 @@ public class MapObjectsProvider
                     var pos = (chunk.OriginCol + c + 1, chunk.OriginRow + r + 1);
                     _terrain[pos] = kind;
                     _ground[pos] = kind;
-                    // Пол подземелья/здания — поверх цвета комнаты (лестница вне комнат — со своим фоном).
+                    // Dungeon/building floor drawn over the room color (stairs outside rooms keep their own background).
                     if ((kind.Indoor && _roomPositions.Contains(pos)) || _areaColors.ContainsKey(pos)) continue;
                     _areaColors[pos] = kind.Bg;
                     var key = (kind.Bg[0], kind.Bg[1], kind.Bg[2]);
@@ -112,8 +112,8 @@ public class MapObjectsProvider
         Refresh();
     }
 
-    // Обновляет только динамическое состояние: сущности и видимость.
-    // Вызывать перед каждой отрисовкой вместо создания нового экземпляра.
+    // Updates only the dynamic state: entities and visibility.
+    // Call before each draw instead of creating a new instance.
     public void Refresh()
     {
         _entities.Clear();
@@ -129,7 +129,7 @@ public class MapObjectsProvider
             if (_config.RevealMap || o.Hidden != true)
                 _objects[(o.Position[0], o.Position[1])] = o;
         }
-        // Без тактической карты (герой на карте мира) позиции может не быть — рисовать на местности нечего.
+        // Without a tactical map (hero on the world map) there may be no position: nothing to draw on the terrain.
         if (_settings.Hero?.Position is not { Count: >= 2 })
         {
             _heroRoomIndex = -1;
@@ -142,7 +142,7 @@ public class MapObjectsProvider
         _heroOnTerrain = _terrain.TryGetValue(heroPos, out var heroTerrain) && !heroTerrain.Indoor;
         _heroFloor = _settings.Map.FloorAt(heroPos.Item1, heroPos.Item2);
 
-        _contentBounds = _settings.Map.ContentBounds();   // раз на кадр, а не на каждый проход обзора/источник света
+        _contentBounds = _settings.Map.ContentBounds();   // once per frame, not on every line-of-sight pass/light source
         ApplyFurniture();
         ApplyOutsideView(heroPos.Item1, heroPos.Item2);
         ComputeHeroVisibility(heroPos.Item1, heroPos.Item2);
@@ -150,7 +150,7 @@ public class MapObjectsProvider
     }
 
     // ----------------------------------------------------------------------
-    // Публичные методы для отрисовки
+    // Public drawing methods
     // ----------------------------------------------------------------------
 
     private (bool visible, bool explored) GetWallState(double x, double y, bool isHorizontal)
@@ -171,10 +171,10 @@ public class MapObjectsProvider
         return EdgeState((cells.x1, cells.y1), (cells.x2, cells.y2));
     }
 
-    // Видимость линии/угла между клетками: видна, если рядом видимая клетка, НЕ закрывающая обзор, — или
-    // видны все соседние (граница внутри чащи/скалы). Иначе линия за деревом/скалой «просвечивала» бы:
-    // само дерево видно, но то, что за ним, — нет. Так же для исследованности (туман). Мебель и колонны
-    // внутри комнат (Indoor) стену за собой не прячут — стена комнаты видна всегда, когда видна клетка.
+    // Visibility of a line/corner between cells: visible if an adjacent visible cell does NOT block sight, or
+    // if all neighbors are visible (a border inside a thicket/rock). Otherwise a line behind a tree/rock would "show through":
+    // the tree itself is visible, but what's behind it isn't. Same for exploration (fog). Furniture and columns
+    // inside rooms (Indoor) don't hide the wall behind them: a room wall is always visible when the cell is.
     private (bool visible, bool explored) EdgeState(params (int x, int y)[] cells)
     {
         bool Opaque((int x, int y) c) => _terrain.TryGetValue(c, out var k) && k.BlocksSight && !k.Indoor;
@@ -193,7 +193,7 @@ public class MapObjectsProvider
             return;
         }
 
-        // Край открытой местности у пустоты — не стена, а та же пустота (без почерневшей линии тумана).
+        // The edge of open terrain against emptiness is not a wall but the same emptiness (no blackened fog line).
         if (GetDoorAtWall(x, y, isHorisonal) == null && (isHorisonal
                 ? IsOpenEdge(((int)x, (int)(y - 0.5)), ((int)x, (int)(y + 0.5)))
                 : IsOpenEdge(((int)(x - 0.5), (int)y), ((int)(x + 0.5), (int)y))))
@@ -217,10 +217,10 @@ public class MapObjectsProvider
 
         var door = GetDoorAtWall(x, y, isHorisonal);
 
-        // Если есть дверь с цветом - рисуем символ двери
+        // If there's a door with a color, draw the door glyph
         if (door != null && door.IsWindow == true && door.Hidden != true)
         {
-            // Окно: пунктир по линии стены, открытое — с проёмом посередине.
+            // Window: dashed along the wall line; an open one has a gap in the middle.
             bool openWindow = door.IsDoorOpen ?? false;
             string windowText = isHorisonal
                 ? (openWindow ? "┄ ┄" : new string('┄', _display.CellWidth))
@@ -268,7 +268,7 @@ public class MapObjectsProvider
                 : ColorHelper.Darker(bg);
 
             var lineText = isHorisonal ? new string(provider.Horizontal, _display.CellWidth) : provider.Vertical.ToString();
-            // Стойка/скамья из нескольких клеток — сплошная: линия между ними рисуется её же брусом.
+            // A counter/bench spanning several cells is solid: the line between them is drawn with its own beam.
             var (c1, c2) = isHorisonal
                 ? (((int)x, (int)(y - 0.5)), ((int)x, (int)(y + 0.5)))
                 : (((int)(x - 0.5), (int)y), ((int)(x + 0.5), (int)y));
@@ -281,7 +281,7 @@ public class MapObjectsProvider
                 ColorHelper.WriteColored(jointText, fgColor: jfg, bgColor: jbg);
                 return;
             }
-            // Разделитель внутри пола (не стена) — продолжение плитки.
+            // A divider inside the floor (not a wall) continues the tiling.
             bool tiled = provider == _gridProvider && (isHorisonal
                 ? IsTiledFloor((int)x, (int)(y - 0.5)) && IsTiledFloor((int)x, (int)(y + 0.5))
                 : IsTiledFloor((int)(x - 0.5), (int)y) && IsTiledFloor((int)(x + 0.5), (int)y));
@@ -304,21 +304,21 @@ public class MapObjectsProvider
         return _storage.ExploredCells.Contains((x, y));
     }
 
-    // Пустота блочной локации (вне комнат, зон и рельефа): никогда не «видна» и не «исследована» —
-    // рисуется фоном экрана, а не почерневшей клеткой тумана. Стены/двери на её краю видны по соседней клетке.
-    // Другие этажи (MapChunk.Z ≠ этажу героя) — тоже пустота: на экране только этаж героя.
+    // Emptiness of a block location (outside rooms, zones and terrain): never "visible" or "explored";
+    // it's drawn with the screen background, not as a blackened fog cell. Walls/doors at its edge are visible via the neighboring cell.
+    // Other floors (MapChunk.Z ≠ the hero's floor) are emptiness too: only the hero's floor is on screen.
     private bool IsVoid(int x, int y) =>
         _settings.Map.Chunks is { Count: > 0 } && !_projected.Contains((x, y))
         && ((!_roomPositions.Contains((x, y)) && !_areaColors.ContainsKey((x, y))) || _settings.Map.FloorAt(x, y) != _heroFloor);
 
-    // Линия/угол на стыке открытой местности с пустотой (среди клеток есть пустота, комнат нет) — рисуется
-    // пустотой. У комнат подземелья край — настоящая стена, его не трогаем.
+    // A line/corner where open terrain meets emptiness (some of the cells are emptiness, none are rooms) is drawn
+    // as emptiness. For dungeon rooms the edge is a real wall; we leave it alone.
     private bool IsOpenEdge(params (int x, int y)[] cells) =>
         cells.Any(c => IsVoid(c.x, c.y)) && !cells.Any(c => _roomPositions.Contains(c) && !IsVoid(c.x, c.y));
     private static string ObjectKey(CellEntity o) => Storage.ObjectKey(o);
 
-    // Предметы, которые герой видит сейчас, — в память (Storage.SeenObjects); после загрузки сохранения — всё, что
-    // лежит на уже изученных клетках.
+    // Objects the hero sees right now go into memory (Storage.SeenObjects); after loading a save, everything
+    // lying on already explored cells.
     private void RememberSeenObjects()
     {
         bool seed = _storage.SeenObjects == null;
@@ -336,7 +336,7 @@ public class MapObjectsProvider
 
         if (!visible && !explored)
         {
-            // вообще не видели
+            // never seen at all
             ColorHelper.WriteColored(delimetrText, fgColor: MapBg, bgColor: MapBg);
             return;
         }
@@ -345,10 +345,10 @@ public class MapObjectsProvider
 
         if (!visible && explored)
         {
-            // 👇 БЫЛО ВИДНО → рисуем "в тумане" (наведение подсвечивается и здесь — клетка изучена)
+            // 👇 WAS VISIBLE → draw "in fog" (hover highlights here too: the cell is explored)
             var grayBg = ApplyTargetTint(x, y, ColorHelper.Darker(bg, 0.5));
             if (_display.HoveredCell == (x, y)) grayBg = ColorHelper.Pale(grayBg, 0.22);
-            // Рельеф в тумане — тусклым рисунком (лес/скалы помнятся, существ не видно).
+            // Terrain in fog: a dim drawing (forest/rocks are remembered, creatures aren't visible).
             string fogText = delimetrText;
             List<int> fogFg = grayBg, fogBg = grayBg;
             if (_terrain.TryGetValue((x, y), out var fogKind))
@@ -356,7 +356,7 @@ public class MapObjectsProvider
                 fogText = JoinedGlyph(fogKind, x, y) ?? TerrainCatalog.Glyph(fogKind, x, y);
                 if (fogKind.Indoor)
                 {
-                    // Цвета считаем по исходному полу и тушим целиком — иначе яркая мебель в тумане не тускнела.
+                    // Compute colors from the original floor and dim them as a whole; otherwise bright furniture didn't dim in fog.
                     var (lf, lb) = TerrainColors(fogKind, bg);
                     lb = PieceBg(fogKind, x, y, bg, lb);
                     fogFg = ColorHelper.Darker(lf, 0.5);
@@ -368,8 +368,8 @@ public class MapObjectsProvider
                     fogFg = ColorHelper.Darker(fogKind.Fg, 0.5);
                 }
             }
-            // Предмет, который герой уже видел, помнится и в тумане — тусклым символом на фоне тумана. Существа — нет:
-            // где они сейчас, герой не знает.
+            // An object the hero has already seen is remembered in fog too: a dim glyph on the fog background. Creatures aren't:
+            // the hero doesn't know where they are now.
             if (_objects.TryGetValue((x, y), out var seenObj) && _storage.SeenObjects?.Contains(ObjectKey(seenObj)) == true)
             {
                 ColorHelper.WriteColored(seenObj.Symbol, fgColor: ColorHelper.Darker(ColorHelper.Saturate(seenObj.Color), 0.55), bgColor: fogBg);
@@ -385,7 +385,7 @@ public class MapObjectsProvider
         if (isHovered) bg = ColorHelper.Pale(bg, 0.22);
         bg = ApplyTargetTint(x, y, bg);
 
-        // 👇 обычная видимая логика
+        // 👇 normal visible logic
         if (_entities.TryGetValue((x, y), out var entity) || _objects.TryGetValue((x, y), out entity))
         {
             var paledBg = ColorHelper.Pale(bg);
@@ -412,26 +412,26 @@ public class MapObjectsProvider
         }
     }
 
-    // Цвета рельефа: открытая местность — свои; пол подземелья — смешан с цветом комнаты под ним.
+    // Terrain colors: open terrain has its own; dungeon floor is blended with the room color beneath it.
     private static (List<int> fg, List<int> bg) TerrainColors(TerrainKind kind, List<int> cellBg) => kind.Indoor
         ? (ColorHelper.MixWith(cellBg, kind.Fg, kind.FgMix), kind.BgMix > 0 ? ColorHelper.MixWith(cellBg, kind.Bg, kind.BgMix) : cellBg)
         : (kind.Fg, cellBg);
 
-    // ── Плитка пола подземелья ─────────────────────────────────────────────
-    // Фон пола комнат блочной локации — мелкая шахматка: каждые 2 символа по горизонтали и каждая строка
-    // экрана чередуют светлый/тёмный оттенок цвета комнаты. Узор идёт сплошь по клеткам и разделителям
-    // между ними (не по стенам/дверям) и привязан к координатам карты (X, Y — символ/строка в «мировой»
-    // сетке: клетка c — символы 4c-3..4c-1, линия x — символ 4x-2; строка клетки r — 2r, линии y — 2y).
+    // ── Dungeon floor tiling ─────────────────────────────────────────────
+    // Floor background in block-location rooms is a fine checkerboard: every 2 characters horizontally and every screen
+    // row alternate a light/dark shade of the room color. The pattern runs continuously across cells and the dividers
+    // between them (not walls/doors) and is anchored to map coordinates (X, Y = character/row in the "world"
+    // grid: cell c = characters 4c-3..4c-1, line x = character 4x-2; cell row r = 2r, lines y = 2y).
     private const double TileShade = 0.015;
 
-    // Деревянный пол зданий — доски: та же шахматка, но шириной в 1 символ и заметнее.
+    // Wooden floor in buildings is planks: the same checkerboard, but 1 character wide and more pronounced.
     private const double PlankShade = 0.01;
 
-    // Плитка — в рукотворном подземелье (dungeon), доски — в комнатах зданий/поселений (кроме каменного пола);
-    // в пещере — без узора.
+    // Tiles in a man-made dungeon (dungeon), planks in rooms of buildings/settlements (except stone floors);
+    // no pattern in a cave.
     private bool IsTiledFloor(int x, int y) => TileKind(x, y) > 0;
 
-    // 0 — без узора, 1 — доски (1 символ), 2 — плитка подземелья (2 символа).
+    // 0 = no pattern, 1 = planks (1 character), 2 = dungeon tiles (2 characters).
     private int TileKind(int x, int y)
     {
         if (!_roomPositions.Contains((x, y))) return 0;
@@ -458,7 +458,7 @@ public class MapObjectsProvider
         }
     }
 
-    // Символ стойки/скамьи по соседям того же вида: в ряд — горизонтальный брус, в столбик — вертикальный.
+    // Counter/bench glyph from neighbors of the same kind: in a row, a horizontal beam; in a column, a vertical one.
     private string? JoinedGlyph(TerrainKind kind, int x, int y)
     {
         if (kind.Join is not { } join) return null;
@@ -468,13 +468,13 @@ public class MapObjectsProvider
             bool left = SamePiece((x, y), (x - 1, y)), right = SamePiece((x, y), (x + 1, y));
             return left && right ? row[1] : right ? row[0] : row[2];
         }
-        if (kind.RowGlyphs != null) return null; // стол столбиком — каждая клетка своей столешницей
+        if (kind.RowGlyphs != null) return null; // a table in a column: each cell has its own tabletop
         if (SamePiece((x, y), (x, y - 1)) || SamePiece((x, y), (x, y + 1))) return $" {join[1]} ";
         return null;
     }
 
-    // ── Мебель ──────────────────────────────────────────────────────────────
-    // Предметы (MapConfig.Furniture) накладываются на пол при каждом обновлении — ИИ мог сдвинуть/сломать.
+    // ── Furniture ──────────────────────────────────────────────────────────────
+    // Items (MapConfig.Furniture) are laid over the floor on every update: the AI may have moved/broken them.
     private void ApplyFurniture()
     {
         foreach (var pos in _furnitureOf.Keys)
@@ -493,10 +493,10 @@ public class MapObjectsProvider
         }
     }
 
-    // ── Вид из окон верхнего этажа ─────────────────────────────────────────
-    // Этаж лежит на поле отдельно от первого, вокруг него — пустота. Пустые клетки вокруг рисуются по карте
-    // первого этажа под зданием (тот же сдвиг блока): трава, тропы, деревья, существа на земле, соседние дома —
-    // крышами. Видны только через окна (стены режут обзор), дальность — как на улице; пройти туда нельзя.
+    // ── View from upper-floor windows ─────────────────────────────────────────
+    // A floor lies on the field separately from the ground floor, surrounded by emptiness. Empty cells around it are drawn from the
+    // ground-floor map under the building (same block offset): grass, paths, trees, creatures on the ground, neighboring houses
+    // as roofs. Visible only through windows (walls block sight), range as outdoors; you can't walk there.
     private void ApplyOutsideView(int heroX, int heroY)
     {
         foreach (var p in _projected) { _terrain.Remove(p); _areaColors.Remove(p); }
@@ -523,7 +523,7 @@ public class MapObjectsProvider
                 _projected.Add(pos);
             }
         if (_projected.Count == 0) return;
-        // Существа и предметы на земле — на своих местах в виде сверху.
+        // Creatures and objects on the ground in their places, seen from above.
         foreach (var e in (map.Entities ?? []).Cast<CellEntity>().Concat(map.Objects ?? []))
         {
             if (e.Deleted == true || (e.Hidden == true && !_config.RevealMap) || e.Position is not { Count: >= 2 } ep) continue;
@@ -533,8 +533,8 @@ public class MapObjectsProvider
         }
     }
 
-    // Две клетки — части одного предмета (рисуются сплошь). Старые карты без Furniture: соседний тот же вид
-    // с Join (мебель лежала буквами в рельефе).
+    // Two cells that are parts of one item (drawn solid). Old maps without Furniture: a neighbor of the same kind
+    // with Join (furniture lay as letters in the terrain).
     private bool SamePiece((int x, int y) a, (int x, int y) b)
     {
         bool fa = _furnitureOf.TryGetValue(a, out var pa), fb = _furnitureOf.TryGetValue(b, out var pb);
@@ -544,7 +544,7 @@ public class MapObjectsProvider
 
     private bool HasRowNeighbour(int x, int y) => SamePiece((x, y), (x - 1, y)) || SamePiece((x, y), (x + 1, y));
 
-    // Фон клетки предмета: у «головы» (первой клетки) кровати — подушка.
+    // Item cell background: at the bed's "head" (first cell), a pillow.
     private List<int> PieceBg(TerrainKind kind, int x, int y, List<int> cellBg, List<int> pieceBg)
     {
         if (!_furnitureOf.TryGetValue((x, y), out var f) || FurnitureCatalog.Get(f.Kind)?.HeadBg is not { } head) return pieceBg;
@@ -552,7 +552,7 @@ public class MapObjectsProvider
         return ColorHelper.MixWith(cellBg, head, Math.Max(kind.BgMix, 0.6));
     }
 
-    // Кровать на одну клетку: подушка — один символ со стороны стены, одеяло — два.
+    // A one-cell bed: the pillow is one character on the wall side, the blanket two.
     private bool TryWriteSingleBed(TerrainKind kind, int x, int y, List<int> baseBg, List<int> blanketBg, bool dim)
     {
         if (FurnitureCatalog.ByCode(kind.Code)?.HeadBg is not { } head) return false;
@@ -578,7 +578,7 @@ public class MapObjectsProvider
         return true;
     }
 
-    // Угол сетки внутри предмета 2×2 (все четыре клетки — его части) — тоже сплошь.
+    // A grid corner inside a 2×2 item (all four cells are its parts) is solid too.
     private bool TryWritePieceCorner(double x, double y, bool visible)
     {
         var a = ((int)(x - 0.5), (int)(y - 0.5));
@@ -590,10 +590,10 @@ public class MapObjectsProvider
         return true;
     }
 
-    // Рельеф клетки (для легенды и подсказок) — тот же, что рисуется.
+    // Cell terrain (for the legend and hints): the same one that's drawn.
     public TerrainKind? TerrainAt(int x, int y) => _terrain.GetValueOrDefault((x, y));
 
-    // Подсветка select_target: выбранные (3) > область под курсором (2) > допустимые клетки (1).
+    // select_target highlight: selected (3) > area under the cursor (2) > valid cells (1).
     private int TargetLevel(int x, int y)
     {
         var sel = _display.TargetSelection;
@@ -614,26 +614,26 @@ public class MapObjectsProvider
 
     private List<int> ApplyTargetTint(int x, int y, List<int> bg) => TintByLevel(bg, TargetLevel(x, y));
 
-    // Линии и углы между клетками — по самой слабой подсветке соседних клеток: внутри области
-    // они красятся вместе с клетками (фигура сплошная, похожа на круг/конус), на границе — нет.
+    // Lines and corners between cells follow the weakest highlight of the neighboring cells: inside the area
+    // they're colored along with the cells (the shape is solid, like a circle/cone); on the boundary they aren't.
     private List<int> ApplyTargetTintBetween(List<int> bg, params (int x, int y)[] cells) =>
         _display.TargetSelection == null ? bg : TintByLevel(bg, cells.Min(c => FrameLevel(c.x, c.y)));
 
-    // Угол — достаточно 3 подсвеченных клеток из 4: на диагональном краю (конус, круг) внутренние
-    // углы «лесенки» закрашиваются, и край выглядит гладким, а не зубчатым.
+    // A corner needs only 3 of 4 highlighted cells: on a diagonal edge (cone, circle) the inner
+    // corners of the "staircase" get filled and the edge looks smooth rather than jagged.
     private List<int> ApplyTargetTintCorner(List<int> bg, params (int x, int y)[] cells) =>
         _display.TargetSelection == null ? bg
             : TintByLevel(bg, cells.Select(c => FrameLevel(c.x, c.y)).OrderDescending().ElementAt(2));
 
-    // Для рамки начало фигуры (герой у конуса/линии) — «максимально подсвечено»: итог определяет сосед.
+    // For the frame, the origin of the shape (the hero at a cone/line) counts as "maximally highlighted": the neighbor decides the result.
     private int FrameLevel(int x, int y) =>
         _display.TargetSelection?.Origin == (x, y) ? 3 : TargetLevel(x, y);
 
-    // Конус/линия ровно по диагонали: диагональная от героя клетка подсвечена сильнее обеих клеток рядом с
-    // ней (при выборе те обычно просто «допустимые»). Обычные правила такой стык не красят в цвет фигуры,
-    // и она «отрывается» от героя. Мостик: угол
-    // между героем и клеткой и два её разделителя (горизонтальный и вертикальный), сходящиеся в этом углу.
-    // horizontal: null — угол, true/false — горизонтальная/вертикальная линия.
+    // A cone/line exactly along a diagonal: the cell diagonal from the hero is highlighted more strongly than both cells next to
+    // it (during selection those are usually just "valid"). The normal rules don't color such a joint in the shape's color,
+    // and the shape "detaches" from the hero. The bridge: the corner
+    // between the hero and the cell plus the cell's two dividers (horizontal and vertical) meeting at that corner.
+    // horizontal: null = corner, true/false = horizontal/vertical line.
     private int OriginBridgeLevel(double x, double y, bool? horizontal)
     {
         if (_display.TargetSelection?.Origin is not var (ox, oy)) return 0;
@@ -889,13 +889,13 @@ public class MapObjectsProvider
     }
 
     // ----------------------------------------------------------------------
-    // Вспомогательные методы
+    // Helper methods
     // ----------------------------------------------------------------------
 
     private List<int> MapBg => _colors.MapBackground ?? _display.MainBackground;
 
-    // Дистанция в футах по правилу D&D: первая диагональ = 5, все последующие = 10.
-    // Формула: прямые шаги * 5 + (диагональные > 0 ? 5 + (диагональные - 1) * 10 : 0)
+    // Distance in feet by the D&D rule: the first diagonal = 5, every subsequent one = 10.
+    // Formula: straight steps * 5 + (diagonals > 0 ? 5 + (diagonals - 1) * 10 : 0)
     private static int GridDistanceFeet(int dx, int dy)
     {
         int adx = Math.Abs(dx), ady = Math.Abs(dy);
@@ -906,7 +906,7 @@ public class MapObjectsProvider
 
     private bool IsValidCell(int x, int y) => x >= 1 && x <= (_settings.Map.Cols) && y >= 1 && y <= _settings.Map.Rows;
 
-    // Out-of-bounds считается видимым, чтобы внешняя рамка карты всегда рендерилась
+    // Out-of-bounds counts as visible so the map's outer frame always renders
     private bool IsCellVisible(int x, int y)
     {
         if (_config.RevealMap) return true;
@@ -915,8 +915,8 @@ public class MapObjectsProvider
         return _storage.VisibleCells.Contains((x, y));
     }
 
-    // Какие клетки вообще проверять на видимость: поле локации до 100×100, поэтому не всё поле, а
-    // рамка содержимого карты (+1 на стены) ∩ радиус (радиус в футах ≥ 5 × расстояние в клетках).
+    // Which cells to check for visibility at all: a location field is up to 100×100, so not the whole field but
+    // the map content bounds (+1 for walls) ∩ the radius (radius in feet ≥ 5 × distance in cells).
     private (int x0, int x1, int y0, int y1) ScanBox(int cx, int cy, int radiusFt)
     {
         int x0 = 1, x1 = _settings.Map.Cols, y0 = 1, y1 = _settings.Map.Rows;
@@ -941,7 +941,7 @@ public class MapObjectsProvider
 
         int vision = _heroOnTerrain ? OutdoorVisionFt() : _settings.Hero?.VisionFt ?? -1;
 
-        // vision == 0: герой ничего не видит (только своя клетка)
+        // vision == 0: the hero sees nothing (only his own cell)
         if (vision == 0)
         {
             _storage.ExploredCells.UnionWith(_storage.VisibleCells);
@@ -958,7 +958,7 @@ public class MapObjectsProvider
                     _storage.VisibleCells.Add((x, y));
             }
 
-        // Убираем промежуточные клетки, добавленные внутри HasLineOfSight, которые вышли за радиус
+        // Remove intermediate cells added inside HasLineOfSight that ended up beyond the radius
         if (vision > 0)
             _storage.VisibleCells.RemoveWhere(c => GridDistanceFeet(c.Item1 - heroX, c.Item2 - heroY) > vision);
         if (_projected.Count > 0)
@@ -967,15 +967,15 @@ public class MapObjectsProvider
             _storage.VisibleCells.RemoveWhere(c => _projected.Contains(c) && GridDistanceFeet(c.Item1 - heroX, c.Item2 - heroY) > outdoor);
         }
 
-        // Источники света добавляют клетки за пределами зрения героя,
-        // но только те, до которых герой имеет прямую видимость (LOS без учёта дальности)
+        // Light sources add cells beyond the hero's vision,
+        // but only those the hero has a direct line of sight to (LOS ignoring range)
         AddLightSourcesVisibility(heroX, heroY);
 
         _storage.ExploredCells.UnionWith(_storage.VisibleCells);
     }
 
-    // Открытая местность: дальность обзора — от света (время суток) и зрения героя. Ночью — тёмное
-    // зрение (или пара клеток в лунном свете); источники света добавляются отдельно.
+    // Open terrain: sight range depends on light (time of day) and the hero's vision. At night, dark
+    // vision (or a couple of cells in moonlight); light sources are added separately.
     private int OutdoorVisionFt()
     {
         var hero = _settings.Hero;
@@ -996,9 +996,9 @@ public class MapObjectsProvider
 
         if (sources.Count == 0) return;
 
-        // Собираем клетки каждого источника в отдельный набор, затем объединяем.
-        // Общий набор нельзя использовать с RemoveWhere — удаление по радиусу одного источника
-        // стирает клетки, освещённые другими источниками.
+        // Collect each source's cells into a separate set, then merge.
+        // A shared set can't be used with RemoveWhere: removing by one source's radius
+        // erases cells lit by other sources.
         var litCells = new HashSet<(int, int)>();
         foreach (var source in sources)
         {
@@ -1021,9 +1021,9 @@ public class MapObjectsProvider
             litCells.UnionWith(sourceLit);
         }
 
-        // Добавляем только явно освещённые клетки, до которых герой имеет LOS.
-        // Используем HasLineOfSightPure — без побочных эффектов, чтобы не добавлять
-        // промежуточные клетки пути, которые факел не освещает.
+        // Add only explicitly lit cells the hero has LOS to.
+        // Use HasLineOfSightPure, without side effects, so we don't add
+        // intermediate path cells the torch doesn't light.
         foreach (var (cx, cy) in litCells)
         {
             if (_storage.VisibleCells.Contains((cx, cy))) continue;
@@ -1032,15 +1032,15 @@ public class MapObjectsProvider
         }
     }
 
-    // Чистая проверка LOS без побочных эффектов на VisibleCells.
-    // Используется для расчёта освещения от источников света.
+    // Pure LOS check with no side effects on VisibleCells.
+    // Used to compute lighting from light sources.
     private bool HasLineOfSightPure(int fromX, int fromY, int toX, int toY)
         => MovementCalculator.HasLineOfSight(_settings, fromX, fromY, toX, toY);
 
-    // DDA raycasting: бросает луч из (fromX, fromY) в (toX, toY),
-    // на каждом шаге проверяет стену на пересекаемом ребре ячейки.
-    // IsWallPresent возвращает false для открытых дверей, поэтому
-    // видимость автоматически проходит через проходы в соседние комнаты.
+    // DDA raycasting: casts a ray from (fromX, fromY) to (toX, toY),
+    // checking at each step for a wall on the cell edge being crossed.
+    // IsWallPresent returns false for open doors, so
+    // visibility automatically passes through doorways into neighboring rooms.
     private bool HasLineOfSight(int fromX, int fromY, int toX, int toY)
     {
         double dx = toX - fromX;
@@ -1059,12 +1059,12 @@ public class MapObjectsProvider
 
         while (cx != toX || cy != toY)
         {
-            if (Math.Abs(tMaxX - tMaxY) < 1e-9) // луч точно в угол между 4 ячейками
+            if (Math.Abs(tMaxX - tMaxY) < 1e-9) // the ray hits exactly the corner between 4 cells
             {
                 bool wallX = IsWallPresent(cx + 0.5 * stepX, cy, isHorizontal: false);
                 bool wallY = IsWallPresent(cx, cy + 0.5 * stepY, isHorizontal: true);
 
-                // Строгое правило: если обе стены от текущей ячейки закрывают угол — луч заблокирован
+                // Strict rule: if both walls from the current cell close the corner, the ray is blocked
                 if (wallX && wallY) return false;
 
                 bool wallXY = IsWallPresent(cx + stepX, cy + 0.5 * stepY, isHorizontal: true);
@@ -1075,14 +1075,14 @@ public class MapObjectsProvider
 
                 if (!pathViaX && !pathViaY) return false;
 
-                // Добавляем клетки, через которые реально прошёл луч
+                // Add the cells the ray actually passed through
                 if (pathViaX) _storage.VisibleCells.Add((cx + stepX, cy));
                 if (pathViaY) _storage.VisibleCells.Add((cx, cy + stepY));
 
-                // Переходим в целевую диагональную клетку
+                // Move into the target diagonal cell
                 if (cx != toX) cx += stepX;
                 if (cy != toY) cy += stepY;
-                _storage.VisibleCells.Add((cx, cy)); // добавляем целевую клетку
+                _storage.VisibleCells.Add((cx, cy)); // add the target cell
 
                 tMaxX += tDeltaX;
                 tMaxY += tDeltaY;
@@ -1092,7 +1092,7 @@ public class MapObjectsProvider
                 if (IsWallPresent(cx + 0.5 * stepX, cy, isHorizontal: false))
                     return false;
                 cx += stepX;
-                _storage.VisibleCells.Add((cx, cy)); // клетка после шага по X
+                _storage.VisibleCells.Add((cx, cy)); // cell after the X step
                 tMaxX += tDeltaX;
             }
             else
@@ -1100,11 +1100,11 @@ public class MapObjectsProvider
                 if (IsWallPresent(cx, cy + 0.5 * stepY, isHorizontal: true))
                     return false;
                 cy += stepY;
-                _storage.VisibleCells.Add((cx, cy)); // клетка после шага по Y
+                _storage.VisibleCells.Add((cx, cy)); // cell after the Y step
                 tMaxY += tDeltaY;
             }
 
-            // Рельеф, закрывающий обзор (чаща, скалы): саму клетку видно, что за ней — нет.
+            // Terrain that blocks sight (thicket, rocks): the cell itself is visible, what's behind it isn't.
             if ((cx != toX || cy != toY) && _terrain.TryGetValue((cx, cy), out var kind) && kind.BlocksSight && !_projected.Contains((cx, cy)))
                 return false;
         }
@@ -1112,10 +1112,10 @@ public class MapObjectsProvider
         return true;
     }
 
-    // windowIsWall — для рисования углов: окно стоит в стене, линии к нему примыкают (для обзора окно — проём).
+    // windowIsWall is for drawing corners: a window sits in a wall and lines join it (for sight, a window is an opening).
     private bool IsWallPresent(double x, double y, bool isHorizontal, bool checkExplored = false, bool checkDoor = false, bool windowIsWall = false)
     {
-        // Определяем две соседние клетки по обе стороны стены
+        // Find the two neighboring cells on either side of the wall
         (int x1, int y1, int x2, int y2) cells;
         if (isHorizontal)
         {
@@ -1132,7 +1132,7 @@ public class MapObjectsProvider
             cells = (xLeft, yCoord, xRight, yCoord);
         }
 
-        // Если есть дверь между этими клетками → нет стены
+        // If there's a door between these cells → no wall
         if (HasDoorBetween(cells.x1, cells.y1, cells.x2, cells.y2, checkDoor, windowIsWall))
             return false;
 
@@ -1195,7 +1195,7 @@ public class MapObjectsProvider
     }
 
     // IsDoor field is source of truth; falls back to Color check for backward compat with old saves.
-    // Окно — тоже «дверь» (граница с состоянием), но парные двери/проёмы его не касаются.
+    // A window is also a "door" (a boundary with state), but paired doors/openings don't concern it.
     private static bool IsDoor(Door door) => door.IsDoor ?? (door.Color?.Count == 3);
 
     private static readonly List<int> WindowColor = [150, 196, 226];
@@ -1228,18 +1228,18 @@ public class MapObjectsProvider
         bool isRoom1 = _roomPositions.Contains((cells.x1, cells.y1));
         bool isRoom2 = _roomPositions.Contains((cells.x2, cells.y2));
 
-        // Если один в комнате, другой нет → стена
+        // If one is in a room and the other isn't → wall
         if (isRoom1 != isRoom2)
         {
             return true;
         }
 
-        // Если оба в комнатах → проверяем разные ли это комнаты (по индексу, не по цвету)
+        // If both are in rooms → check whether they're different rooms (by index, not by color)
         if (isRoom1 && isRoom2)
         {
             var idx1 = _roomIndex.GetValueOrDefault((cells.x1, cells.y1), -1);
             var idx2 = _roomIndex.GetValueOrDefault((cells.x2, cells.y2), -1);
-            // Разные комнаты, если индексы разные
+            // Different rooms if the indices differ
             return idx1 != idx2 && idx1 >= 0 && idx2 >= 0;
         }
 
@@ -1333,12 +1333,12 @@ public class MapObjectsProvider
             }
         }
 
-        // Угол комнаты на краю двора/местности — цвета комнаты, как и линии стен рядом (иначе внешний угол
-        // здания красился в траву и выбивался из стены).
+        // A room corner at the edge of a yard/terrain uses the room color, like the wall lines next to it (otherwise the outer corner
+        // of the building was painted grass and stood out from the wall).
         if (roomColor != null && !areaOnRoom) return roomColor;
 
-        // Явное большинство (3 из 4) — его цвет; иначе — преобладающий на карте. Иначе узкая полоса (тропа
-        // среди разных видов травы) «перевешивала» соседей, и углы над/под ней красились в её цвет.
+        // A clear majority (3 of 4) gives its color; otherwise the one that dominates on the map. Otherwise a narrow strip (a path
+        // among different kinds of grass) "outweighed" its neighbors, and the corners above/below it took its color.
         var best = areaCounts.Values
             .OrderByDescending(v => v.localCount >= 3)
             .ThenByDescending(v => _areaCellCounts.GetValueOrDefault((v.color[0], v.color[1], v.color[2])))

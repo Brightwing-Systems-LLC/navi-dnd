@@ -1,49 +1,49 @@
 namespace NaviDnD.Data.Models;
 
-// Карта мира (вкладка [F2]): квадратная сетка клеток (клетка ≈ полдня пути), x — на восток, y — на юг
-// (y = 0 — север). Геометрию строит код (WorldGenerator): рельеф, реки, озёра, поселения, дороги,
-// королевства, места приключений; имена и описания позже даёт нейронка. Хранится библиотекой миров
-// (Storage/Worlds/<id>/world.json) — один мир на много игр; знания героя о мире — у игры отдельно.
+// World map (the [F2] tab): a square grid of cells (a cell ≈ half a day of travel), x goes east, y goes south
+// (y = 0 is north). Code builds the geometry (WorldGenerator): terrain, rivers, lakes, settlements, roads,
+// kingdoms, adventure sites; the AI supplies names and descriptions later. Stored in the world library
+// (Storage/Worlds/<id>/world.json) — one world for many games; the hero's knowledge of the world is kept per game.
 public class WorldMap
 {
     public string Id { get; set; } = "";
     public string Name { get; set; } = "";
     public int Seed { get; set; }
     public string Size { get; set; } = WorldSizes.Small;
-    // Параметры генерации (анкета новой игры): -1 / 0 / 1 — суша↔вода, холоднее↔теплее (у старых миров — 0).
+    // Generation parameters (new-game questionnaire): -1 / 0 / 1 — land↔water, colder↔warmer (0 for old worlds).
     public int Water { get; set; }
     public int Climate { get; set; }
-    public int Continents { get; set; }   // 0 — по размеру мира
+    public int Continents { get; set; }   // 0 — by world size
     public int Mountains { get; set; }
     public int Forests { get; set; }
     public int Deserts { get; set; }
     public int RiverAmount { get; set; }
     public string? Description { get; set; }
     public string? DmNotes { get; set; }
-    // Язык мира (L.Russian/L.English): язык интерфейса при создании; описания, имена, журнал и рассказ мастера —
-    // на нём, смена языка интерфейса его не меняет.
-    public string Language { get; set; } = L.Russian;
-    // Версия формата файла мира и его локаций (locations/*.json) — StorageMigration.
+    // World language (L.Russian/L.English): the interface language at creation; descriptions, names, the journal and
+    // the DM's narration are in it, and changing the interface language doesn't change it.
+    public string Language { get; set; } = L.English;
+    // Format version of the world file and its locations (locations/*.json) — StorageMigration.
     public int FormatVersion { get; set; } = StorageFormat.Current;
     public int Width { get; set; }
     public int Height { get; set; }
 
-    // Строки кодов WorldBiomes, строка 0 — север.
+    // Rows of WorldBiomes codes; row 0 is north.
     public List<string> Biomes { get; set; } = [];
-    // Высота 0..9 одним символом на клетку — для отмывки рельефа.
+    // Height 0..9, one character per cell — for hillshading.
     public List<string> Heights { get; set; } = [];
-    // Река: '0' — нет, '1'..'9' — величина (ручей → большая река).
+    // River: '0' — none, '1'..'9' — size (stream → great river).
     public List<string> Rivers { get; set; } = [];
-    // Дорога: '0' — нет, '1' — тропа, '2' — тракт.
+    // Road: '0' — none, '1' — trail, '2' — highway.
     public List<string> Roads { get; set; } = [];
-    // Владелец клетки: 'a'.. — индекс королевства, '.' — ничья земля/вода.
+    // Cell owner: 'a'.. — kingdom index, '.' — no man's land/water.
     public List<string> Owners { get; set; } = [];
 
-    // Places — заготовки генератора (столицы видны сразу, остальные — запасные клетки для add_place).
+    // Places — generator slots (capitals are visible right away, the rest are spare cells for add_place).
     public List<WorldPlace> Places { get; set; } = [];
     public List<WorldKingdom> Kingdoms { get; set; } = [];
     public List<WorldFeature> Features { get; set; } = [];
-    // Хроника: лор и места, придуманные мастером в играх этого мира (общая для всех игр мира).
+    // Chronicle: lore and places the DM invented in games of this world (shared by all games of the world).
     public WorldChronicle Chronicle { get; set; } = new();
 
     public bool InBounds(int x, int y) => x >= 0 && y >= 0 && x < Width && y < Height;
@@ -56,8 +56,8 @@ public class WorldMap
 
 public static class WorldSizes
 {
-    public const string Small = "small";   // маленький материк, 1–2 королевства
-    public const string Large = "large";   // большой континент, 4–6 королевств
+    public const string Small = "small";   // a small landmass, 1–2 kingdoms
+    public const string Large = "large";   // a large continent, 4–6 kingdoms
 }
 
 public class WorldPlace
@@ -69,7 +69,7 @@ public class WorldPlace
     public int Kingdom { get; set; } = -1;
     public string? Description { get; set; }
     public string? DmNotes { get; set; }
-    public bool Hidden { get; set; }   // замысел мастера: в сводках ИИ есть, на карте героя нет
+    public bool Hidden { get; set; }   // the DM's plan: in the AI summaries, not on the hero's map
 }
 
 public static class WorldPlaceTypes
@@ -89,16 +89,16 @@ public static class WorldPlaceTypes
 
     public static string Label(string type) => type switch
     {
-        Capital => "столица",
-        City => "город",
-        Town => "городок",
-        Village => "деревня",
-        Castle => "крепость",
-        Port => "порт",
-        Ruins => "руины",
-        Dungeon => "подземелье",
-        Cave => "пещера",
-        Shrine => "святилище",
+        Capital => "capital",
+        City => "city",
+        Town => "town",
+        Village => "village",
+        Castle => "fortress",
+        Port => "port",
+        Ruins => "ruins",
+        Dungeon => "dungeon",
+        Cave => "cave",
+        Shrine => "shrine",
         _ => type,
     };
 }
@@ -107,12 +107,12 @@ public class WorldKingdom
 {
     public string Name { get; set; } = "";
     public List<int> Color { get; set; } = [200, 60, 60];
-    public int Capital { get; set; } = -1;   // индекс в Places
+    public int Capital { get; set; } = -1;   // index into Places
     public string? Description { get; set; }
     public string? DmNotes { get; set; }
 }
 
-// Хроника мира: концепция, королевства (по индексу), места мастера (с тропами и сохранёнными локациями).
+// World chronicle: concept, kingdoms (by index), the DM's places (with trails and saved locations).
 public class WorldChronicle
 {
     public string? Name { get; set; }
@@ -124,7 +124,7 @@ public class WorldChronicle
 
 public class GameKingdom
 {
-    public int Id { get; set; }          // индекс королевства в WorldMap.Kingdoms
+    public int Id { get; set; }          // kingdom index in WorldMap.Kingdoms
     public string Name { get; set; } = "";
     public string? Description { get; set; }
     public string? DmNotes { get; set; }
@@ -136,23 +136,23 @@ public class GamePlace
     public string Type { get; set; } = "";
     public int X { get; set; }
     public int Y { get; set; }
-    public int Slot { get; set; } = -1;  // заготовка генератора (индекс WorldMap.Places), -1 — своя клетка
+    public int Slot { get; set; } = -1;  // generator slot (index into WorldMap.Places), -1 — its own cell
     public string? Description { get; set; }
     public string? DmNotes { get; set; }
-    // Тропа к месту (клетки x0,y0,x1,y1,…) — рисуется, когда место известно герою.
+    // Trail to the place (cells x0,y0,x1,y1,…) — drawn once the hero knows the place.
     public List<int>? Trail { get; set; }
-    // Сохранённая локация места (файл в Storage/Worlds/<id>/locations) — «всё как было» при возвращении.
+    // The place's saved location (a file in Storage/Worlds/<id>/locations) — "everything as it was" on return.
     public string? Location { get; set; }
 }
 
-// Природная область с названием (лес, горы, озеро, болото, пустыня…) — подпись на карте и ориентир для ИИ.
+// A named natural region (forest, mountains, lake, swamp, desert…) — a map label and a landmark for the AI.
 public class WorldFeature
 {
     public string Name { get; set; } = "";
     public char Biome { get; set; }
-    public int X { get; set; }     // точка подписи (клетка внутри области)
+    public int X { get; set; }     // label point (a cell inside the region)
     public int Y { get; set; }
-    public int Size { get; set; }  // клеток
+    public int Size { get; set; }  // cells
     public string? Description { get; set; }
 }
 
@@ -165,22 +165,22 @@ public static class WorldBiomes
 
     public static readonly IReadOnlyDictionary<char, WorldBiome> All = new[]
     {
-        new WorldBiome(Ocean, "Океан", [30, 52, 92], " ≈", [52, 78, 120], Water: true),
-        new WorldBiome(Sea, "Прибрежные воды", [44, 78, 122], " ~", [70, 104, 148], Water: true),
-        new WorldBiome(Lake, "Озеро", [52, 92, 138], " ~", [84, 124, 168], Water: true),
-        new WorldBiome(Beach, "Побережье", [176, 164, 118], "  "),
-        new WorldBiome(Plains, "Равнина", [112, 142, 78], "  "),
-        new WorldBiome(Grass, "Луга", [96, 132, 70], " ,", [128, 162, 92]),
-        new WorldBiome(Forest, "Лес", [58, 104, 56], "♣ ", [96, 150, 84]),
-        new WorldBiome(DeepForest, "Чаща", [40, 78, 44], "♠♣", [74, 120, 70]),
-        new WorldBiome(Hills, "Холмы", [128, 122, 86], "∩ ", [160, 150, 112]),
-        new WorldBiome(Mountains, "Горы", [112, 104, 96], "▲ ", [170, 160, 150]),
-        new WorldBiome(Peaks, "Снежные пики", [196, 198, 204], "▲ ", [240, 242, 246]),
-        new WorldBiome(Swamp, "Болото", [78, 96, 70], "≈,", [104, 124, 92]),
-        new WorldBiome(Desert, "Пустыня", [228, 208, 140], " ∙", [244, 228, 172]),
-        new WorldBiome(Tundra, "Тундра", [140, 150, 138], " ,", [170, 178, 166]),
-        new WorldBiome(Snow, "Снега", [214, 220, 226], "  "),
-        new WorldBiome(SnowForest, "Заснеженный лес", [122, 146, 138], "♠ ", [226, 232, 236]),
+        new WorldBiome(Ocean, "Ocean", [30, 52, 92], " ≈", [52, 78, 120], Water: true),
+        new WorldBiome(Sea, "Coastal waters", [44, 78, 122], " ~", [70, 104, 148], Water: true),
+        new WorldBiome(Lake, "Lake", [52, 92, 138], " ~", [84, 124, 168], Water: true),
+        new WorldBiome(Beach, "Coast", [176, 164, 118], "  "),
+        new WorldBiome(Plains, "Plains", [112, 142, 78], "  "),
+        new WorldBiome(Grass, "Meadows", [96, 132, 70], " ,", [128, 162, 92]),
+        new WorldBiome(Forest, "Forest", [58, 104, 56], "♣ ", [96, 150, 84]),
+        new WorldBiome(DeepForest, "Thicket", [40, 78, 44], "♠♣", [74, 120, 70]),
+        new WorldBiome(Hills, "Hills", [128, 122, 86], "∩ ", [160, 150, 112]),
+        new WorldBiome(Mountains, "Mountains", [112, 104, 96], "▲ ", [170, 160, 150]),
+        new WorldBiome(Peaks, "Snowy peaks", [196, 198, 204], "▲ ", [240, 242, 246]),
+        new WorldBiome(Swamp, "Swamp", [78, 96, 70], "≈,", [104, 124, 92]),
+        new WorldBiome(Desert, "Desert", [228, 208, 140], " ∙", [244, 228, 172]),
+        new WorldBiome(Tundra, "Tundra", [140, 150, 138], " ,", [170, 178, 166]),
+        new WorldBiome(Snow, "Snowfields", [214, 220, 226], "  "),
+        new WorldBiome(SnowForest, "Snowy forest", [122, 146, 138], "♠ ", [226, 232, 236]),
     }.ToDictionary(b => b.Code);
 
     public static WorldBiome Get(char code) => All.GetValueOrDefault(code) ?? All[Ocean];

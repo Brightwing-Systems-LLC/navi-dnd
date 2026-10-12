@@ -2,20 +2,20 @@ using Xunit.Abstractions;
 
 namespace NaviDnD.UiTests;
 
-// E2E-регрессия: во время боя раунд продвигает ФИНАЛЬНАЯ ЗАПИСЬ ХОДА ВРАГОВ (totalRounds+1, см.
-// SendAction systemPrompt § БОЙ), а не только SendAction вне боя (см. BurningEffectRoundTransitionTests)
-// и не только движение по сетке. До фикса MapScreenLoop.RunEnemyTurnAndCheckRoundEnd движок вообще
-// не проверял Storage.TakeRoundBundle() после хода врагов — эффект героя (например, «Горящий»)
-// никогда бы не истёк во время боя, пока раунды продвигает исключительно вражеский ход.
+// E2E regression: during combat the round is advanced by the FINAL ENEMY TURN ENTRY (totalRounds+1, see
+// SendAction systemPrompt § COMBAT), not only by SendAction outside combat (see BurningEffectRoundTransitionTests)
+// and not only by grid movement. Before the fix MapScreenLoop.RunEnemyTurnAndCheckRoundEnd the engine did not
+// check Storage.TakeRoundBundle() after the enemy turn at all — a hero effect (e.g. "Burning")
+// would never expire during combat while rounds were advanced solely by the enemy turn.
 //
-// Fixtures/combat_effect_round_game.json: бой активен, ход гоблина (все действия/скорость героя уже
-// потрачены — типичная причина, почему ход именно у врага); «Горящий» задан с expiresAtRound:1 (а не
-// onRound) — при totalRounds:1 он ЕЩЁ не истёк (currentRound > expiresAtRound строго), поэтому первая
-// же проверка после действия игрока (round ещё 1) не срабатывает — это принципиально, иначе эффект
-// сработал бы ДО хода врага и тест ничего бы не доказал про сам фикс. Три мок-ответа "SendAction":
-// 1) заглушка действия игрока, 2) ход гоблина — атакует и передаёт ход герою с totalRounds+1 (теперь
-// currentRound(2) > expiresAtRound(1) — эффект истёк), 3) round-transition, вызванный ТОЛЬКО если
-// фикс действительно сработал — снимает «Горящий».
+// Fixtures/combat_effect_round_game.json: combat active, goblin's turn (all of the hero's actions/speed already
+// spent — the typical reason the turn belongs to the enemy); "Burning" is set with expiresAtRound:1 (not
+// onRound) — at totalRounds:1 it has NOT expired yet (currentRound > expiresAtRound, strictly), so the very first
+// check after the player's action (round still 1) does not fire — this is essential, otherwise the effect
+// would fire BEFORE the enemy turn and the test would prove nothing about the fix itself. Three "SendAction" mock responses:
+// 1) a stub for the player's action, 2) the goblin's turn — attacks and passes the turn to the hero with totalRounds+1 (now
+// currentRound(2) > expiresAtRound(1) — the effect has expired), 3) the round transition, called ONLY if
+// the fix actually worked — removes "Burning".
 public class CombatEffectRoundScenarioTests
 {
     private readonly ITestOutputHelper _output;
@@ -27,42 +27,42 @@ public class CombatEffectRoundScenarioTests
     {
         using var game = GameSession.Launch(
             fixtureFileName: "combat_effect_round_game.json", mockedActions: ["SendAction"], mockResponsesFolder: "CombatEffectRound");
-        _output.WriteLine($"Игра запущена (pid {game.Pid}).");
+        _output.WriteLine($"Game launched (pid {game.Pid}).");
         var failures = new List<string>();
 
-        Navigation.MenuSelect(game.Pid, "ПРОДОЛЖИТЬ");
+        Navigation.MenuSelect(game.Pid, "CONTINUE");
         Assert.True(
-            GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ КАРТА ←", 5000),
-            "Не дождались экрана Карты после [F1] в меню.");
-        _output.WriteLine("Экран Карты отрисован. Отправляю действие игрока (1й вызов мока — заглушка, ход у гоблина)...");
+            GameConsole.WaitForRowContains(game.Pid, 1, GameConsole.TitleReadWidth, "→ MAP ←", 5000),
+            "Map screen did not appear after [F1] in the menu.");
+        _output.WriteLine("Map screen rendered. Sending the player's action (1st mock call — a stub, it is the goblin's turn)...");
         TestPacing.Step();
 
-        GameConsole.SendText(game.Pid, "жду своего хода");
+        GameConsole.SendText(game.Pid, "I wait for my turn");
         GameConsole.SendKey(game.Pid, ConsoleKey.Enter);
 
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Ожидание", 3000),
-            "Не дождались спиннера ожидания для действия игрока.");
-        _output.WriteLine("Действие обрабатывается. Далее движок сам вызывает ход гоблина (2й вызов мока)...");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Waiting", 3000),
+            "Waiting spinner for the player's action did not appear.");
+        _output.WriteLine("Action is being processed. Next the engine itself calls the goblin's turn (2nd mock call)...");
         TestPacing.Step();
 
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Раунд 2", 25000),
-            "Раунд не продвинулся до 2 — финальная запись хода врагов (2й вызов мока) не применилась.");
-        _output.WriteLine("Ход гоблина завершён, раунд продвинулся до 2. Ждём тик «Горящего» (3й вызов мока)...");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "Round 2", 25000),
+            "The round did not advance to 2 — the final enemy turn entry (2nd mock call) was not applied.");
+        _output.WriteLine("Goblin's turn finished, the round advanced to 2. Waiting for the \"Burning\" tick (3rd mock call)...");
         TestPacing.Step();
 
         Assert.True(
-            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "наконец гаснет", 25000),
-            "Не дождались текста 3го мок-ответа (истечение «Горящего» во время боя) — MapScreenLoop.RunEnemyTurnAndCheckRoundEnd не сработал.");
+            GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "finally go out", 25000),
+            "Text of the 3rd mock response (\"Burning\" expiring during combat) did not appear — MapScreenLoop.RunEnemyTurnAndCheckRoundEnd did not fire.");
         TestPacing.Step();
 
-        _output.WriteLine("Проверяю итоговое HP героя (9 от атаки гоблина, затем 8 от тика «Горящего»)...");
+        _output.WriteLine("Checking the hero's final HP (9 after the goblin's attack, then 8 after the \"Burning\" tick)...");
         if (!GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, "❤ 8/10", 5000))
-            failures.Add("После атаки гоблина и тика «Горящего» HP героя не обновилось до «❤ 8/10».");
+            failures.Add("After the goblin's attack and the \"Burning\" tick the hero's HP did not update to \"❤ 8/10\".");
 
-        _output.WriteLine(failures.Count == 0 ? "Все проверки пройдены." : $"Провалено проверок: {failures.Count}.");
+        _output.WriteLine(failures.Count == 0 ? "All checks passed." : $"Failed checks: {failures.Count}.");
         TestPacing.Step();
-        Assert.True(failures.Count == 0, "UI-тест FAIL:\n" + string.Join("\n", failures.Select(f => "  - " + f)));
+        Assert.True(failures.Count == 0, "UI test FAIL:\n" + string.Join("\n", failures.Select(f => "  - " + f)));
     }
 }

@@ -2,11 +2,11 @@ using Xunit.Abstractions;
 
 namespace NaviDnD.UiTests;
 
-// E2E: выбор элемента инвентаря наведением мыши (MouseUiHelper.MakeCharacterPollAction — "Inventory
-// item hover" — и HeroDisplay.WriteInvLine, который дорисовывает "←" у выбранной первой строки
-// предмета) — недавно добавленная фича (см. историю коммитов), покрытая только кликовой пагинацией
-// (GameScenarioTests.CheckInventoryPagination), но не самим наведением и не сбросом выбора при
-// уходе мыши.
+// E2E: selecting an inventory item by mouse hover (MouseUiHelper.MakeCharacterPollAction — "Inventory
+// item hover" — and HeroDisplay.WriteInvLine, which draws "←" next to the selected item's first
+// row) — a recently added feature (see commit history), covered only by click pagination
+// (GameScenarioTests.CheckInventoryPagination), but neither by the hover itself nor by the selection
+// reset when the mouse leaves.
 public class InventoryHoverScenarioTests
 {
     private readonly ITestOutputHelper _output;
@@ -17,48 +17,48 @@ public class InventoryHoverScenarioTests
     public void HoverOverItem_HighlightsRow_AndResetsWhenMouseLeaves()
     {
         using var game = GameSession.Launch();
-        _output.WriteLine($"Игра запущена (pid {game.Pid}).");
+        _output.WriteLine($"Game launched (pid {game.Pid}).");
 
         Navigation.ToCharacterScreen(game.Pid);
-        // Заголовок экрана и тело карточки (инвентарь) рисуются РАЗНЫМИ вызовами — заголовок мог
-        // смениться раньше, чем дорисовался список инвентаря ниже (та же гонка, что чинили в
-        // GameScenarioTests.FullGameplayScenario). Явно ждём появления предмета, а не полагаемся на
-        // то, что он успел отрисоваться к моменту возврата из Navigation.ToCharacterScreen.
-        const string itemMarker = "Длинный меч";
+        // The screen title and the card body (inventory) are drawn by DIFFERENT calls — the title may
+        // change before the inventory list below has been drawn (the same race that was fixed in
+        // GameScenarioTests.FullGameplayScenario). Explicitly wait for the item to appear rather than relying on
+        // it having been drawn by the time Navigation.ToCharacterScreen returns.
+        const string itemMarker = "Longsword";
         Assert.True(
             GameConsole.WaitForAnyRowContains(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth, itemMarker, 5000),
-            $"Предмет «{itemMarker}» не появился на экране Персонажа (карточка не успела отрисоваться?).");
-        _output.WriteLine("Экран Персонажа (вкладка Инвентарь) отрисован.");
+            $"Item \"{itemMarker}\" did not appear on the Character screen (the card did not finish drawing?).");
+        _output.WriteLine("Character screen (Inventory tab) rendered.");
         TestPacing.Step();
 
-        // "Длинный меч" — первый неэкипированный предмет на первой странице инвентаря (см. также
-        // GameScenarioTests.CheckInventoryPagination) — гарантированно виден без пагинации.
+        // "Longsword" is the first unequipped item on the first inventory page (see also
+        // GameScenarioTests.CheckInventoryPagination) — guaranteed visible without pagination.
         var rows = GameConsole.ReadRows(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth);
         int itemRow = rows.FindIndex(r => r.Contains(itemMarker));
-        Assert.True(itemRow >= 0, $"Предмет «{itemMarker}» не найден на первой странице инвентаря.");
+        Assert.True(itemRow >= 0, $"Item \"{itemMarker}\" not found on the first inventory page.");
         Assert.DoesNotContain("←", rows[itemRow]);
-        _output.WriteLine($"Предмет «{itemMarker}» найден в строке {itemRow}, без наведения — маркера «←» ещё нет.");
+        _output.WriteLine($"Item \"{itemMarker}\" found on row {itemRow}; without hover there is no \"←\" marker yet.");
 
         int hoverCol = rows[itemRow].IndexOf(itemMarker, StringComparison.Ordinal) + 2;
-        _output.WriteLine("Навожу мышь на строку предмета...");
+        _output.WriteLine("Hovering the mouse over the item row...");
         GameConsole.SendMouseMove(game.Pid, hoverCol, itemRow);
         TestPacing.Step();
 
         Assert.True(
             GameConsole.WaitForRowsMatch(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth,
                 r => r[itemRow].Contains(itemMarker) && r[itemRow].Contains("←"), 3000),
-            $"После наведения мыши на «{itemMarker}» строка не подсветилась маркером «←».");
-        _output.WriteLine("Строка подсветилась маркером «←» при наведении.");
+            $"After hovering over \"{itemMarker}\" the row was not highlighted with the \"←\" marker.");
+        _output.WriteLine("Row highlighted with the \"←\" marker on hover.");
         TestPacing.Step();
 
-        _output.WriteLine("Увожу мышь за пределы списка инвентаря — выбор должен сброситься...");
+        _output.WriteLine("Moving the mouse outside the inventory list — the selection should reset...");
         GameConsole.SendMouseMove(game.Pid, 2, 2);
 
         Assert.True(
             GameConsole.WaitForRowsMatch(game.Pid, 0, GameConsole.ScanRowCount, GameConsole.TitleReadWidth,
                 r => !r[itemRow].Contains("←"), 3000),
-            $"После ухода мыши с предмета «{itemMarker}» маркер «←» не пропал — выбор наведением не сбрасывается.");
-        _output.WriteLine("Выбор наведением сброшен после ухода мыши.");
+            $"After the mouse left \"{itemMarker}\" the \"←\" marker did not disappear — hover selection does not reset.");
+        _output.WriteLine("Hover selection reset after the mouse left.");
         TestPacing.Step();
     }
 }

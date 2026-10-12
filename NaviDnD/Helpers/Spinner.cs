@@ -4,7 +4,7 @@ public static class Spinner
 {
     public static readonly string[] Frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 
-    // Ожидание по центру строки row (ширина width от колонки left): «⠋ Создаём мир...».
+    // Wait indicator centred on row (width wide, starting at column left): "⠋ Creating the world...".
     public static async Task WhileCentered(Task task, string message, int row, int left, int width, List<int> color)
     {
         Console.CursorVisible = false;
@@ -21,7 +21,7 @@ public static class Spinner
 
     public static async Task While(Task task, string? message = null)
     {
-        message ??= L.T("Мастер думает");
+        message ??= L.T("The DM is thinking");
         Console.CursorVisible = false;
         int top  = Console.CursorTop;
         int i    = 0;

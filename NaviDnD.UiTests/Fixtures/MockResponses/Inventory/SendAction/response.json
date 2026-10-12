@@ -2,11 +2,11 @@
   "hero": {
     "inventory": [
       { "id": 0, "equipmentedSlot": [] },
-      { "id": 1, "equipmentedSlot": ["П Рука"] },
+      { "id": 1, "equipmentedSlot": ["R Hand"] },
       { "id": 6, "deleted": true },
       {
-        "name": "Волшебное кольцо",
-        "description": "Тестовый предмет, добавленный мок-ответом SendAction.",
+        "name": "Magic Ring",
+        "description": "A test item added by the SendAction mock response.",
         "quantity": 1,
         "equipmentedSlot": [],
         "color": [200, 160, 255]
@@ -14,6 +14,6 @@
     ]
   },
   "history": [
-    { "text": "Ты убираешь лук за спину и берёшь длинный меч в руку. Один из клинков для броска потерялся в пути, зато в кармане звякнуло кольцо." }
+    { "text": "You sling the bow over your back and take the longsword in hand. One of the throwing blades got lost on the way, but a ring jingles in your pocket." }
   ]
 }

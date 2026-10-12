@@ -3,10 +3,10 @@ using System.Text.Json;
 
 namespace NaviDnD.Installer;
 
-// Патч релиза — ZIP: patch.json (описание) и files/<путь> (новые и изменённые файлы).
-//  BaseFiles — полный список файлов исходной версии с SHA256: по нему проверяется, что установлена именно она и
-//  ничего не повреждено (иначе — полная установка базы); Files — новые/изменённые файлы с SHA256 результата;
-//  Removed — удаляемые файлы исходной версии. Storage/, logs/ и помощник Updater/ патч не трогает никогда.
+// A release patch is a ZIP: patch.json (the description) and files/<path> (new and changed files).
+//  BaseFiles — the full file list of the source version with SHA256: used to check that exactly that version is installed
+//  and nothing is damaged (otherwise a full base install); Files — new/changed files with the SHA256 of the result;
+//  Removed — source-version files to delete. A patch never touches Storage/, logs/ or the Updater/ helper.
 internal sealed record Patch(string BaseVersion, string Version, Dictionary<string, string> BaseFiles,
     Dictionary<string, string> Files, string[] Removed)
 {
@@ -15,37 +15,37 @@ internal sealed record Patch(string BaseVersion, string Version, Dictionary<stri
 
     internal static Patch Read(ZipArchive archive)
     {
-        using var input = archive.GetEntry(ManifestName)?.Open() ?? throw new InvalidDataException(L.T("Нет описания патча."));
+        using var input = archive.GetEntry(ManifestName)?.Open() ?? throw new InvalidDataException(L.T("The patch has no description."));
         Patch patch;
-        try { patch = JsonSerializer.Deserialize<Patch>(input, UpdateManifest.Json) ?? throw new InvalidDataException(L.T("Некорректный патч.")); }
-        catch (JsonException) { throw new InvalidDataException(L.T("Некорректное описание патча.")); }
+        try { patch = JsonSerializer.Deserialize<Patch>(input, UpdateManifest.Json) ?? throw new InvalidDataException(L.T("Invalid patch.")); }
+        catch (JsonException) { throw new InvalidDataException(L.T("Invalid patch description.")); }
         if (patch.BaseVersion == null || patch.Version == null
             || UpdateManifest.ParseVersion(patch.Version) <= UpdateManifest.ParseVersion(patch.BaseVersion))
-            throw new InvalidDataException(L.T("Некорректная версия патча."));
+            throw new InvalidDataException(L.T("Invalid patch version."));
         if (patch.BaseFiles == null || patch.Files == null || patch.Removed == null || !patch.Files.ContainsKey("release-version.txt"))
-            throw new InvalidDataException(L.T("Неполное описание патча."));
+            throw new InvalidDataException(L.T("Incomplete patch description."));
         foreach (var file in patch.BaseFiles.Concat(patch.Files))
         {
             RelativePath(file.Key);
-            if (file.Value is not { Length: 64 } || !file.Value.All(Uri.IsHexDigit)) throw new InvalidDataException(L.T("Некорректная сумма файла."));
+            if (file.Value is not { Length: 64 } || !file.Value.All(Uri.IsHexDigit)) throw new InvalidDataException(L.T("Invalid file checksum."));
         }
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (string name in patch.Files.Keys.Concat(patch.Removed))
-            if (!names.Add(RelativePath(name))) throw new InvalidDataException(L.T("Повторяющийся путь патча."));
+            if (!names.Add(RelativePath(name))) throw new InvalidDataException(L.T("Duplicate patch path."));
         foreach (string name in patch.Removed)
-            if (!patch.BaseFiles.ContainsKey(name)) throw new InvalidDataException(L.T("Удаляемый файл отсутствует в базе."));
+            if (!patch.BaseFiles.ContainsKey(name)) throw new InvalidDataException(L.T("A file to remove is missing from the base."));
         foreach (string name in patch.Files.Keys)
-            if (archive.GetEntry(FilesPrefix + name) == null) throw new InvalidDataException(L.T("В патче нет файла: ") + name);
+            if (archive.GetEntry(FilesPrefix + name) == null) throw new InvalidDataException(L.T("The patch is missing a file: ") + name);
         return patch;
     }
 
-    // Установлена ли исходная версия патча. full — все файлы базы (повреждённая установка), иначе — только те, что патч
-    // заменяет или удаляет (следующие патчи цепочки: остальное уже проверено первым).
+    // Whether the patch's source version is installed. full — every base file (damaged install); otherwise only the ones
+    // the patch replaces or removes (later patches in the chain: the rest was already checked by the first).
     internal void VerifyBase(string root, bool full, Action<double>? progress = null)
     {
         string versionFile = Path.Combine(root, "release-version.txt");
         string version = File.Exists(versionFile) ? File.ReadAllText(versionFile).Trim() : "";
-        if (version != BaseVersion) throw new InvalidDataException(L.F("Патч для версии {0}, установлена {1}.", BaseVersion, version.Length > 0 ? version : L.T("неизвестная")));
+        if (version != BaseVersion) throw new InvalidDataException(L.F("The patch is for version {0}, installed is {1}.", BaseVersion, version.Length > 0 ? version : L.T("unknown")));
         var check = full ? BaseFiles.ToList() : BaseFiles.Where(f => Files.ContainsKey(f.Key) || Removed.Contains(f.Key)).ToList();
         for (int i = 0; i < check.Count; i++)
         {
@@ -53,7 +53,7 @@ internal sealed record Patch(string BaseVersion, string Version, Dictionary<stri
             string path = Path.Combine(root, RelativePath(name));
             RejectLinks(root, path);
             if (!File.Exists(path) || UpdateManifest.Sha256(path) != sha.ToLowerInvariant())
-                throw new InvalidDataException(L.T("Файл игры изменён или отсутствует: ") + name);
+                throw new InvalidDataException(L.T("A game file is modified or missing: ") + name);
             progress?.Invoke((i + 1) / (double)check.Count);
         }
     }
@@ -62,11 +62,11 @@ internal sealed record Patch(string BaseVersion, string Version, Dictionary<stri
     {
         if (string.IsNullOrWhiteSpace(name) || name.Contains('\\') || name.Contains(':') || name.StartsWith('/') || name.Contains('\0') ||
             name.Split('/').Any(p => p is "" or "." or ".." || p.EndsWith('.') || p.EndsWith(' ')))
-            throw new InvalidDataException(L.T("Недопустимый путь патча: ") + name);
+            throw new InvalidDataException(L.T("Invalid patch path: ") + name);
         string first = name.Split('/')[0];
         if (first.Equals("Storage", StringComparison.OrdinalIgnoreCase) || first.Equals("logs", StringComparison.OrdinalIgnoreCase)
             || first.Equals("Updater", StringComparison.OrdinalIgnoreCase) || first.StartsWith(".update-", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException(L.T("Недопустимый путь патча: ") + name);
+            throw new InvalidDataException(L.T("Invalid patch path: ") + name);
         return name;
     }
 
@@ -74,20 +74,20 @@ internal sealed record Patch(string BaseVersion, string Version, Dictionary<stri
     {
         for (string? path = target; path != null && path.Length >= root.TrimEnd(Path.DirectorySeparatorChar).Length; path = Path.GetDirectoryName(path))
             if ((File.Exists(path) || Directory.Exists(path)) && (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0)
-                throw new IOException(L.T("Файл установки не должен быть ссылкой."));
+                throw new IOException(L.T("An installed file must not be a link."));
     }
 }
 
 internal static class PatchInstaller
 {
-    // Патчи по порядку одной операцией: первый проверяет всю базу, каждый следующий — что начинается с версии
-    // предыдущего. Файлы извлекаются и сверяются по SHA256 до замены; заменённые и удалённые уходят в резерв, при любой
-    // ошибке всё возвращается как было. Storage/ и logs/ не затрагиваются. Возвращает установленную версию.
+    // Patches in order as one operation: the first checks the whole base, each next one that it starts from the previous
+    // one's version. Files are extracted and verified by SHA256 before replacing; replaced and removed files go to a backup,
+    // and on any error everything is restored. Storage/ and logs/ are not touched. Returns the installed version.
     internal static string ApplyChain(string root, IReadOnlyList<string> patchZips, Action<string, double?>? progress = null)
     {
         root = Path.GetFullPath(root);
-        if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0) throw new IOException(L.T("Папка установки не должна быть ссылкой."));
-        if (patchZips.Count == 0) throw new ArgumentException(L.T("Нет патчей."));
+        if ((File.GetAttributes(root) & FileAttributes.ReparsePoint) != 0) throw new IOException(L.T("The install folder must not be a link."));
+        if (patchZips.Count == 0) throw new ArgumentException(L.T("No patches."));
         string work = Path.Combine(root, ".update-" + Guid.NewGuid().ToString("N"));
         string staging = Path.Combine(work, "new"), backup = Path.Combine(work, "old");
         var changed = new List<(string Target, string? Backup)>();
@@ -100,9 +100,9 @@ internal static class PatchInstaller
             {
                 using var archive = ZipFile.OpenRead(patchZips[i]);
                 var patch = Patch.Read(archive);
-                if (version != null && patch.BaseVersion != version) throw new InvalidDataException(L.T("Разрыв в цепочке патчей."));
-                progress?.Invoke(L.F("Проверка файлов игры ({0})…", patch.BaseVersion), 0);
-                patch.VerifyBase(root, full: i == 0, f => progress?.Invoke(L.F("Проверка файлов игры ({0})…", patch.BaseVersion), f));
+                if (version != null && patch.BaseVersion != version) throw new InvalidDataException(L.T("Gap in the patch chain."));
+                progress?.Invoke(L.F("Checking game files ({0})…", patch.BaseVersion), 0);
+                patch.VerifyBase(root, full: i == 0, f => progress?.Invoke(L.F("Checking game files ({0})…", patch.BaseVersion), f));
 
                 string stage = Path.Combine(staging, i.ToString());
                 int n = 0;
@@ -111,14 +111,14 @@ internal static class PatchInstaller
                     string temp = SafePath(stage, name);
                     Directory.CreateDirectory(Path.GetDirectoryName(temp)!);
                     archive.GetEntry(Patch.FilesPrefix + name)!.ExtractToFile(temp);
-                    if (UpdateManifest.Sha256(temp) != sha.ToLowerInvariant()) throw new InvalidDataException(L.T("Повреждён файл патча: ") + name);
-                    progress?.Invoke(L.F("Обновление до {0}…", patch.Version), ++n / (double)(patch.Files.Count + patch.Removed.Length));
+                    if (UpdateManifest.Sha256(temp) != sha.ToLowerInvariant()) throw new InvalidDataException(L.T("Corrupted patch file: ") + name);
+                    progress?.Invoke(L.F("Updating to {0}…", patch.Version), ++n / (double)(patch.Files.Count + patch.Removed.Length));
                 }
                 foreach (var name in patch.Files.Keys)
                 {
                     string target = SafePath(root, name);
                     Patch.RejectLinks(root, target);
-                    if (Directory.Exists(target)) throw new IOException(L.T("На месте файла папка: ") + name);
+                    if (Directory.Exists(target)) throw new IOException(L.T("A folder is in place of the file: ") + name);
                     Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                     string? old = null;
                     if (File.Exists(target))
@@ -157,14 +157,14 @@ internal static class PatchInstaller
             catch (Exception rollbackError)
             {
                 keepBackup = true;
-                throw new IOException(L.T("Ошибка обновления и отката. Резервные файлы сохранены: ") + backup,
+                throw new IOException(L.T("Update and rollback failed. Backup files are kept in: ") + backup,
                     new AggregateException(installError, rollbackError));
             }
             throw;
         }
         finally { if (!keepBackup && Directory.Exists(work)) Directory.Delete(work, true); }
 
-        // Опустевшие после удаления папки — убрать (не выше папки игры).
+        // Remove folders left empty after deletion (not above the game folder).
         foreach (string dir in removedDirs.OrderByDescending(d => d.Length))
             for (string? path = dir; path != null && path.Length > root.Length; path = Path.GetDirectoryName(path))
             {
@@ -178,7 +178,7 @@ internal static class PatchInstaller
     {
         string target = Path.GetFullPath(Path.Combine(root, relative));
         if (!target.StartsWith(Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidDataException(L.T("Некорректный путь в патче."));
+            throw new InvalidDataException(L.T("Invalid path in the patch."));
         return target;
     }
 }

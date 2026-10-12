@@ -28,8 +28,8 @@ public class MovementIntent
 public class MovementResult
 {
     public string UsedIntent { get; set; } = "";
-    // Видна ли цель (герой или существо из intent.target) с конечной клетки: дистанция обзора и линия видимости.
-    // Строка seesHero в контексте посчитана до хода — после перемещения стрелку нужен этот ответ.
+    // Whether the target (the hero or the creature from intent.target) is visible from the destination cell: sight range and line of sight.
+    // The seesHero line in the context was computed before the move — after moving, a ranged attacker needs this answer.
     public bool? TargetVisible { get; set; }
     public List<List<int>> Steps { get; set; } = [];
     public int RemainingSpeedFt { get; set; }
@@ -74,7 +74,7 @@ public static class MovementCalculator
 
         foreach (var intent in req.Intents)
         {
-            // Цель — герой или любое существо по символу (враг идёт к союзнику героя, держит дистанцию от него).
+            // The target is the hero or any creature by symbol (an enemy approaches the hero's ally, keeps its distance from it).
             var targetPos = TargetPosition(ws, intent.Target, heroPos);
             var result = TryIntent(ws, intent, reached, startCol, startRow, speedFt, targetPos, initialDiagUsed)
                          ?? (intent.Intent.Equals("approach", StringComparison.OrdinalIgnoreCase)
@@ -178,8 +178,8 @@ public static class MovementCalculator
         };
     }
 
-    // Герой дальше, чем враг дойдёт за ход: идти к нему по настоящему пути (в обход деревьев/стен) так далеко,
-    // как хватает скорости. Раньше approach в этом случае не срабатывал, и далёкий враг просто стоял («stay»).
+    // The hero is farther than the enemy can reach in one turn: walk toward them along the real path (around trees/walls) as far
+    // as speed allows. Previously approach did nothing in this case and a distant enemy just stood still ("stay").
     private static MovementResult? TryApproachFar(
         WorldState ws, int entityId,
         Dictionary<(int col, int row, bool d), (int cost, (int col, int row, bool d)? parent)> reached,
@@ -192,10 +192,10 @@ public static class MovementCalculator
         foreach (var kvp in far)
             if (ChebyshevDist(kvp.Key.col, kvp.Key.row, hCol, hRow) == 1 && (best == null || kvp.Value.cost < best.Value.cost))
                 best = (kvp.Key.col, kvp.Key.row, kvp.Value.cost);
-        if (best == null) return null;   // к герою не пройти вовсе
+        if (best == null) return null;   // the hero cannot be reached at all
 
         var full = ReconstructPath(far, (startCol, startRow, initialDiagUsed), (best.Value.col, best.Value.row));
-        // Сколько пути влезает в скорость: клетка пути должна быть достижима за этот ход (есть в reached).
+        // How much of the path fits into speed: a path cell must be reachable this turn (present in reached).
         var steps = new List<List<int>>();
         foreach (var step in full)
         {
@@ -206,9 +206,9 @@ public static class MovementCalculator
         return new MovementResult { UsedIntent = "approach", Steps = steps };
     }
 
-    // Держать дистанцию — для стрелков: клетка в диапазоне, откуда цель ВИДНО (линия обзора), ближайшая по пути;
-    // раньше стрелок за деревьями «держал дистанцию» на месте и ход за ходом не мог выстрелить. Видимых клеток
-    // в досягаемости нет — любая в диапазоне, как раньше.
+    // Keep distance — for ranged attackers: a cell within range from which the target IS VISIBLE (line of sight), nearest by path;
+    // previously a ranged attacker behind trees "kept its distance" in place and could not shoot turn after turn. If no visible cells
+    // are in reach — any cell in range, as before.
     private static MovementResult? TryMaintainDistance(
         WorldState ws, MovementIntent intent,
         Dictionary<(int col, int row, bool d), (int cost, (int col, int row, bool d)? parent)> reached,
@@ -310,7 +310,7 @@ public static class MovementCalculator
                 bool isDiag    = dcols[i] != 0 && drows[i] != 0;
                 if (!CanMoveTo(ws, col, row, nc, nr, entityId))
                 {
-                    // Герой протискивается мимо мирного существа на свободную клетку за ним (два шага разом).
+                    // The hero squeezes past a peaceful creature to the free cell behind it (two steps at once).
                     if (!passPeaceful || PeacefulEntityIndex(ws, nc, nr) is not int bystander) continue;
                     int fc = nc + dcols[i], fr = nr + drows[i];
                     if (!CanMoveTo(ws, col, row, nc, nr, bystander) || !CanMoveTo(ws, nc, nr, fc, fr, entityId)) continue;
@@ -458,8 +458,8 @@ public static class MovementCalculator
 
     // ── Map helpers ──────────────────────────────────────────────────────────
 
-    // Мирное существо: не в бою и без триггера «заметил героя» (spotted — у врагов). Сквозь такое герой
-    // может протиснуться на свободную клетку за ним (MovementHandler, двойное нажатие стрелки).
+    // A peaceful creature: not in combat and without the "spotted the hero" trigger (spotted is for enemies). The hero
+    // can squeeze past it to the free cell behind it (MovementHandler, pressing the arrow twice).
     public static bool IsPeaceful(WorldState ws, LivingEntity entity) =>
         entity.Triggers?.Spotted == null
         && !(ws.Combat?.Active == true && ws.Combat.Initiative?.Any(e => e.Deleted != true && e.Symbol == entity.Symbol) == true);
@@ -498,7 +498,7 @@ public static class MovementCalculator
         return true;
     }
 
-    // Индекс клеток (MapConfig.RoomAt) — Дейкстра спрашивает это для каждой клетки локации.
+    // Cell index (MapConfig.RoomAt) — Dijkstra asks this for every cell of the location.
     public static Room? GetRoom(WorldState ws, int col, int row) => ws.Map.RoomAt(col, row);
 
     public static bool HasPassableConnection(WorldState ws, int fromCol, int fromRow, int toCol, int toRow)
@@ -527,8 +527,8 @@ public static class MovementCalculator
         return baseCost;
     }
 
-    // Дальность обзора при свете дня на клетке под открытым небом (как MapObjectsProvider.OutdoorVisionFt у героя):
-    // день 120 фт, утро/вечер 60; ночь или под крышей — null.
+    // Sight range in daylight on an open-air cell (like the hero's MapObjectsProvider.OutdoorVisionFt):
+    // day 120 ft, morning/evening 60; night or under a roof — null.
     public static int? DaylightFt(WorldState ws, int col, int row) =>
         ws.Map.TerrainAt(col, row) is { Indoor: false }
             ? ws.Time.PartOfDay switch { PartsOfDay.Night => null, PartsOfDay.Morning or PartsOfDay.Evening => 60, _ => 120 }
@@ -537,18 +537,18 @@ public static class MovementCalculator
     public static int ChebyshevDist(int c1, int r1, int c2, int r2)
         => Math.Max(Math.Abs(c1 - c2), Math.Abs(r1 - r2));
 
-    // VisionFt: null = 30 фт, 0 = слепое, <0 = без ограничения.
-    // Герой в неосвещённой клетке виден только в пределах DarkvisionFt существа (если оно задано).
+    // VisionFt: null = 30 ft, 0 = blind, <0 = unlimited.
+    // A hero in an unlit cell is visible only within the creature's DarkvisionFt (if set).
     public static bool EntitySeesHero(WorldState ws, LivingEntity entity)
     {
         if (entity.Position is not { Count: >= 2 } ep) return false;
         if (ws.Hero?.Position is not { Count: >= 2 } hp) return false;
 
-        // Без своего зрения: днём под открытым небом видно так же далеко, как герою (свет дня), иначе 30 фт.
+        // No vision of its own: by day in the open it sees as far as the hero does (daylight), otherwise 30 ft.
         int visionFt = entity.VisionFt ?? DaylightFt(ws, hp[0], hp[1]) ?? 30;
         if (visionFt == 0) return false;
-        // Дистанция — как у обзора героя (5-10-5, TargetGeometry): иначе враг «видел» героя, которого герой не видит
-        // на той же дистанции (по Чебышёву 12 клеток наискосок — 60 фт, по 5-10-5 — 70).
+        // Distance works like the hero's sight (5-10-5, TargetGeometry): otherwise an enemy "saw" a hero who could not see it
+        // at the same distance (12 cells diagonally is 60 ft by Chebyshev, 70 by 5-10-5).
         int distFt = TargetGeometry.DistanceFt(ep[0], ep[1], hp[0], hp[1]);
         if ((visionFt > 0 && distFt > visionFt) || !HasLineOfSight(ws, ep[0], ep[1], hp[0], hp[1])) return false;
 
@@ -557,11 +557,11 @@ public static class MovementCalculator
         return true;
     }
 
-    // Клетка освещена: свет самого героя (если стоит на ней) или любой включённый источник в радиусе
-    // с прямой видимостью до клетки. Light.Ft <= 0 — без ограничения радиуса.
+    // The cell is lit: the hero's own light (if standing on it) or any lit source within radius
+    // with line of sight to the cell. Light.Ft <= 0 means unlimited radius.
     public static bool IsCellLit(WorldState ws, int col, int row)
     {
-        // Открытая местность не ночью — дневной свет.
+        // Open terrain outside night — daylight.
         if (ws.Time.PartOfDay != PartsOfDay.Night && ws.Map.TerrainAt(col, row) is { Indoor: false }) return true;
 
         if (ws.Hero is { Light.On: true, Position: { Count: >= 2 } heroPos }
@@ -585,7 +585,7 @@ public static class MovementCalculator
         double dx = toX - fromX;
         double dy = toY - fromY;
         if (dx == 0 && dy == 0) return true;
-        if (ws.Map.FloorAt(fromX, fromY) != ws.Map.FloorAt(toX, toY)) return false; // другой этаж
+        if (ws.Map.FloorAt(fromX, fromY) != ws.Map.FloorAt(toX, toY)) return false; // a different floor
 
         int stepX = dx > 0 ? 1 : dx < 0 ? -1 : 0;
         int stepY = dy > 0 ? 1 : dy < 0 ? -1 : 0;
@@ -623,7 +623,7 @@ public static class MovementCalculator
                 cy += stepY;
                 tMaxY += tDeltaY;
             }
-            // Рельеф, закрывающий обзор (чаща, скалы): саму клетку видно, что за ней — нет.
+            // Terrain that blocks sight (thicket, rocks): the cell itself is visible, what lies behind it is not.
             if ((cx != toX || cy != toY) && ws.Map.TerrainAt(cx, cy) is { BlocksSight: true }) return false;
         }
         return true;

@@ -12,7 +12,7 @@ public class ClaudeCliErrorTests
     public void AuthenticationFailureShowsActionableSetupError(string error)
     {
         var exception = Assert.IsType<AiSetupException>(ClaudeCliAiProvider.CreateError(error));
-        Assert.Contains("не авторизован", exception.Message);
+        Assert.Contains("not signed in", exception.Message);
         Assert.Contains("claude auth login", exception.Message);
     }
 
@@ -21,8 +21,8 @@ public class ClaudeCliErrorTests
     {
         var exception = Assert.IsType<AiSetupException>(
             ClaudeCliAiProvider.CreateError("organization does not have access to Claude"));
-        Assert.Contains("не имеет доступа", exception.Message);
-        Assert.DoesNotContain("не авторизован", exception.Message);
+        Assert.Contains("no access to Claude", exception.Message);
+        Assert.DoesNotContain("not signed in", exception.Message);
     }
 
     [Theory]

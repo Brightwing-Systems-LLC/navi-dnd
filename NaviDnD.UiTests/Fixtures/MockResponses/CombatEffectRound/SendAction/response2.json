@@ -1,11 +1,11 @@
 {
   "history": [
     {
-      "text": "Гоблин скалится и бьёт когтями.",
+      "text": "The goblin bares its teeth and strikes with its claws.",
       "patch": { "hero": { "hp": "9/10" } }
     },
     {
-      "text": "Ход переходит к тебе.",
+      "text": "Your turn.",
       "patch": {
         "combat": { "currentTurn": "HRO" },
         "time": { "totalRounds": 2 },

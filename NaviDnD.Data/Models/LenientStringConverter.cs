@@ -3,11 +3,11 @@ using System.Text.Json.Serialization;
 
 namespace NaviDnD.Data.Models;
 
-// ИИ иногда присылает число там, где формат ожидает строку (например value:4 вместо value:"4"
-// для стата с числовым смыслом типа "Подготовлено заклинаний") — по умолчанию System.Text.Json на
-// этом бросает JsonException, которое обрывает весь патч героя на середине (см. HeroSpell.Prepared
-// комментарий рядом, Hero.Stats и т.д. дефолтятся в [] как вторая линия защиты от той же причины).
-// Этот конвертер просто принимает число и как есть, и как строку.
+// The AI sometimes sends a number where the format expects a string (e.g. value:4 instead of value:"4"
+// for a numeric stat like "Spells prepared") — by default System.Text.Json throws a JsonException
+// on that, which aborts the whole hero patch halfway (see the HeroSpell.Prepared comment
+// nearby; Hero.Stats etc. default to [] as a second line of defense against the same cause).
+// This converter simply accepts a number both as is and as a string.
 public class LenientStringConverter : JsonConverter<string?>
 {
     public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>

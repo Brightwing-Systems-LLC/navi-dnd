@@ -2,11 +2,11 @@ using System.Text;
 
 namespace NaviDnD.Migrations;
 
-// Запуск миграции и отчёт: лог — logs/migrations.log; ошибки — ещё и в Storage/update-error.txt (игра покажет их
-// в «ОБНОВЛЕНИЯ», как и прочие ошибки обновления).
+// Runs the migration and reports: the log goes to logs/migrations.log; errors also go to Storage/update-error.txt (the game shows them
+// under "UPDATES", like other update errors).
 public static class MigrateCommand
 {
-    // «NaviDnD.exe --migrate <папка игры>» — из помощника обновления, без окна. 0 — всё переведено (или нечего).
+    // "NaviDnD.exe --migrate <game folder>" — from the update helper, without a window. 0 means everything was migrated (or nothing needed it).
     public static int Run(string root)
     {
         try
@@ -17,29 +17,29 @@ public static class MigrateCommand
         }
         catch (Exception e)
         {
-            Log(root, "Сбой миграции: " + e);
-            Error(root, L.T("Не удалось обновить сохранения: ") + e.Message);
+            Log(root, "Migration failed: " + e);
+            Error(root, L.T("Could not update the saves: ") + e.Message);
             return 1;
         }
     }
 
-    // Запасной путь при старте игры: файлы всё ещё старого формата (сборка из исходников, сбой обновления).
+    // Fallback at game start: the files are still in the old format (built from source, a failed update).
     public static void RunIfNeeded(string root)
     {
         try
         {
             if (StorageMigration.Needed(Path.Combine(root, "Storage"))) Run(root);
         }
-        catch { /* не помешать запуску игры */ }
+        catch { /* never block the game from starting */ }
     }
 
     private static void Report(string root, StorageMigration.Result result)
     {
         if (result.Migrated == 0 && result.Ok) return;
-        Log(root, $"Формат {StorageFormat.Current}: переведено файлов {result.Migrated}, копия — {result.BackupDir ?? "нет"}"
-                  + string.Concat(result.Errors.Select(e => "\n  ошибка: " + e)));
+        Log(root, $"Format {StorageFormat.Current}: migrated {result.Migrated} files, backup: {result.BackupDir ?? "none"}"
+                  + string.Concat(result.Errors.Select(e => "\n  error: " + e)));
         if (!result.Ok)
-            Error(root, L.F("Не все сохранения обновлены ({0}). Прежние файлы — в {1}.", string.Join("; ", result.Errors),
+            Error(root, L.F("Not all saves were updated ({0}). The previous files are in {1}.", string.Join("; ", result.Errors),
                 result.BackupDir ?? "Storage"));
     }
 

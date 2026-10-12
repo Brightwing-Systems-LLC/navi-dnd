@@ -5,12 +5,12 @@ using NaviDnD.Helpers;
 
 namespace NaviDnD.Display;
 
-// Анкета новой игры в стиле меню: слева поля (↑↓ — к любому полю, Enter — изменить, ←→ — листать
-// цвет и портрет), справа живое превью героя (портрет его цветом, имя, символ как на карте).
-// Текстовые поля заполняются подряд: Enter сохраняет поле и сразу открывает следующее (так же их заполняют
-// UI-тесты). Раса и класс — листалки из списка правил (Prompts/{RuleSet}/heroOptions.json): смена — портрет под
-// них, если есть подходящий. Портреты — готовый набор; под ним «ВЫБРАТЬ ФАЙЛ…» (окно Windows; PNG/JPG/BMP/GIF/SVG
-// копируется в Storage/Portraits).
+// New game form in the menu style: fields on the left (↑↓ to any field, Enter to edit, ←→ to flip through
+// color and portrait), a live hero preview on the right (portrait in their color, name, symbol as on the map).
+// Text fields are filled in sequence: Enter saves the field and immediately opens the next one (the UI tests
+// fill them the same way). Race and class flip through the ruleset's list (Prompts/{RuleSet}/heroOptions.json): changing them picks a portrait
+// to match, if there is one. Portraits are a ready-made set; below it, «CHOOSE FILE…» (a Windows dialog; PNG/JPG/BMP/GIF/SVG
+// is copied into Storage/Portraits).
 public class NewGameDisplay
 {
     private enum Kind { Text, Color, Portrait, Actions, Button, Choice, AiButton, RandomButton }
@@ -21,8 +21,8 @@ public class NewGameDisplay
         public Kind Kind = kind;
         public int MaxLength = maxLength;
         public string Value = fixedValue ?? "";
-        public bool ReadOnly = fixedValue != null; // фиксированное значение — фокус и ввод его пропускают
-        public List<string> Options = [];           // Choice: варианты (←→), выбран Index
+        public bool ReadOnly = fixedValue != null; // a fixed value: focus and input skip it
+        public List<string> Options = [];           // Choice: options (←→), the selected one is Index
         public int Index;
     }
 
@@ -32,40 +32,40 @@ public class NewGameDisplay
 
     private static (string Name, List<int> Rgb)[] Palette =>
     [
-        (L.T("ЯНТАРНЫЙ"), [220, 170, 60]), (L.T("АЛЫЙ"), [210, 70, 60]), (L.T("ИЗУМРУДНЫЙ"), [70, 190, 110]),
-        (L.T("ЛАЗУРНЫЙ"), [80, 150, 230]), (L.T("АМЕТИСТОВЫЙ"), [160, 105, 220]), (L.T("БИРЮЗОВЫЙ"), [70, 200, 200]),
-        (L.T("МЕДНЫЙ"), [205, 125, 75]), (L.T("СЕРЕБРЯНЫЙ"), [190, 195, 205]), (L.T("ЗОЛОТОЙ"), [240, 210, 90]),
-        (L.T("РОЗОВЫЙ"), [230, 120, 170]), (L.T("ЛЕСНОЙ"), [120, 175, 70]), (L.T("ПЕПЕЛЬНЫЙ"), [155, 145, 135]),
+        (L.T("AMBER"), [220, 170, 60]), (L.T("SCARLET"), [210, 70, 60]), (L.T("EMERALD"), [70, 190, 110]),
+        (L.T("AZURE"), [80, 150, 230]), (L.T("AMETHYST"), [160, 105, 220]), (L.T("TURQUOISE"), [70, 200, 200]),
+        (L.T("COPPER"), [205, 125, 75]), (L.T("SILVER"), [190, 195, 205]), (L.T("GOLD"), [240, 210, 90]),
+        (L.T("PINK"), [230, 120, 170]), (L.T("FOREST"), [120, 175, 70]), (L.T("ASHEN"), [155, 145, 135]),
     ];
 
-    // Готовый набор портретов (game-icons) — листается после подобранных нейронкой.
+    // Ready-made portrait set (game-icons), flipped through after the ones picked by the model.
     private static Portrait[] Gallery =>
     [
-        new("delapouite/wizard-face", L.T("МАГ")), new("delapouite/woman-elf-face", L.T("ЭЛЬФИЙКА")),
-        new("delapouite/dwarf-face", L.T("ДВАРФ")), new("delapouite/barbarian", L.T("ВАРВАР")),
-        new("delapouite/monk-face", L.T("МОНАХ")), new("delapouite/bandit", L.T("РАЗБОЙНИК")),
-        new("cathelineau/witch-face", L.T("ВЕДЬМА")), new("cathelineau/nun-face", L.T("ЖРИЦА")),
-        new("darkzaitzev/ninja-head", L.T("НИНДЗЯ")), new("darkzaitzev/hooded-assassin", L.T("УБИЙЦА")),
-        new("darkzaitzev/hooded-figure", L.T("СТРАННИК")), new("lorc/cowled", L.T("ОТШЕЛЬНИК")),
-        new("lorc/visored-helm", L.T("РЫЦАРЬ")), new("delapouite/closed-barbute", L.T("ВОИН")),
-        new("delapouite/black-knight-helm", L.T("ЧЁРНЫЙ РЫЦАРЬ")), new("delapouite/overlord-helm", L.T("ВЛАСТЕЛИН")),
-        new("delapouite/viking-helmet", L.T("ВИКИНГ")), new("delapouite/spartan-helmet", L.T("ГОПЛИТ")),
-        new("delapouite/samurai-helmet", L.T("САМУРАЙ")), new("kier-heyl/elf-helmet", L.T("ЭЛЬФ-ВОИН")),
-        new("kier-heyl/dwarf-helmet", L.T("ДВАРФ-ВОИН")), new("kier-heyl/dwarf-king", L.T("КОРОЛЬ ДВАРФОВ")),
-        new("delapouite/orc-head", L.T("ОРК")), new("delapouite/goblin-head", L.T("ГОБЛИН")),
-        new("delapouite/kenku-head", L.T("КЕНКУ")), new("lorc/lizardman", L.T("ЯЩЕРОЛЮД")),
-        new("faithtoken/dragon-head", L.T("ДРАКОНОРОЖДЁННЫЙ")), new("delapouite/vampire-dracula", L.T("ВАМПИР")),
-        new("lorc/werewolf", L.T("ОБОРОТЕНЬ")), new("lorc/cultist", L.T("КУЛЬТИСТ")),
-        new("delapouite/plague-doctor-profile", L.T("ЧУМНОЙ ДОКТОР")), new("delapouite/fairy", L.T("ФЕЯ")),
-        new("delapouite/archer", L.T("ЛУЧНИК")), new("cathelineau/swordman", L.T("МЕЧНИК")),
+        new("delapouite/wizard-face", L.T("MAGE")), new("delapouite/woman-elf-face", L.T("ELF WOMAN")),
+        new("delapouite/dwarf-face", L.T("DWARF")), new("delapouite/barbarian", L.T("BARBARIAN")),
+        new("delapouite/monk-face", L.T("MONK")), new("delapouite/bandit", L.T("BANDIT")),
+        new("cathelineau/witch-face", L.T("WITCH")), new("cathelineau/nun-face", L.T("PRIESTESS")),
+        new("darkzaitzev/ninja-head", L.T("NINJA")), new("darkzaitzev/hooded-assassin", L.T("ASSASSIN")),
+        new("darkzaitzev/hooded-figure", L.T("WANDERER")), new("lorc/cowled", L.T("HERMIT")),
+        new("lorc/visored-helm", L.T("KNIGHT")), new("delapouite/closed-barbute", L.T("WARRIOR")),
+        new("delapouite/black-knight-helm", L.T("BLACK KNIGHT")), new("delapouite/overlord-helm", L.T("OVERLORD")),
+        new("delapouite/viking-helmet", L.T("VIKING")), new("delapouite/spartan-helmet", L.T("HOPLITE")),
+        new("delapouite/samurai-helmet", L.T("SAMURAI")), new("kier-heyl/elf-helmet", L.T("ELF WARRIOR")),
+        new("kier-heyl/dwarf-helmet", L.T("DWARF WARRIOR")), new("kier-heyl/dwarf-king", L.T("DWARF KING")),
+        new("delapouite/orc-head", L.T("ORC")), new("delapouite/goblin-head", L.T("GOBLIN")),
+        new("delapouite/kenku-head", L.T("KENKU")), new("lorc/lizardman", L.T("LIZARDFOLK")),
+        new("faithtoken/dragon-head", L.T("DRAGONBORN")), new("delapouite/vampire-dracula", L.T("VAMPIRE")),
+        new("lorc/werewolf", L.T("WEREWOLF")), new("lorc/cultist", L.T("CULTIST")),
+        new("delapouite/plague-doctor-profile", L.T("PLAGUE DOCTOR")), new("delapouite/fairy", L.T("FAIRY")),
+        new("delapouite/archer", L.T("ARCHER")), new("cathelineau/swordman", L.T("SWORDSMAN")),
     ];
 
-    private static string[] PortraitActions => [L.T("ВЫБРАТЬ ФАЙЛ…")];
+    private static string[] PortraitActions => [L.T("CHOOSE FILE…")];
 
-    // Расы и классы правил с подходящим портретом (слаг галереи) — Prompts/{RuleSet}/heroOptions.json.
+    // Ruleset races and classes with a matching portrait (gallery slug): Prompts/{RuleSet}/heroOptions.json.
     private sealed record HeroOption(string Name, string? Portrait);
     private readonly Dictionary<string, string?> _optionPortraits = [];
-    private readonly List<string> _names = [];   // имена для «РАНДОМ»
+    private readonly List<string> _names = [];   // names for «RANDOM»
     private static readonly Random _rnd = new();
 
     private void LoadHeroOptions(string ruleSet)
@@ -78,9 +78,9 @@ public class NewGameDisplay
                          ("backgrounds", BackgroundField) })
                 foreach (var o in root?[key]?.AsArray() ?? [])
                 {
-                    // Вариант — строкой («1») или объектом с портретом ({"name","portrait"}).
+                    // An option is a string («1») or an object with a portrait ({"name","portrait"}).
                     bool plain = o is System.Text.Json.Nodes.JsonValue;
-                    // Варианты — русские (ключи перевода), в анкете и мастеру — на языке мира.
+                    // Options are English (translation keys); in the form and for the DM they're in the world's language.
                     string name = L.W(plain ? o!.ToString() : (string?)o?["name"] ?? "");
                     if (name.Length == 0) continue;
                     _fields[field].Options.Add(name);
@@ -89,7 +89,7 @@ public class NewGameDisplay
             foreach (var n in root?[L.WorldIsEnglish ? "namesEn" : "names"]?.AsArray() ?? [])
                 if (n?.ToString() is { Length: > 0 } s) _names.Add(s);
         }
-        catch { /* нет списка — листалки пустые */ }
+        catch { /* no list: the choosers stay empty */ }
         foreach (int f in ChoiceFields)
         {
             if (_fields[f].Options.Count == 0) _fields[f].Options.Add("—");
@@ -97,8 +97,8 @@ public class NewGameDisplay
         }
     }
 
-    // «РАНДОМ»: случайные имя (символ — его первые буквы), раса, класс, уровень, мировоззрение, предыстория и цвет;
-    // портрет — под них.
+    // «RANDOM»: random name (the symbol is its first letters), race, class, level, alignment, background and color;
+    // the portrait matches them.
     private void Randomize()
     {
         Sound.PlayClick();
@@ -121,7 +121,7 @@ public class NewGameDisplay
         PortraitFor(ClassField);
     }
 
-    // Выбрать вариант листалки по значению (нет в списке — добавить: раса/класс героя из библиотеки).
+    // Select a chooser option by value (not in the list: add it; a hero's race/class from the library).
     private void SetChoice(int field, string value)
     {
         var f = _fields[field];
@@ -132,8 +132,8 @@ public class NewGameDisplay
         f.Value = value;
     }
 
-    // Сменили расу/класс — портрет под них из галереи (своя картинка из файла не трогается). Нет подходящего у
-    // выбранного — по другому полю.
+    // Race/class changed: pick a matching portrait from the gallery (a custom picture from a file is left alone). If the selected one has
+    // no match, go by the other field.
     private void PortraitFor(int changed)
     {
         if (_portraits[_portrait].Image.StartsWith(SvgToBrailleConverter.PortraitsPrefix)) return;
@@ -145,7 +145,7 @@ public class NewGameDisplay
                 return;
             }
     }
-    private const int PortraitWidth = 36; // как в игре (SvgToBrailleConverter по умолчанию): 36 × 18
+    private const int PortraitWidth = 36; // as in the game (SvgToBrailleConverter default): 36 × 18
 
     private readonly WorldState _settings;
     private readonly DisplayConfig _display;
@@ -154,13 +154,13 @@ public class NewGameDisplay
     private readonly BorderDrawer _borderDrawer;
     private int _startTop;
 
-    // Шаги новой игры: на какой можно перейти (F1–F4 / клик в заголовке). Анкета живёт между заходами на шаг.
+    // New game steps: which ones you can go to (F1–F4 / click in the title). The form persists between visits to the step.
     public Func<int, bool> CanGo = _ => false;
     public NewGameData? Data { get; private set; }
-    // Герой создан нейронкой при последнем «ДАЛЕЕ» (Program сохраняет его карточку в библиотеку героев).
+    // The hero created by the model on the last «NEXT» (Program saves their sheet to the hero library).
     public bool CreatedNow { get; set; }
-    // Раса/класс/описание/выбор героя, с которыми герой создан: изменились — создать заново (с предупреждением);
-    // нет — имя, символ, цвет и портрет просто переносятся в героя.
+    // Race/class/description/hero choice the hero was created with: if they changed, recreate (with a warning);
+    // if not, name, symbol, color and portrait just carry over into the hero.
     private string? _createdKey;
     private bool _recreateWarned;
     private int? _gotoStep;
@@ -168,29 +168,29 @@ public class NewGameDisplay
 
     private readonly List<Field> _fields =
     [
-        new(L.T("ИМЯ"), Kind.Text, 30), new(L.T("СИМВОЛ"), Kind.Text, 3),
-        new(L.T("РАСА"), Kind.Choice), new(L.T("КЛАСС"), Kind.Choice),
-        new(L.T("ОПИСАНИЕ"), Kind.Text, 1500),
-        new(L.T("ЦВЕТ"), Kind.Color), new(L.T("ПОРТРЕТ"), Kind.Portrait), new("", Kind.Actions),
-        new(L.T("ГЕРОЙ"), Kind.Choice),
-        new(L.T("ЗАПРОС"), Kind.Text, 300), new(L.T("ПРИДУМАТЬ"), Kind.AiButton),
-        new(L.T("УРОВЕНЬ"), Kind.Choice), new(L.T("МИРОВОЗЗРЕНИЕ"), Kind.Choice),
-        new(L.T("РАНДОМ"), Kind.RandomButton),
-        new(L.T("ПРЕДЫСТОРИЯ"), Kind.Choice),
-        new(L.T("ДАЛЕЕ"), Kind.Button),
+        new(L.T("NAME##person"), Kind.Text, 30), new(L.T("SYMBOL"), Kind.Text, 3),
+        new(L.T("RACE"), Kind.Choice), new(L.T("CLASS"), Kind.Choice),
+        new(L.T("DESCRIPTION"), Kind.Text, 1500),
+        new(L.T("COLOR"), Kind.Color), new(L.T("PORTRAIT"), Kind.Portrait), new("", Kind.Actions),
+        new(L.T("HERO"), Kind.Choice),
+        new(L.T("REQUEST"), Kind.Text, 300), new(L.T("INVENT"), Kind.AiButton),
+        new(L.T("LEVEL"), Kind.Choice), new(L.T("ALIGNMENT"), Kind.Choice),
+        new(L.T("RANDOM"), Kind.RandomButton),
+        new(L.T("BACKGROUND"), Kind.Choice),
+        new(L.T("NEXT"), Kind.Button),
     ];
     private const int NameField = 0, SymbolField = 1, RaceField = 2, ClassField = 3, DescriptionField = 4,
         ColorField = 5, HeroField = 8, PromptField = 9, AiField = 10, LevelField = 11, AlignmentField = 12, RandomField = 13,
         BackgroundField = 14;
-    private const string Setting = "DnD 5e";   // правила — пока одни (в анкете не показываются)
+    private const string Setting = "DnD 5e";   // only one ruleset for now (not shown in the form)
 
-    // Порядок полей на экране (↑↓): ГЕРОЙ — сверху, кнопка — внизу (в списке _fields кнопка — последней).
-    // Описание героя — нижним блоком (как описание мира): текст, запрос к нейронке, ПРИДУМАТЬ/ИЗМЕНИТЬ.
+    // Field order on screen (↑↓): HERO at the top, the button at the bottom (in the _fields list the button is last).
+    // The hero description is the bottom block (like the world description): text, a request to the model, INVENT/CHANGE.
     private static readonly int[] Order = [HeroField, 0, 1, 2, 3, LevelField, AlignmentField, BackgroundField, 5, 6, 7, RandomField,
         DescriptionField, PromptField, AiField, 15];
 
-    // ГЕРОЙ (как МИР на шаге «Мир»): «новый герой» (первым), отложенные варианты этого создания игры (Draft — готовы,
-    // только читать; в библиотеку — только тот, с которым перешли дальше) и герои библиотеки (Card).
+    // HERO (like WORLD on the «World» step): «new hero» (first), deferred options from this game creation (Draft: ready,
+    // read-only; only the one you moved on with goes into the library) and library heroes (Card).
     private sealed record HeroDraft(string[] Values, int Color, string Image);
     private sealed record HeroChoice(HeroLibrary.Card? Card = null, HeroDraft? Draft = null);
     private readonly List<HeroChoice> _heroes = [new()];
@@ -200,31 +200,31 @@ public class NewGameDisplay
     private int _color;
     private readonly List<Portrait> _portraits = [.. Gallery];
     private int _portrait;
-    private int _action;             // выбранная кнопка в строке под портретом
+    private int _action;             // the selected button in the row under the portrait
     private string _message = "";
-    private readonly List<(int row, int x, int w)> _actionPos = []; // кнопки под портретом (для мыши)
+    private readonly List<(int row, int x, int w)> _actionPos = []; // buttons under the portrait (for the mouse)
 
-    // Раскладка
+    // Layout
     private int _width, _height, _x0, _bodyTop;
     private int _buttonRow, _buttonX, _buttonWidth, _formLeft;
-    private readonly List<(int row, int x)> _swatches = [];      // образцы палитры (для клика)
+    private readonly List<(int row, int x)> _swatches = [];      // palette swatches (for clicks)
     private char[,] _chars = new char[0, 0];
     private List<int>?[,] _fg = new List<int>?[0, 0];
     private List<int>?[,] _bg = new List<int>?[0, 0];
-    private readonly List<(int row, int field)> _fieldRows = []; // строки тела, занятые полем (для мыши)
-    private (int row, int left, int right)? _arrows;              // ◄ ► у поля в фокусе (цвет/портрет)
+    private readonly List<(int row, int field)> _fieldRows = []; // body rows taken by a field (for the mouse)
+    private (int row, int left, int right)? _arrows;              // ◄ ► on the focused field (color/portrait)
 
-    // Раскладка по центру: рамка «АНКЕТА» слева, рамка «ГЕРОЙ» справа той же высоты.
+    // Centered layout: a «FORM» frame on the left, a «HERO» frame on the right with the same height.
     private const int FormWidth = 56, PreviewWidth = 40, Gap = 3, BoxInner = 22;
-    private const int DescHeight = 13;                        // блок «ОПИСАНИЕ ГЕРОЯ»
-    private const int LabelCol = 3, ValueCol = 18;           // от левого края рамки анкеты
-    private const int MultiLines = 3;                         // строк на описание/пожелания
+    private const int DescHeight = 13;                        // the «HERO DESCRIPTION» block
+    private const int LabelCol = 3, ValueCol = 18;           // from the left edge of the form frame
+    private const int MultiLines = 3;                         // lines for description/wishes
 
     private List<int> Fg => _display.MainForeground;
     private List<int> Bright => ColorHelper.Pale(_display.MainForeground, 0.75);
     private List<int> Dim => ColorHelper.Darker(_display.MainForeground, 0.5);
 
-    // Язык мира, на котором собрана анкета (варианты, имена): мир сменился на другой язык — анкета создаётся заново.
+    // The world language the form was built in (options, names): if the world changed to another language, the form is recreated.
     public string Language { get; } = L.World;
 
     public NewGameDisplay(WorldState settings, DisplayConfig display, ScreenConfig screen, GameAiClient aiClient)
@@ -237,7 +237,7 @@ public class NewGameDisplay
         _startTop = Console.CursorTop;
         LoadHeroOptions(aiClient.RuleSet);
         PortraitFor(RaceField);
-        _fields[HeroField].Options.Add(L.T("новый герой"));
+        _fields[HeroField].Options.Add(L.T("new hero"));
         foreach (var h in HeroLibrary.All())
         {
             _heroes.Add(new(h));
@@ -245,9 +245,9 @@ public class NewGameDisplay
         }
     }
 
-    // Выбран вариант ГЕРОЙ: личность из библиотеки — в поля; «новый» — поля с чистого листа.
-    // Герой из библиотеки — его раса и класс закреплены (уровень и умения переходят как есть).
-    // Введённое для нового героя — хранится, пока листаешь героев библиотеки (вернулся на «новый» — всё как было).
+    // A HERO option was chosen: a library persona goes into the fields; «new» starts the fields from scratch.
+    // A library hero has a fixed race and class (level and features carry over as is).
+    // What was entered for a new hero is kept while you flip through library heroes (go back to «new» and it's all as it was).
     private static readonly int[] PersonalFields = [NameField, SymbolField, RaceField, ClassField, LevelField, AlignmentField, BackgroundField, DescriptionField];
     private static readonly int[] ChoiceFields = [RaceField, ClassField, LevelField, AlignmentField, BackgroundField];
     private HeroDraft? _newHeroDraft;
@@ -261,7 +261,7 @@ public class NewGameDisplay
         _descScroll = 0;
         var h = _heroes[_fields[HeroField].Index];
         bool isNew = h.Card == null && h.Draft == null;
-        // Готовый герой (библиотека или отложенный вариант) — как готовый мир: всё только для чтения.
+        // A ready hero (library or deferred option), like a ready world: everything is read-only.
         foreach (int f in PersonalFields.Concat([ColorField, ColorField + 1, ColorField + 2, PromptField, AiField, RandomField])) _fields[f].ReadOnly = !isNew;
         _fields[PromptField].Value = isNew ? _newHeroPrompt : "";
         if (h.Card != null) { ApplyPrefill(h.Card); return; }
@@ -280,18 +280,18 @@ public class NewGameDisplay
         }
     }
 
-    // Новый герой уже с описанием — перед «РАНДОМ» он становится готовым вариантом в листалке ГЕРОЙ (только на
-    // время этого создания игры), а описание нового — с чистого листа (как мир с описанием перед новой картой).
+    // A new hero that already has a description becomes a ready option in the HERO chooser before «RANDOM» (only for
+    // the duration of this game creation), and the new one's description starts from scratch (like a world with a description before a new map).
     private void ArchiveNewHero()
     {
         if (_fields[HeroField].Index != 0 || _fields[DescriptionField].Value.Trim().Length == 0) return;
         _heroes.Insert(1, new(Draft: Snapshot()));
-        _fields[HeroField].Options.Insert(1, _fields[NameField].Value.Trim() is { Length: > 0 } n ? n : L.T("вариант"));
+        _fields[HeroField].Options.Insert(1, _fields[NameField].Value.Trim() is { Length: > 0 } n ? n : L.T("draft"));
         _fields[DescriptionField].Value = _fields[PromptField].Value = "";
-        _message = L.T("Прежний вариант — в списке ГЕРОЙ (◄ ►), пока создаётся эта игра");
+        _message = L.T("The previous version is in the HERO list (◄ ►) while this game is being created");
     }
 
-    // Герой из библиотеки (шаг «Герой» мастера новой игры) — поля анкеты заполнены его личностью, их можно поправить.
+    // A library hero (the «Hero» step of the new game wizard): the form fields are filled with their persona and can be adjusted.
     private void ApplyPrefill(HeroLibrary.Card h)
     {
         _fields[NameField].Value = h.Name;
@@ -301,7 +301,7 @@ public class NewGameDisplay
         SetChoice(LevelField, System.Text.RegularExpressions.Regex.Match(h.Level, @"\d+").Value);
         SetChoice(AlignmentField, HeroStat(h.HeroJson, StatKeys.Alignment));
         SetChoice(BackgroundField, HeroStat(h.HeroJson, StatKeys.Background));
-        _fields[DescriptionField].Value = h.Description;   // нет описания — пусто (не текст прежнего героя)
+        _fields[DescriptionField].Value = h.Description;   // no description: empty (not the previous hero's text)
         if (h.Color != null && Array.FindIndex(Palette, p => p.Rgb.SequenceEqual(h.Color)) is int ci and >= 0) _color = ci;
         if (h.Image != null)
         {
@@ -311,7 +311,7 @@ public class NewGameDisplay
         }
     }
 
-    // Стат героя из его JSON (лист персонажа) по ключу (StatKeys); нет — "".
+    // A hero stat from their JSON (character sheet) by key (StatKeys); if missing, "".
     private static string HeroStat(string? heroJson, string key)
     {
         try
@@ -322,11 +322,11 @@ public class NewGameDisplay
         catch { return ""; }
     }
 
-    // Анкета (шаг 2). Возвращает шаг, на который перейти: 1 — мир, 3/4 — дальше (герой создан, Data), 0 — выход в меню.
+    // The form (step 2). Returns the step to go to: 1 is the world, 3/4 is onward (hero created, Data), 0 is exit to the menu.
     public async Task<int> Show()
     {
         _startTop = Console.CursorTop;
-        _titleTabsCache = null;   // заголовок мог измениться (доступные шаги)
+        _titleTabsCache = null;   // the title may have changed (available steps)
         _tabHovered = null;
         _exitToMenu = false;
         _recreateWarned = false;
@@ -340,19 +340,19 @@ public class NewGameDisplay
         for (int r = 0; r < _height; r++) _borderDrawer.DrawContentLine(() => { });
         _borderDrawer.DrawBottomBorder();
 
-        _editing = true; // первое поле — сразу на ввод
+        _editing = true; // the first field goes straight into input
         Redraw();
 
         while (true)
         {
-            // Нейронка пишет описание — экран ждёт (только Esc), крутится ожидание.
+            // The model is writing the description: the screen waits (Esc only), the spinner turns.
             if (_describeTask != null)
             {
                 if (_describeTask.IsCompleted) FinishDescribe();
                 else
                 {
                     ConsoleMouseReader.DrainWhileWaiting();
-                    ConsoleMouseReader.SetCursorShape(false);   // ничего не нажимается — обычный указатель
+                    ConsoleMouseReader.SetCursorShape(false);   // nothing can be pressed: a normal pointer
                     if (ConsoleMouseReader.TryReadKey() is { Key: ConsoleKey.Escape }) return 0;
                     _frame++;
                     Redraw();
@@ -373,12 +373,12 @@ public class NewGameDisplay
                 if (mouseResult && await Go(3) is int next) return next;
                 continue;
             }
-            // Клавиши — прямо из буфера консоли (код + символ), как в главном меню: Console.ReadKey
-            // вперемешку с чтением мыши разбирал часть нажатий неправильно.
+            // Keys come straight from the console buffer (code + character), like in the main menu: Console.ReadKey
+            // mixed with mouse reading parsed some presses wrong.
             if (ConsoleMouseReader.TryReadKey() is not { } key) { Thread.Sleep(15); continue; }
 
-            // Символы, пришедшие одной пачкой: перетащенный в окно файл консоль «печатает» путём —
-            // такую вставку игнорируем (своя картинка — только через «ВЫБРАТЬ ФАЙЛ…»).
+            // Characters arriving in one batch: a file dragged into the window gets «typed» by the console as its path;
+            // we ignore such a paste (a custom picture only via «CHOOSE FILE…»).
             var keys = new List<ConsoleKeyInfo> { key };
             if (!char.IsControl(key.KeyChar))
             {
@@ -399,8 +399,8 @@ public class NewGameDisplay
                     if (await Go(k.Key - ConsoleKey.F1 + 1) is int to) return to;
                     break;
                 }
-                if (k.Key != ConsoleKey.Enter) _recreateWarned = false;   // предупреждение — только для Enter подряд
-                _message = ""; // подсказка/ошибка — до следующего нажатия
+                if (k.Key != ConsoleKey.Enter) _recreateWarned = false;   // the warning only applies to consecutive Enters
+                _message = ""; // hint/error lasts until the next key press
                 bool create = _editing ? HandleEditKey(k) : HandleNavKey(k);
                 if (create && await Go(3) is int next) return next;
             }
@@ -408,15 +408,15 @@ public class NewGameDisplay
         }
     }
 
-    // Перейти на шаг: 1 — мир (заполненное остаётся), 3/4 — дальше: герой создаётся (или переносятся
-    // изменения внешности). null — остаёмся (не всё заполнено, ждём подтверждения пересоздания).
+    // Go to a step: 1 is the world (what's filled in stays), 3/4 is onward: the hero is created (or appearance changes
+    // carry over). null means stay (not everything is filled in, or waiting for recreate confirmation).
     private async Task<int?> Go(int step, bool sound = true)
     {
         if (step == 1) { if (sound) Sound.PlayClick(); return 1; }
         if (step == 2) return null;
         if (!CanCreate())
         {
-            _message = L.T("Заполни все поля анкеты: ") + string.Join(", ", MissingFields());
+            _message = L.T("Fill in all form fields: ") + string.Join(", ", MissingFields());
             return null;
         }
         string key = EssentialKey();
@@ -428,7 +428,7 @@ public class NewGameDisplay
         if (_createdKey != null && !_recreateWarned)
         {
             _recreateWarned = true;
-            _message = L.T("Раса, класс, уровень, предыстория или герой изменились — персонаж создастся заново.\nПравки редактора пропадут. Нажми ещё раз — создать.");
+            _message = L.T("Race, class, level, background or hero changed — the character will be created again.\nEditor changes will be lost. Press again to create.");
             return null;
         }
         _recreateWarned = false;
@@ -438,13 +438,13 @@ public class NewGameDisplay
         return step;
     }
 
-    // Описание (предыстория) — не лист персонажа: его правка героя не пересоздаёт, только переносится.
-    // Выбор ГЕРОЙ — по самой записи (индексы сдвигаются, когда в листалку встаёт отложенный вариант).
+    // The description (backstory) isn't the character sheet: editing it doesn't recreate the hero, it just carries over.
+    // The HERO choice is compared by the record itself (indices shift when a deferred option lands in the chooser).
     private string EssentialKey() => string.Join("|", System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(_heroes[_fields[HeroField].Index]),
         _fields[RaceField].Value.Trim(),
         _fields[ClassField].Value.Trim(), _fields[LevelField].Value, _fields[BackgroundField].Value);
 
-    // Уже созданный герой: имя, символ, цвет и портрет из анкеты — в героя как есть, без нейронки.
+    // An already created hero: name, symbol, color and portrait from the form go into the hero as is, without the model.
     private void ApplyLooks()
     {
         var portrait = _portraits[_portrait];
@@ -470,14 +470,14 @@ public class NewGameDisplay
         catch { return false; }
     }
 
-    // ── Клавиатура ────────────────────────────────────────────────────────────
+    // ── Keyboard ──────────────────────────────────────────────────────────────
     private bool HandleEditKey(ConsoleKeyInfo key)
     {
         var field = _fields[_focus];
         ref string value = ref field.Value;
         int max = field.MaxLength;
 
-        // Описание — поле с курсором: ←→ Home End ↑↓ PgUp/PgDn; ↑ на первой / ↓ на последней строке — к соседнему полю.
+        // The description is a field with a cursor: ←→ Home End ↑↓ PgUp/PgDn; ↑ on the first / ↓ on the last line moves to the neighboring field.
         if (_focus == DescriptionField && key.Key != ConsoleKey.Enter)
         {
             if (TextArea.Edit(ref value, ref _descCursor, key, max, _descRect.w, _descRect.rows)) { _descFollow = true; return false; }
@@ -499,14 +499,14 @@ public class NewGameDisplay
         switch (key.Key)
         {
             case ConsoleKey.Enter when _focus == PromptField:
-                if (_fields[PromptField].Value.Trim().Length == 0) return false;   // пустой ввод — не отправлять
+                if (_fields[PromptField].Value.Trim().Length == 0) return false;   // empty input: don't send
                 StopEditing();
                 RunDescribe();
                 return false;
             case ConsoleKey.Enter:
                 StopEditing();
-                // Подряд по текстовым полям — сразу ввод следующего (как раньше в анкете).
-                // (после КЛАСС — описание в нижнем блоке, после описания — строка запроса).
+                // Moving through the text fields in sequence: input for the next one opens right away (as in the form before).
+                // (after CLASS comes the description in the bottom block, after the description the request line).
                 if (field.Kind == Kind.Text && _focus != PromptField)
                 {
                     int pos = Array.IndexOf(Order, _focus);
@@ -544,12 +544,12 @@ public class NewGameDisplay
                     case Kind.RandomButton: Randomize(); return false;
                     case Kind.Button:
                         if (CanCreate()) return true;
-                        _message = L.T("Заполни все поля анкеты: ") + string.Join(", ", MissingFields());
+                        _message = L.T("Fill in all form fields: ") + string.Join(", ", MissingFields());
                         return false;
                 }
                 return false;
         }
-        // Печать или вставка на текстовом поле — сразу ввод.
+        // Typing or pasting on a text field goes straight into input.
         if (field.Kind == Kind.Text && !field.ReadOnly && (!char.IsControl(key.KeyChar) || ClipboardText.IsPasteKey(key)))
         {
             _editing = true;
@@ -558,7 +558,7 @@ public class NewGameDisplay
         return false;
     }
 
-    // Текстовое поле в фокусе сразу открыто на ввод — курсор «▌» показывает, куда пойдёт текст.
+    // A focused text field is open for input right away: the «▌» cursor shows where text will go.
     private void MoveFocus(int dir)
     {
         _focus = NextFocusable(_focus, dir);
@@ -567,7 +567,7 @@ public class NewGameDisplay
         Sound.PlayClick();
     }
 
-    // Следующее поле в направлении dir, пропуская фиксированные (СЕТТИНГ); у края — остаётся.
+    // The next field in direction dir, skipping fixed ones (SETTING); at the edge it stays put.
     private int NextFocusable(int from, int dir)
     {
         int pos = Array.IndexOf(Order, from);
@@ -599,24 +599,24 @@ public class NewGameDisplay
 
     private void StopEditing() => _editing = false;
 
-    // Кнопка под портретом — своя картинка через окно Windows.
+    // The button under the portrait: a custom picture via a Windows dialog.
     private void RunAction(int action)
     {
         Sound.PlayClick();
         PickCustomImage();
     }
 
-    // Создать можно, когда заполнены все текстовые поля анкеты.
+    // You can create once all the form's text fields are filled in.
     private bool CanCreate() => !MissingFields().Any();
 
     private IEnumerable<string> MissingFields() =>
         _fields.Where(f => f.Kind == Kind.Text && f != _fields[PromptField] && f.Value.Trim().Length == 0).Select(f => f.Label.ToLowerInvariant());
 
-    // ── Описание героя от нейронки ───────────────────────────────────────────
+    // ── Hero description from the model ─────────────────────────────────────
     private Task<string?>? _describeTask;
     private int _frame;
     private (int row, int x, int w)? _aiButton, _randomButton;
-    // Описание: курсор, прокрутка (первая видимая строка), прокрутка за курсором (после правки), место текста.
+    // Description: cursor, scroll (first visible line), follow the cursor (after an edit), text location.
     private int _descCursor, _descScroll;
     private bool _descFollow = true;
     private (int top, int x, int w, int rows) _descRect = (0, 0, 1, 1);
@@ -627,59 +627,59 @@ public class NewGameDisplay
         _descFollow = true;
     }
     private bool _randomHovered;
-    private readonly Dictionary<int, (int row, int x, int w)> _choiceArrows = [];   // листалки: поле → ◄ … ►
+    private readonly Dictionary<int, (int row, int x, int w)> _choiceArrows = [];   // choosers: field → ◄ … ►
     private bool _aiHovered;
-    private (int field, int dir) _arrowHovered;   // стрелка листалки под мышью
+    private (int field, int dir) _arrowHovered;   // the chooser arrow under the mouse
 
-    // ПРИДУМАТЬ/ИЗМЕНИТЬ: описание (внешность, характер, предыстория) по имени/расе/классу и запросу; есть текст —
-    // нейронка его дорабатывает.
+    // INVENT/CHANGE: a description (appearance, personality, backstory) from name/race/class and the request; if there's text,
+    // the model refines it.
     private void RunDescribe()
     {
         Sound.PlayClick();
         if (_describeTask != null || _fields[AiField].ReadOnly) return;
-        // Без запроса нейронка только придумывает с нуля; переписывать готовое описание «ни о чём» — нет.
+        // Without a request the model only invents from scratch; rewriting a finished description «for nothing» is not allowed.
         if (_fields[PromptField].Value.Trim().Length == 0 && _fields[DescriptionField].Value.Trim().Length > 0)
         {
-            _message = L.T("Напиши в «Ввод», что изменить в описании");
+            _message = L.T("Write in \"Input\" what to change in the description");
             _focus = PromptField;
             _editing = true;
             return;
         }
         _describeTask = _aiClient.DescribeHero(_fields[NameField].Value.Trim(), _fields[RaceField].Value.Trim(),
             _fields[ClassField].Value.Trim(), _fields[DescriptionField].Value.Trim(), _fields[PromptField].Value.Trim(),
-            $"Уровень: {_fields[LevelField].Value}\nМировоззрение: {_fields[AlignmentField].Value}\nПредыстория: {_fields[BackgroundField].Value}");
+            $"Level: {_fields[LevelField].Value}\nAlignment: {_fields[AlignmentField].Value}\nBackground: {_fields[BackgroundField].Value}");
     }
 
     private void FinishDescribe()
     {
         if (_describeTask?.IsFaulted == true)
             _message = _describeTask.Exception?.GetBaseException() is AiSetupException setup
-                ? setup.Message : L.T("Нейронка не ответила — попробуй ещё раз.");
+                ? setup.Message : L.T("The AI didn't respond — try again.");
         else if (_describeTask is { IsCompletedSuccessfully: true, Result: { Length: > 0 } text })
         {
             _fields[DescriptionField].Value = text.Length > 1500 ? text[..1500] : text;
-            _fields[PromptField].Value = "";   // запрос выполнен — строка ввода чистая
+            _fields[PromptField].Value = "";   // request done: the input line is cleared
             _descScroll = 0;
             _descCursor = text.Length;
-            _descFollow = false;   // новый текст — с начала
+            _descFollow = false;   // new text: from the start
         }
-        else _message = L.T("Нейронка не ответила — попробуй ещё раз.");
+        else _message = L.T("The AI didn't respond — try again.");
         _describeTask = null;
         Redraw();
     }
 
     private bool _buttonHovered;
-    private bool _exitToMenu;  // клик по «[Esc]МЕНЮ» в заголовке
+    private bool _exitToMenu;  // click on «[Esc]MENU» in the title
     private List<MouseUiHelper.TitleTab> _titleTabs => _titleTabsCache ??= MouseUiHelper.ComputeTitleTabs(_screen.Title);
     private List<MouseUiHelper.TitleTab>? _titleTabsCache;
-    private int _actionHovered = -1; // кнопка под портретом под курсором мыши
+    private int _actionHovered = -1; // the button under the portrait that the mouse is over
 
-    // ── Мышь ──────────────────────────────────────────────────────────────────
-    // null — ничего; false — что-то изменилось (перерисовано); true — нажата «СОЗДАТЬ».
+    // ── Mouse ─────────────────────────────────────────────────────────────────
+    // null means nothing; false means something changed (redrawn); true means «CREATE» was pressed.
     private bool? HandleMouse()
     {
         var (move, click, _) = ConsoleMouseReader.DrainMouseEvents();
-        // Колесо над описанием — прокрутка текста.
+        // The wheel over the description scrolls the text.
         if (ConsoleMouseReader.TakeWheel(out var wp) is int notches and not 0)
         {
             int wr = wp.y - _bodyTop - _descRect.top, wc = wp.x - _x0;
@@ -733,7 +733,7 @@ public class NewGameDisplay
             return false;
         }
 
-        // «[Esc]МЕНЮ» в заголовке — как Esc, «[Fn]шаг» — как F1–F4; остальная шапка — перетаскивание окна.
+        // «[Esc]MENU» in the title works like Esc, «[Fn]step» like F1–F4; the rest of the header drags the window.
         if (MouseUiHelper.GetHoveredTabKey(c.x, c.y, _titleTabs) is { } tabKey)
         {
             Sound.PlayClick();
@@ -756,7 +756,7 @@ public class NewGameDisplay
         int arrow = IsArrow(c.x, c.y);
         if (arrow != 0)
         {
-            // Стрелки портрета — листают портрет, откуда бы ни был фокус.
+            // The portrait arrows flip the portrait, wherever the focus is.
             if (_editing) StopEditing();
             _focus = _fields.FindIndex(f => f.Kind == Kind.Portrait);
             Step(_fields[_focus], arrow);
@@ -792,7 +792,7 @@ public class NewGameDisplay
         if (field < 0 || _fields[field].ReadOnly || _fields[field].Kind == Kind.Actions) return null;
         if (_fields[field].Kind == Kind.Choice)
         {
-            // Выбор (мир/герой): клик — следующий вариант.
+            // A choice (world/hero): a click goes to the next option.
             if (_editing) StopEditing();
             _focus = field;
             Step(_fields[field], 1);
@@ -805,7 +805,7 @@ public class NewGameDisplay
             Sound.PlayClick();
             if (CanCreate()) return true;
             _focus = field;
-            _message = L.T("Заполни все поля анкеты: ") + string.Join(", ", MissingFields());
+            _message = L.T("Fill in all form fields: ") + string.Join(", ", MissingFields());
             Redraw();
             return false;
         }
@@ -813,7 +813,7 @@ public class NewGameDisplay
         _focus = field;
         Sound.PlayClick();
         _editing = _fields[field].Kind == Kind.Text;
-        // Клик по тексту описания — курсор в это место.
+        // A click on the description text puts the cursor there.
         if (field == DescriptionField)
         {
             _descCursor = TextArea.CursorAt(_fields[DescriptionField].Value, _descScroll, _descRect.w,
@@ -824,8 +824,8 @@ public class NewGameDisplay
         return false;
     }
 
-    // Поле под мышью — только внутри рамки анкеты (строки превью справа совпадают со строками полей),
-    // кнопка «СОЗДАТЬ» — только по её тексту.
+    // The field under the mouse: only inside the form frame (the preview rows on the right line up with the field rows),
+    // the «CREATE» button only on its text.
     private int FieldAt(short x, short y)
     {
         foreach (var (row, field) in _fieldRows)
@@ -833,7 +833,7 @@ public class NewGameDisplay
             if (y != _bodyTop + row) continue;
             bool inside = _fields[field].Kind == Kind.Button
                 ? IsOnButton(x)
-                : field is DescriptionField or PromptField   // нижний блок — во всю ширину
+                : field is DescriptionField or PromptField   // the bottom block spans the full width
                     ? x > _x0 + _formLeft && x < _x0 + _formLeft + FormWidth + Gap + PreviewWidth - 1
                     : x > _x0 + _formLeft && x < _x0 + _formLeft + FormWidth - 1;
             return inside ? field : -1;
@@ -885,16 +885,16 @@ public class NewGameDisplay
         return 0;
     }
 
-    // ── Портреты ──────────────────────────────────────────────────────────────
-    // «ВЫБРАТЬ ФАЙЛ…»: окно Windows, файл копируется в Storage/Portraits и встаёт первым в галерее.
+    // ── Portraits ─────────────────────────────────────────────────────────────
+    // «CHOOSE FILE…»: a Windows dialog; the file is copied into Storage/Portraits and goes first in the gallery.
     private void PickCustomImage()
     {
-        string? path = FileDialog.OpenFile(L.T("Портрет героя"),
-            L.T("Картинки (PNG, JPG, BMP, GIF, SVG)") + "|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.svg");
+        string? path = FileDialog.OpenFile(L.T("Hero portrait"),
+            L.T("Images (PNG, JPG, BMP, GIF, SVG)") + "|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.svg");
         if (path == null) return;
         if (!SvgToBrailleConverter.IsSupportedImageFile(path))
         {
-            _message = L.T("Формат не поддерживается (PNG, JPG, BMP, GIF, SVG)");
+            _message = L.T("Format not supported (PNG, JPG, BMP, GIF, SVG)");
             return;
         }
         try
@@ -909,24 +909,24 @@ public class NewGameDisplay
             string image = SvgToBrailleConverter.PortraitsPrefix + Path.GetFileName(target);
             if (SvgToBrailleConverter.Convert(image, "", PortraitWidth) == null)
             {
-                _message = L.T("Не удалось прочитать картинку");
+                _message = L.T("Could not read the image");
                 return;
             }
             _portraits.RemoveAll(p => p.Image == image);
-            _portraits.Insert(0, new Portrait(image, L.T("СВОЙ: ") + Path.GetFileNameWithoutExtension(target).ToUpperInvariant()));
+            _portraits.Insert(0, new Portrait(image, L.T("CUSTOM: ") + Path.GetFileNameWithoutExtension(target).ToUpperInvariant()));
             _portrait = 0;
             _message = "";
         }
         catch (Exception ex)
         {
-            _message = L.T("Не удалось загрузить картинку: ") + ex.Message;
+            _message = L.T("Could not load the image: ") + ex.Message;
         }
     }
 
     private static bool SameFile(string a, string b) =>
         string.Equals(Path.GetFullPath(a), Path.GetFullPath(b), StringComparison.OrdinalIgnoreCase);
 
-    // ── Создание ──────────────────────────────────────────────────────────────
+    // ── Creation ──────────────────────────────────────────────────────────────
     private async Task<NewGameData> Create()
     {
         var portrait = _portraits[_portrait];
@@ -941,20 +941,20 @@ public class NewGameDisplay
             Background = _fields[BackgroundField].Value,
             Description = _fields[DescriptionField].Value.Trim(),
             Setting = Setting,
-            SettingWish = "",   // пожелания к игре — шаг «Приключение» после редактора
+            SettingWish = "",   // wishes for the game come at the «Adventure» step after the editor
             Color = [.. Palette[_color].Rgb],
             Image = string.IsNullOrEmpty(portrait.Image) ? null : portrait.Image,
         };
 
-        // Ожидание — по центру, на месте подсказки под кнопкой (а не общим спиннером у края экрана).
-        // Герой из библиотеки — не создаётся заново: готовится к новому приключению (снаряжение, состояние).
+        // The wait indicator is centered, in place of the hint under the button (not the shared spinner at the screen edge).
+        // A library hero isn't recreated: they're prepared for a new adventure (equipment, condition).
         _editing = false;
         var reused = _heroes[_fields[HeroField].Index].Card;
         var aiTask = reused?.HeroJson is { } heroJson ? _aiClient.ReuseHero(result, heroJson) : _aiClient.CreateNewGame(result);
-        string waitText = reused?.HeroJson != null ? L.T("Готовим героя к новому приключению...") : L.T("Создаём персонажа...");
+        string waitText = reused?.HeroJson != null ? L.T("Preparing the hero for a new adventure...") : L.T("Creating the character...");
         for (int frame = 0; !aiTask.IsCompleted; frame++)
         {
-            // Пока создаётся персонаж — клики не принимаются, указатель обычный (не «рука»).
+            // While the character is being created, clicks aren't accepted and the pointer is normal (not the «hand»).
             ConsoleMouseReader.DrainWhileWaiting();
             ConsoleMouseReader.SetCursorShape(false);
             _message = $"{Spinner.Frames[frame % Spinner.Frames.Length]} {waitText}";
@@ -966,9 +966,9 @@ public class NewGameDisplay
         return result;
     }
 
-    // ── Отрисовка ─────────────────────────────────────────────────────────────
-    // Всё по центру экрана: заголовок, под ним рамки «АНКЕТА» и «ГЕРОЙ» одной высоты, ниже кнопка и
-    // подсказка. Поля — плотно, группами; описание и пожелания — в несколько строк с переносом.
+    // ── Drawing ───────────────────────────────────────────────────────────────
+    // Everything centered on screen: the title, under it the «FORM» and «HERO» frames of equal height, below them the button and
+    // the hint. Fields are packed tightly in groups; description and wishes take several wrapped lines.
     private void Redraw()
     {
         _chars = new char[_height, _width];
@@ -982,15 +982,15 @@ public class NewGameDisplay
         int left = Math.Max(1, (_width - total) / 2);
         _formLeft = left;
         int boxHeight = BoxInner + 2;
-        int blockHeight = boxHeight + 1 + DescHeight + 1 + 1 + 3;   // рамки, описание, кнопка, подсказка (до 2 строк)
+        int blockHeight = boxHeight + 1 + DescHeight + 1 + 1 + 3;   // frames, description, button, hint (up to 2 lines)
         int top = Math.Max(0, (_height - blockHeight) / 2);
-        int boxTop = top; // отдельного заголовка нет — «НОВАЯ ИГРА» уже в строке заголовка экрана
+        int boxTop = top; // no separate title: «NEW GAME» is already in the screen's title row
 
-        DrawBox(boxTop, left, FormWidth, boxHeight, L.T("АНКЕТА"));
-        DrawBox(boxTop, left + FormWidth + Gap, PreviewWidth, boxHeight, L.T("ГЕРОЙ"));
+        DrawBox(boxTop, left, FormWidth, boxHeight, L.T("FORM"));
+        DrawBox(boxTop, left + FormWidth + Gap, PreviewWidth, boxHeight, L.T("HERO"));
 
-        // Поля анкеты: группы через пустую строку, от верха рамки (не центрируются — иначе вся анкета
-        // съезжала бы, когда описание/пожелания прибавляют строку).
+        // Form fields: groups separated by an empty line, from the top of the frame (not centered, or else the whole form
+        // would shift when the description/wishes add a line).
         _swatches.Clear();
         int y = boxTop + 2;
         int valueWidth = FormWidth - ValueCol - 3;
@@ -1002,14 +1002,14 @@ public class NewGameDisplay
             y += DrawField(group, y, left, valueWidth);
         }
 
-        // Кнопка: неактивна (тёмная, без стрелок), пока не заполнены все поля; активная — со стрелками
-        // при выборе клавиатурой или наведении мышью. Ширина одна и та же — текст не прыгает.
-        // «РАНДОМ» — плашкой внизу рамки анкеты (как кнопки карты на шаге «Мир»); у готового героя — нет.
+        // The button is inactive (dark, no arrows) until all fields are filled in; when active it has arrows
+        // when selected by keyboard or hovered by the mouse. The width is the same, so the text doesn't jump.
+        // «RANDOM» is a plate at the bottom of the form frame (like the map buttons on the «World» step); a ready hero has none.
         _randomButton = null;
         if (!_fields[RandomField].ReadOnly)
         {
             int ry = boxTop + boxHeight - 3, rx = left + LabelCol;
-            _randomButton = (ry, rx, Chip(ry, rx, L.T("РАНДОМ"), _focus == RandomField || _randomHovered, false));
+            _randomButton = (ry, rx, Chip(ry, rx, L.T("RANDOM"), _focus == RandomField || _randomHovered, false));
         }
 
         DrawDescription(boxTop + boxHeight + 1, left, total);
@@ -1021,8 +1021,8 @@ public class NewGameDisplay
         _buttonX = left + Math.Max(0, (total - button.Label.Length - 4) / 2);
         _buttonWidth = Chip(_buttonRow, _buttonX, button.Label, highlighted, !enabled);
         _fieldRows.Add((_buttonRow, _fields.Count - 1));
-        // Подсказка или сообщение — до двух строк («\n» — перенос).
-        var hint = (_message.Length > 0 ? _message : L.T("[↑↓]ПОЛЕ   [Enter]ИЗМЕНИТЬ   [←→]ЛИСТАТЬ   [F1]МИР   [Esc]МЕНЮ")).Split('\n');
+        // A hint or message, up to two lines («\n» is a line break).
+        var hint = (_message.Length > 0 ? _message : L.T("[↑↓]FIELD   [Enter]EDIT   [←→]BROWSE   [F1]WORLD   [Esc]MENU")).Split('\n');
         for (int i = 0; i < hint.Length && i < 2; i++)
             CenterIn(_buttonRow + 2 + i, left, total, Fit(hint[i], total), _recreateWarned ? Bright : Dim);
 
@@ -1032,21 +1032,21 @@ public class NewGameDisplay
         for (int r = 0; r < _height; r++) WriteRow(r);
     }
 
-    // Блок «ОПИСАНИЕ ГЕРОЯ» (как описание мира): сверху текст — свой или от нейронки; под разделителем — «Ввод:»
-    // запроса и ПРИДУМАТЬ/ИЗМЕНИТЬ. Готовый герой — только текст на весь блок.
+    // The «HERO DESCRIPTION» block (like the world description): text on top, your own or from the model; below the divider, the request's «Input:»
+    // and INVENT/CHANGE. A ready hero shows only the text across the whole block.
     private void DrawDescription(int top, int left, int total)
     {
         var desc = _fields[DescriptionField];
         string name = _fields[NameField].Value.Trim();
-        DrawBox(top, left, total, DescHeight, name.Length > 0 ? L.T("ОПИСАНИЕ ГЕРОЯ") + " · " + name.ToUpperInvariant() : L.T("ОПИСАНИЕ ГЕРОЯ"));
+        DrawBox(top, left, total, DescHeight, name.Length > 0 ? L.T("HERO DESCRIPTION") + " · " + name.ToUpperInvariant() : L.T("HERO DESCRIPTION"));
         int lx = left + 3, width = total - 6;
         bool locked = desc.ReadOnly;
         int rows = locked ? DescHeight - 2 : DescHeight - 4;
         bool editing = _focus == DescriptionField && _editing;
         _descRect = (top + 1, lx, width, rows);
-        // Текст: перенос по словам, курсор (подсвеченная клетка), прокрутка — колесом, ↑↓, PgUp/PgDn; полоса справа.
+        // Text: word wrap, a cursor (highlighted cell), scrolling by wheel, ↑↓, PgUp/PgDn; a scrollbar on the right.
         if (desc.Value.Length == 0 && !editing)
-            Put(top + 1, lx, Fit(L.T("внешность, характер, предыстория — своим текстом или «ПРИДУМАТЬ» по запросу"), width), Dim);
+            Put(top + 1, lx, Fit(L.T("appearance, personality, backstory — in your own words or \"INVENT\" from a request"), width), Dim);
         else
         {
             var view = TextArea.View(desc.Value, _descCursor, ref _descScroll, width, rows, editing && _descFollow,
@@ -1069,32 +1069,32 @@ public class NewGameDisplay
         Put(sep, left, "├" + new string('─', total - 2) + "┤", MouseUiHelper.FrameColor(_display));
         if (_describeTask != null)
         {
-            // Нейронка думает — строка целиком под ожидание, без «Ввод:» и кнопки.
-            Put(iy, lx, Fit(Spinner.Frames[_frame % Spinner.Frames.Length] + " " + L.T("Нейронка пишет описание героя…"), width), Bright);
+            // The model is thinking: the whole line goes to the wait indicator, without «Input:» and the button.
+            Put(iy, lx, Fit(Spinner.Frames[_frame % Spinner.Frames.Length] + " " + L.T("The AI is writing the hero description…"), width), Bright);
             return;
         }
-        string goText = desc.Value.Trim().Length > 0 ? L.T("ИЗМЕНИТЬ") : L.T("ПРИДУМАТЬ");
+        string goText = desc.Value.Trim().Length > 0 ? L.T("CHANGE") : L.T("INVENT");
         int gx = left + total - 3 - (goText.Length + 4);
         bool promptFocus = _focus == PromptField;
-        string inputLabel = L.T("Ввод: ");
+        string inputLabel = L.T("Input: ");
         Put(iy, lx, inputLabel, promptFocus ? Bright : Fg);
         int px = lx + inputLabel.Length, promptW = gx - 2 - px;
         var prompt = _fields[PromptField].Value;
         bool empty = prompt.Length == 0 && !(promptFocus && _editing);
-        string text = empty ? L.T("что придумать или как изменить описание (необязательно)") : TailFit(prompt + (promptFocus && _editing ? "▌" : ""), promptW);
+        string text = empty ? L.T("what to invent or how to change the description (optional)") : TailFit(prompt + (promptFocus && _editing ? "▌" : ""), promptW);
         Put(iy, px, Fit(text, promptW), empty ? Dim : promptFocus ? Bright : Fg);
         _fieldRows.Add((iy, PromptField));
         int w = Chip(iy, gx, goText, _focus == AiField || _aiHovered, false);
         _aiButton = (iy, gx, w);
     }
 
-    // Одно поле анкеты; возвращает, сколько строк заняло.
+    // One form field; returns how many lines it took.
     private int DrawField(int index, int y, int left, int valueWidth)
     {
         var f = _fields[index];
         bool focused = index == _focus;
         int lx = left + LabelCol, vx = left + ValueCol;
-        // У строки кнопок подписи нет — её фокус показывают стрелки у самой кнопки.
+        // The button row has no label: its focus is shown by the arrows on the button itself.
         if (f.Kind != Kind.Actions)
             Put(y, lx - 2, focused ? "→ " + f.Label : "  " + f.Label, focused ? Bright : Fg);
 
@@ -1106,27 +1106,27 @@ public class NewGameDisplay
                 bool editing = focused && _editing;
                 bool multi = f.MaxLength > 100;
                 if (f.Value.Length == 0 && !editing) { Put(y, vx, "—", Dim); break; }
-                // Перенос по символам на ширину поля (не по словам): при вводе текст не перескакивает,
-                // а переходит на новую строку, только когда текущая заполнилась.
+                // Wrap by characters at the field width (not by words): while typing, text doesn't jump,
+                // it moves to a new line only when the current one is full.
                 string text = f.Value + (editing ? "▌" : "");
                 var wrapped = multi ? Chunk(text, valueWidth) : [text];
                 if (wrapped.Count == 0) wrapped.Add(editing ? "▌" : "");
                 int max = multi ? MultiLines : 1;
-                // При вводе — последние строки (видно, что печатается), иначе — первые с «…».
+                // While typing, the last lines (so you see what's being typed); otherwise, the first ones with «…».
                 var shown = editing ? wrapped.Skip(Math.Max(0, wrapped.Count - max)).ToList() : wrapped.Take(max).ToList();
                 if (!editing && wrapped.Count > max) shown[^1] = Fit(shown[^1] + "…", valueWidth);
                 for (int i = 0; i < shown.Count; i++) Put(y + i, vx, Fit(shown[i], valueWidth), editing ? Bright : Fg);
-                // Высота — по тексту: новая строка появляется, только когда текущая заполнилась (до 3).
+                // Height follows the text: a new line appears only when the current one is full (up to 3).
                 lines = shown.Count;
                 break;
             }
 
             case Kind.Color:
             {
-                // Палитра образцами в ряд, под выбранным — «▲» и название: ничего не прыгает,
-                // ←→ двигают стрелку, образец можно выбрать кликом.
-                // Образцы — фон двух символов через промежуток; выбранный не отмечается — его видно в
-                // превью героя (портрет и имя его цветом).
+                // The palette as swatches in a row, with «▲» and the name under the selected one: nothing jumps,
+                // ←→ move the arrow, a swatch can be picked with a click.
+                // Swatches are the background of two characters with a gap; the selected one isn't marked: you see it in
+                // the hero preview (portrait and name in its color).
                 for (int i = 0; i < Palette.Length; i++)
                 {
                     int sx = vx + i * 3;
@@ -1138,9 +1138,9 @@ public class NewGameDisplay
 
             case Kind.Actions:
             {
-                if (f.ReadOnly) break;   // готовый герой — портрет не меняется
-                // Кнопки под портретом — как пункты меню: выбранная «→ … ←» — под мышью, а без мыши —
-                // выбранная стрелками (при фокусе на строке).
+                if (f.ReadOnly) break;   // a ready hero: the portrait doesn't change
+                // Buttons under the portrait work like menu items: the selected «→ … ←» is the one under the mouse, and without the mouse
+                // the one selected with arrows (when the row has focus).
                 int ax = vx - 2;
                 for (int i = 0; i < PortraitActions.Length; i++)
                 {
@@ -1154,9 +1154,9 @@ public class NewGameDisplay
 
             case Kind.Choice:
             {
-                // Поле фиксированной ширины: стрелки не прыгают при листании, значение по центру.
+                // A fixed-width field: the arrows don't jump while flipping, the value is centered.
                 int inner = valueWidth - 4, textW = inner;
-                // ГЕРОЙ — «какой из скольких» приглушённо у правой стрелки (как МИР на шаге «Мир»).
+                // HERO: «which of how many», muted, by the right arrow (like WORLD on the «World» step).
                 if (index == HeroField)
                 {
                     string counter = $"{f.Index + 1}/{f.Options.Count}";
@@ -1166,8 +1166,8 @@ public class NewGameDisplay
                 string text = f.Options.Count == 0 ? "—" : Fit(f.Options[f.Index], textW);
                 Put(y, vx + 2 + (textW - text.Length) / 2, text, focused ? Bright : Fg);
                 _choiceArrows.Remove(index);
-                if (f.ReadOnly) break;   // готовый герой — без стрелок
-                // Стрелки всегда активны (листать мышью можно без фокуса), под мышью — ярче.
+                if (f.ReadOnly) break;   // a ready hero: no arrows
+                // The arrows are always active (you can flip with the mouse without focus); brighter under the mouse.
                 Put(y, vx, "◄", focused || _arrowHovered == (index, -1) ? Bright : Fg);
                 Put(y, vx + 2 + inner + 1, "►", focused || _arrowHovered == (index, 1) ? Bright : Fg);
                 _choiceArrows[index] = (y, vx, inner + 3);
@@ -1176,18 +1176,18 @@ public class NewGameDisplay
 
             case Kind.Portrait:
             {
-                // Название — в поле фиксированной ширины: «◄» и «►» стоят на месте при листании.
+                // The name sits in a fixed-width field: «◄» and «►» stay in place while flipping.
                 var p = _portraits[_portrait];
-                const int titleWidth = 16; // + счётчик «подбираем… 1/35» справа — не перекрываются
+                const int titleWidth = 16; // + the «matching… 1/35» counter on the right; they don't overlap
                 string title = Fit(p.Title, titleWidth);
                 int rx = vx + 2 + titleWidth + 1;
-                // Готовый герой — портрет его, без стрелок и счётчика.
+                // A ready hero: their portrait, no arrows or counter.
                 if (f.ReadOnly)
                 {
                     Put(y, vx + 2 + (titleWidth - title.Length) / 2, title, Fg);
                     break;
                 }
-                // Стрелки активны всегда (листать мышью можно и без фокуса на поле).
+                // The arrows are always active (you can flip with the mouse even without focus on the field).
                 Put(y, vx, "◄", focused ? Bright : Fg);
                 Put(y, vx + 2 + (titleWidth - title.Length) / 2, title, focused ? Bright : Fg);
                 Put(y, rx, "►", focused ? Bright : Fg);
@@ -1200,7 +1200,7 @@ public class NewGameDisplay
         return lines;
     }
 
-    // Рамка «ГЕРОЙ»: портрет цветом героя, под ним имя, символ как на карте и откуда портрет.
+    // The «HERO» frame: the portrait in the hero's color, under it the name, the symbol as on the map, and where the portrait came from.
     private void DrawPreview(int y, int left)
     {
         var color = Palette[_color].Rgb;
@@ -1212,24 +1212,24 @@ public class NewGameDisplay
         if (art != null)
             for (int i = 0; i < art.Length && i < artRows; i++) Put(y + 1 + i, artX, art[i], color, skipBlank: true);
         else
-            CenterIn(y + artRows / 2, left, PreviewWidth, string.IsNullOrEmpty(p.Image) ? L.T("Enter — выбрать файл") : L.T("нет картинки"), Dim);
+            CenterIn(y + artRows / 2, left, PreviewWidth, string.IsNullOrEmpty(p.Image) ? L.T("Enter — choose a file") : L.T("no image"), Dim);
 
         int ty = y + 1 + artRows;
         string name = _fields[NameField].Value.Trim();
-        CenterIn(ty, left, PreviewWidth, name.Length == 0 ? L.T("ИМЯ ГЕРОЯ") : Fit(name, inner - 2), name.Length == 0 ? Dim : color);
+        CenterIn(ty, left, PreviewWidth, name.Length == 0 ? L.T("HERO NAME") : Fit(name, inner - 2), name.Length == 0 ? Dim : color);
 
-        // Символ — как клетка героя на карте (MapObjectsProvider: фон комнаты, бледнее, с зеленцой).
+        // The symbol looks like the hero's cell on the map (MapObjectsProvider: room background, paler, slightly green).
         string symbol = _fields[SymbolField].Value.Trim();
-        string onMap = L.T("НА КАРТЕ  ???");
+        string onMap = L.T("ON MAP  ???");
         int sx = CenterIn(ty + 1, left, PreviewWidth, onMap, Dim);
         var cellBg = ColorHelper.MixWith(ColorHelper.Pale([55, 55, 65]), [0, 200, 80], 0.18);
         Put(ty + 1, sx + onMap.Length - 3, symbol.Length == 0 ? "???" : symbol.PadRight(3)[..3], ColorHelper.Saturate(color), bg: cellBg);
     }
 
-    // Рамка в цвете рамок игры, заголовок — в разрыве верхней линии: «╭─ АНКЕТА ──…──╮».
+    // A frame in the game's frame color, the title in a gap of the top line: «╭─ FORM ──…──╮».
     private void DrawBox(int y, int x, int w, int h, string title)
     {
-        var line = MouseUiHelper.FrameColor(_display);   // рамки блоков — приглушённо, как на шаге «Мир»
+        var line = MouseUiHelper.FrameColor(_display);   // block frames are muted, as on the «World» step
         Put(y, x, "╭─ ", line);
         Put(y, x + 3, title, Bright);
         Put(y, x + 3 + title.Length, " " + new string('─', Math.Max(0, w - title.Length - 5)) + "╮", line);
@@ -1241,8 +1241,8 @@ public class NewGameDisplay
         Put(y + h - 1, x, "╰" + new string('─', w - 2) + "╯", line);
     }
 
-    // Кнопка-плашка «  ТЕКСТ  » на заливке (как на шаге «Мир»): выбрана — заливка ярче, недоступна — приглушена.
-    // Возвращает ширину.
+    // A plate button «  TEXT  » on a fill (as on the «World» step): selected is a brighter fill, unavailable is muted.
+    // Returns the width.
     private int Chip(int y, int x, string text, bool on, bool disabled)
     {
         string t = $"  {text}  ";

@@ -4,15 +4,15 @@ using NaviDnD.Data.Models;
 
 namespace NaviDnD.Tests;
 
-// Срабатывание триггеров встречи/боя чистой логикой движка, без ИИ: spotted, onRound существ,
-// видимость в темноте (darkvisionFt/light), атака по возможности и Отход, патч triggers по подключу.
-// Save() внутри TryMove пишет в NaviDnD.Tests/Storage (AppConfig.ProjectRoot тестовой сборки), не в боевое сохранение.
+// Encounter/combat triggers firing from pure engine logic, without the AI: spotted, creature onRound,
+// visibility in darkness (darkvisionFt/light), opportunity attacks and Disengage, patching triggers by subkey.
+// Save() inside TryMove writes to NaviDnD.Tests/Storage (the test build's AppConfig.ProjectRoot), not the real save.
 public class EncounterTriggerTests
 {
-    // Одна комната 10×10 — между всеми клетками внутри есть прямая видимость.
+    // One 10×10 room — every cell inside has line of sight to every other.
     private static Room MakeRoom(int fromCol, int toCol, int fromRow = 1, int toRow = 10) => new()
     {
-        Name = "Зал",
+        Name = "Hall",
         Positions = [.. Enumerable.Range(fromCol, toCol - fromCol + 1)
             .SelectMany(c => Enumerable.Range(fromRow, toRow - fromRow + 1).Select(r => new List<int> { c, r }))]
     };
@@ -26,7 +26,7 @@ public class EncounterTriggerTests
         ws.Hero = new Hero
         {
             Symbol = "HRO",
-            Name = "Герой",
+            Name = "Hero",
             Position = [heroCol, heroRow],
             SpeedMax = 30,
             SpeedLeft = 30,
@@ -40,7 +40,7 @@ public class EncounterTriggerTests
         Symbol = symbol,
         Name = symbol,
         Position = [col, row],
-        Triggers = spotted ? new CellTriggers { Spotted = new TriggerEffect { Effect = "Атакует" } } : null
+        Triggers = spotted ? new CellTriggers { Spotted = new TriggerEffect { Effect = "Attacks" } } : null
     };
 
     private static List<(CellEntity entity, string type)> Move(Storage storage, string direction)
@@ -103,13 +103,13 @@ public class EncounterTriggerTests
     {
         var storage = MakeStorage();
         var enemy = MakeEnemy("GB1", 6, 2);
-        enemy.VisionFt = 10; // 2 клетки
+        enemy.VisionFt = 10; // 2 cells
         storage.WorldState.Map.Entities = [enemy];
 
-        Assert.Empty(Types(Move(storage, "MoveEast"), "spotted"));          // (3,2): 3 клетки — не видит
-        Assert.Equal(["GB1"], Types(Move(storage, "MoveEast"), "spotted")); // (4,2): видит
-        Assert.Empty(Types(Move(storage, "MoveWest"), "spotted"));          // (3,2): потерял
-        Assert.Equal(["GB1"], Types(Move(storage, "MoveEast"), "spotted")); // (4,2): снова нашёл
+        Assert.Empty(Types(Move(storage, "MoveEast"), "spotted"));          // (3,2): 3 cells — can't see
+        Assert.Equal(["GB1"], Types(Move(storage, "MoveEast"), "spotted")); // (4,2): sees
+        Assert.Empty(Types(Move(storage, "MoveWest"), "spotted"));          // (3,2): lost
+        Assert.Equal(["GB1"], Types(Move(storage, "MoveEast"), "spotted")); // (4,2): found again
     }
 
     [Fact]
@@ -183,7 +183,7 @@ public class EncounterTriggerTests
     public void EntitySeesHero_NoDarkvision_HeroUnderWallTorch_OnlyWhenTorchIsOn()
     {
         var storage = MakeStorage();
-        var torch = new CellEntity { Symbol = "(T)", Name = "Факел", Position = [2, 4], Light = new LightSource { Ft = 20, On = false } };
+        var torch = new CellEntity { Symbol = "(T)", Name = "Torch", Position = [2, 4], Light = new LightSource { Ft = 20, On = false } };
         storage.WorldState.Map.Objects = [torch];
         var enemy = MakeEnemy("CU1", 6, 2);
         enemy.DarkvisionFt = 0;
@@ -199,7 +199,7 @@ public class EncounterTriggerTests
     {
         var storage = MakeStorage();
         storage.WorldState.Map.Objects =
-            [new CellEntity { Symbol = "(T)", Name = "Факел", Position = [2, 9], Light = new LightSource { Ft = 10, On = true } }];
+            [new CellEntity { Symbol = "(T)", Name = "Torch", Position = [2, 9], Light = new LightSource { Ft = 10, On = true } }];
         var enemy = MakeEnemy("CU1", 6, 2);
         enemy.DarkvisionFt = 0;
 
@@ -209,7 +209,7 @@ public class EncounterTriggerTests
     [Fact]
     public void EntitySeesHero_Darkvision_SeesInDarkOnlyWithinRange()
     {
-        var storage = MakeStorage(); // герой (2,2), враг (6,2) — 20 фт
+        var storage = MakeStorage(); // hero (2,2), enemy (6,2) — 20 ft
         var enemy = MakeEnemy("GB1", 6, 2);
 
         enemy.DarkvisionFt = 60;
@@ -242,7 +242,7 @@ public class EncounterTriggerTests
         Assert.True(MovementCalculator.EntitySeesHero(storage.WorldState, enemy));
     }
 
-    // ── Атака по возможности и Отход ─────────────────────────────────────────
+    // ── Opportunity attacks and Disengage ────────────────────────────────────
 
     [Fact]
     public void OpportunityAttack_LeavingAdjacentEnemyInCombat_Fires()
@@ -301,14 +301,14 @@ public class EncounterTriggerTests
         Assert.Null(hero.Light);
     }
 
-    // ── onRound существ ──────────────────────────────────────────────────────
+    // ── Creature onRound ─────────────────────────────────────────────────────
 
     private static LivingEntity MakeTalkativeNpc(int col = 6, int row = 2) => new()
     {
         Symbol = "BRN",
-        Name = "Бронн",
+        Name = "Bronn",
         Position = [col, row],
-        Triggers = new CellTriggers { OnRound = new TriggerEffect { Effect = "Просит воды" } }
+        Triggers = new CellTriggers { OnRound = new TriggerEffect { Effect = "Asks for water" } }
     };
 
     [Fact]
@@ -358,21 +358,21 @@ public class EncounterTriggerTests
         Assert.Empty(Move(storage, "MoveNorth"));
     }
 
-    // ── Патч triggers по подключу ────────────────────────────────────────────
+    // ── Patching triggers by subkey ──────────────────────────────────────────
 
     [Fact]
     public void TriggersPatch_NullSubKey_RemovesOnlyThatTrigger()
     {
         var storage = MakeStorage();
         var enemy = MakeEnemy("GB1", 6, 2);
-        enemy.Triggers!.OnRound = new TriggerEffect { Effect = "Рычит" };
+        enemy.Triggers!.OnRound = new TriggerEffect { Effect = "Growls" };
         storage.WorldState.Map.Entities = [enemy];
 
         storage.ApplyUpdateWorldState("""{"map":{"entities":[{"id":0,"triggers":{"spotted":null}}]}}""");
 
         var triggers = storage.WorldState.Map.Entities![0].Triggers;
         Assert.Null(triggers?.Spotted);
-        Assert.Equal("Рычит", triggers?.OnRound?.Effect);
+        Assert.Equal("Growls", triggers?.OnRound?.Effect);
     }
 
     [Fact]
@@ -381,11 +381,11 @@ public class EncounterTriggerTests
         var storage = MakeStorage();
         storage.WorldState.Map.Entities = [MakeTalkativeNpc()];
 
-        storage.ApplyUpdateWorldState("""{"map":{"entities":[{"id":0,"triggers":{"spotted":{"effect":"Нападает"}}}]}}""");
+        storage.ApplyUpdateWorldState("""{"map":{"entities":[{"id":0,"triggers":{"spotted":{"effect":"Charges"}}}]}}""");
 
         var triggers = storage.WorldState.Map.Entities![0].Triggers;
-        Assert.Equal("Нападает", triggers?.Spotted?.Effect);
-        Assert.Equal("Просит воды", triggers?.OnRound?.Effect);
+        Assert.Equal("Charges", triggers?.Spotted?.Effect);
+        Assert.Equal("Asks for water", triggers?.OnRound?.Effect);
     }
 
     [Fact]
@@ -396,7 +396,7 @@ public class EncounterTriggerTests
         npc.VisionFt = 10;
         storage.WorldState.Map.Entities = [npc];
 
-        storage.ApplyUpdateWorldState("""{"map":{"entities":[{"id":0,"triggers":{"spotted":{"effect":"Нападает"}}}]}}""");
+        storage.ApplyUpdateWorldState("""{"map":{"entities":[{"id":0,"triggers":{"spotted":{"effect":"Charges"}}}]}}""");
 
         Move(storage, "MoveEast");
         Assert.Equal(["BRN"], Types(Move(storage, "MoveEast"), "spotted"));

@@ -10,10 +10,10 @@ public sealed class AssetSearchTools(McpServerConfig config)
     public sealed record SearchResults(SearchHit[] Monsters, SearchHit[] Icons);
 
     [McpServerTool]
-    [Description("Ищет монстров и иконки одним пакетом: для независимого подбора существ и их image предпочитай один find_assets нескольким find_monster/find_icon. Передай все известные запросы сразу. Возвращает query и matches для каждого запроса; правила поиска и формат matches совпадают с find_monster/find_icon. Пустое matches означает отсутствие совпадений.")]
+    [Description("Finds monsters and icons in one batch: when picking creatures and their image independently, prefer one find_assets call over several find_monster/find_icon calls. Pass all known queries at once. Returns query and matches for each query; search rules and the matches format are the same as find_monster/find_icon. Empty matches means no match.")]
     public async Task<SearchResults> FindAssets(
-        [Description("Английские названия монстров, например [\"skeleton\"].")] string[]? monsterQueries = null,
-        [Description("Отдельный запрос для каждой иконки; варианты внутри запроса через запятую, например [\"skeleton\",\"book,scroll\",\"tablet\",\"scroll\"].")] string[]? iconQueries = null)
+        [Description("English monster names, e.g. [\"skeleton\"].")] string[]? monsterQueries = null,
+        [Description("A separate query for each icon; alternatives within a query are comma-separated, e.g. [\"skeleton\",\"book,scroll\",\"tablet\",\"scroll\"].")] string[]? iconQueries = null)
     {
         monsterQueries ??= [];
         iconQueries ??= [];

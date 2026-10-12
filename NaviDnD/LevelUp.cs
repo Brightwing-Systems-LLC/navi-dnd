@@ -6,22 +6,22 @@ using NaviDnD.Helpers;
 
 namespace NaviDnD;
 
-// Повышение уровня (окно «Новый уровень»). Игрок не правит героя свободно — только выбирает из предложенного:
-//   код — уровень, бонус мастерства, хиты (среднее или бросок кости хитов), улучшение характеристик;
-//   мастер (LevelUpOptions) — что класс получает на этом уровне и группы выбора (подкласс, заклинания, черты…);
-//   мастер (LevelUpApply) — патч героя по выбранному; код пропускает только листы героя (статы, навыки, умения,
-//   ресурсы, заклинания) и поверх ставит свои числа. Всё — на копии героя: «Принять» заменяет героя целиком.
+// Levelling up (the "New level" window). The player does not edit the hero freely — they only choose from what is offered:
+//   the code — level, proficiency bonus, Hit Points (average or a Hit Die roll), Ability Score Improvement;
+//   the DM (LevelUpOptions) — what the class gains at this level and the choice groups (subclass, spells, feats…);
+//   the DM (LevelUpApply) — a hero patch for what was chosen; the code lets through only the hero's sheets (stats, skills, abilities,
+//   resources, spells) and puts its own numbers on top. Everything happens on a copy of the hero: "Accept" replaces the hero entirely.
 public sealed class LevelUp
 {
     public sealed class Option
     {
         public string Name { get; set; } = "";
         public string Description { get; set; } = "";
-        // Вариант по просьбе игрока (поле ввода) — мастер добавил его в группу; помечается «★».
+        // An option the player asked for (the input field) — the DM added it to the group; marked with "★".
         public bool Custom { get; set; }
-        // Рост ресурса (ячейки, Ки, использования): название как в листе героя и новое «текущее/максимум» — не умение.
+        // A resource increase (slots, Ki, uses): the name as on the hero sheet and the new "current/max" — not an ability.
         public string? Resource { get; set; }
-        // Изменение стата (Подготовлено заклинаний, Скорость…): название как в листе героя, новое значение — Value.
+        // A stat change (Spells Prepared, Speed…): the name as on the hero sheet, the new value in Value.
         public string? Stat { get; set; }
         public string? Value { get; set; }
     }
@@ -34,11 +34,11 @@ public sealed class LevelUp
         public List<Option> Options { get; set; } = [];
         [System.Text.Json.Serialization.JsonIgnore] public HashSet<int> Picked { get; } = [];
 
-        // Сколько надо выбрать: вариантов меньше, чем положено, — все.
+        // How many must be picked: if there are fewer options than required — all of them.
         [System.Text.Json.Serialization.JsonIgnore] public int Needed => Math.Min(Count, Options.Count);
         [System.Text.Json.Serialization.JsonIgnore] public bool Done => Picked.Count == Needed;
 
-        // Выбор/снятие варианта; уже выбрано сколько нужно — при выборе одного заменяется он.
+        // Select/deselect an option; if enough are already picked, selecting one replaces it.
         public void Toggle(int index)
         {
             if (index < 0 || index >= Options.Count) return;
@@ -52,7 +52,7 @@ public sealed class LevelUp
         }
     }
 
-    // Улучшение характеристик: +2 к одной, +1 к двум или черта (группа мастера с id "feat").
+    // Ability Score Improvement: +2 to one, +1 to two, or a feat (the DM's group with id "feat").
     public enum AsiMode { None, Plus2, Plus1x2, Feat }
 
     public const string FeatId = "feat";
@@ -68,14 +68,14 @@ public sealed class LevelUp
     public List<Choice> Choices { get; private set; } = [];
     public bool PlanLoaded { get; private set; }
 
-    // Хиты: null — не выбрано; Roll — значение кости после броска (бросок один, повтора нет).
+    // Hit Points: null — not chosen; Roll — the die value after rolling (one roll, no rerolls).
     public bool? HpRoll { get; private set; }
     public int? HpDie { get; private set; }
 
     public AsiMode Asi { get; set; } = AsiMode.None;
     public List<string> AsiPicks { get; } = [];
 
-    // Окно открывается: опыта хватает, герой жив и не в бою.
+    // The window opens when: there is enough XP, the hero is alive and not in combat.
     public static bool Available(WorldState ws) =>
         ws.Hero is { Dead: not true } hero && ws.Combat?.Active != true && LevelRules.Current.CanLevelUp(hero);
 
@@ -86,7 +86,7 @@ public sealed class LevelUp
         From = LevelRules.LevelOf(hero);
         HitDie = rules.HitDie(hero);
         IsAsi = rules.IsAsiLevel(hero, To);
-        // Начатое раньше повышение на этот же уровень — варианты и бросок оттуда, без нового запроса.
+        // A level-up to this same level started earlier — options and the roll come from it, no new request.
         if (hero.LevelUpDraft is { } draft && draft.Level == To)
         {
             if (draft.Plan != null) LoadPlan(draft.Plan);
@@ -101,7 +101,7 @@ public sealed class LevelUp
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Create(System.Text.Unicode.UnicodeRanges.All),
     };
 
-    // Варианты и бросок — в героя (сохранится с игрой): после отмены или перезапуска окно продолжит с них.
+    // Options and the roll are stored in the hero (saved with the game): after cancelling or restarting, the window resumes from them.
     public void SaveDraft() => Hero.LevelUpDraft = new LevelUpDraft
     {
         Level = To,
@@ -111,7 +111,7 @@ public sealed class LevelUp
 
     public int Score(string ability) => AbilityNames.Score(AbilityNames.Find(Hero, ability)) ?? 10;
 
-    // Новое значение характеристики с учётом выбранного улучшения.
+    // The new ability score, taking the chosen improvement into account.
     public int NewScore(string ability) =>
         Math.Min(Rules.MaxScore, Score(ability) + (Asi == AsiMode.Plus2 ? 2 : Asi == AsiMode.Plus1x2 ? 1 : 0) * AsiPicks.Count(a => a == ability));
 
@@ -119,8 +119,8 @@ public sealed class LevelUp
 
     public int HpAverage => Math.Max(1, HitDie / 2 + 1 + ConMod);
 
-    // Прибавка хитов: кость (среднее или бросок) + Телосложение; поднялся модификатор Телосложения — ещё +разница
-    // за каждый уровень (правило 5e).
+    // Hit Point gain: the die (average or roll) + Constitution; if the Constitution modifier went up — plus the difference
+    // for every level (5e rule).
     public int HpGain
     {
         get
@@ -133,7 +133,7 @@ public sealed class LevelUp
 
     public void ChooseAverage()
     {
-        if (HpRoll == true) return;   // бросок сделан — не переигрывается
+        if (HpRoll == true) return;   // the roll is made — no rerolls
         HpRoll = false;
     }
 
@@ -153,7 +153,7 @@ public sealed class LevelUp
         if (Choices.FirstOrDefault(c => c.Id == FeatId) is { } feat) feat.Picked.Clear();
     }
 
-    // Выбор характеристики для улучшения: +2 — одна (замена), +1/+1 — две разные; на максимуме — нельзя.
+    // Picking an ability to improve: +2 — one (replaces), +1/+1 — two different ones; not allowed at the maximum.
     public void ToggleAsi(string ability)
     {
         if (AsiPicks.Remove(ability)) return;
@@ -168,7 +168,7 @@ public sealed class LevelUp
         AsiPicks.Add(ability);
     }
 
-    // Группы выбора, видимые сейчас: черты — только если вместо улучшения выбрана черта.
+    // Choice groups visible right now: feats only if a feat was chosen instead of the improvement.
     public IEnumerable<Choice> VisibleChoices => Choices.Where(c => c.Id != FeatId || Asi == AsiMode.Feat);
 
     public bool HasFeats => Choices.Any(c => c.Id == FeatId && c.Options.Count > 0);
@@ -183,14 +183,14 @@ public sealed class LevelUp
 
     public bool Ready => PlanLoaded && HpRoll != null && AsiDone && VisibleChoices.All(c => c.Done);
 
-    // Есть что вносить в лист героя кроме чисел движка: умения, выбор, пересчёт от бонуса мастерства или характеристик.
+    // Whether there is something to put on the hero sheet besides the engine's numbers: abilities, choices, recalculation from the proficiency bonus or ability scores.
     public bool NeedsMaster => Gains.Count > 0 || VisibleChoices.Any() || AsiPicks.Count > 0
                                || Rules.ProficiencyAt(To) != Rules.ProficiencyAt(From);
 
-    // ── Ответ мастера с вариантами ──────────────────────────────────────────
+    // ── The DM's response with options ──────────────────────────────────────
 
-    // {"gains":[{name,description}], "choices":[{id,title,count,options:[{name,description}]}]}. Пустые группы
-    // и повтор черт (код даёт их выбор сам) отбрасываются. false — не разобрался.
+    // {"gains":[{name,description}], "choices":[{id,title,count,options:[{name,description}]}]}. Empty groups
+    // and duplicate feats (the code offers that choice itself) are dropped. false — could not be parsed.
     public bool LoadPlan(string json)
     {
         try
@@ -198,7 +198,7 @@ public sealed class LevelUp
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var root = JsonNode.Parse(json) as JsonObject;
             if (root == null) return false;
-            // Что у героя уже есть (умение прошлого уровня), — не «получено»; рост ресурса — получено.
+            // What the hero already has (an ability from a previous level) is not "gained"; a resource increase is.
             var has = Hero.Abilities.Select(a => a.Name).Concat((Hero.Spells ?? []).Select(sp => sp.Name))
                 .Select(n => n?.Trim().ToLowerInvariant()).ToHashSet();
             Gains = root["gains"]?.Deserialize<List<Option>>(options)?
@@ -207,7 +207,7 @@ public sealed class LevelUp
             Choices = root["choices"]?.Deserialize<List<Choice>>(options)?
                 .Where(c => c.Options is { Count: > 0 } && c.Count > 0)
                 .ToList() ?? [];
-            // Черты — только на уровне улучшения характеристик.
+            // Feats only at an Ability Score Improvement level.
             if (!IsAsi) Choices.RemoveAll(c => c.Id == FeatId);
             for (int i = 0; i < Choices.Count; i++)
                 if (string.IsNullOrWhiteSpace(Choices[i].Id)) Choices[i].Id = $"choice{i}";
@@ -217,7 +217,7 @@ public sealed class LevelUp
         catch { return false; }
     }
 
-    // ── Запросы мастеру ─────────────────────────────────────────────────────
+    // ── Requests to the DM ──────────────────────────────────────────────────
 
     public string ClassName => ClassLevel.Split(Hero.Stat(StatKeys.Class)?.Value).cls;
 
@@ -225,36 +225,36 @@ public sealed class LevelUp
         .Serialize("hero.stats", "hero.skills", "hero.resources", "hero.abilities", "hero.spells");
 
     public string OptionsRequest() =>
-        $"Повышение уровня: {ClassName} {From} → {To}. Хиты, бонус мастерства ({AbilityNames.Signed(Rules.ProficiencyAt(To))})"
-        + (IsAsi ? " и улучшение характеристик — даёт движок; добавь группу `feat` с подходящими чертами (альтернатива улучшению)." : " — даёт движок.")
-        + $"\nГерой:\n{HeroSheet()}";
+        $"Level up: {ClassName} {From} → {To}. Hit Points, proficiency bonus ({AbilityNames.Signed(Rules.ProficiencyAt(To))})"
+        + (IsAsi ? " and Ability Score Improvement come from the engine; add a `feat` group with suitable feats (an alternative to the improvement)." : " come from the engine.")
+        + $"\nHero:\n{HeroSheet()}";
 
-    // Выбранное игроком — мастеру для патча.
+    // What the player picked — to the DM for the patch.
     public string ApplyRequest()
     {
         var lines = new List<string>
         {
-            $"Повышение уровня: {ClassName} {From} → {To}. Бонус мастерства: {AbilityNames.Signed(Rules.ProficiencyAt(From))} → {AbilityNames.Signed(Rules.ProficiencyAt(To))}.",
+            $"Level up: {ClassName} {From} → {To}. Proficiency bonus: {AbilityNames.Signed(Rules.ProficiencyAt(From))} → {AbilityNames.Signed(Rules.ProficiencyAt(To))}.",
         };
-        if (Gains.Count > 0) lines.Add("Получено: " + string.Join("; ", Gains.Select(g => $"{g.Name} — {g.Description}")));
+        if (Gains.Count > 0) lines.Add("Gained: " + string.Join("; ", Gains.Select(g => $"{g.Name} — {g.Description}")));
         foreach (var c in VisibleChoices)
-            lines.Add($"Выбрано ({c.Title}): " + string.Join("; ", c.Picked.Order().Select(i => $"{c.Options[i].Name} — {c.Options[i].Description}")));
+            lines.Add($"Picked ({c.Title}): " + string.Join("; ", c.Picked.Order().Select(i => $"{c.Options[i].Name} — {c.Options[i].Description}")));
         if (Asi is AsiMode.Plus2 or AsiMode.Plus1x2)
-            lines.Add("Улучшение характеристик (значения ставит движок): " + string.Join(", ", AsiPicks.Distinct()
+            lines.Add("Ability Score Improvement (the engine sets the values): " + string.Join(", ", AsiPicks.Distinct()
                 .Select(a => $"{AbilityNames.Find(Hero, a)?.Name ?? a} {Score(a)} → {NewScore(a)}")));
-        lines.Add($"Герой (до повышения):\n{HeroSheet()}");
+        lines.Add($"Hero (before levelling up):\n{HeroSheet()}");
         return string.Join("\n", lines);
     }
 
-    // ── Итог ────────────────────────────────────────────────────────────────
+    // ── Result ──────────────────────────────────────────────────────────────
 
     private static readonly string[] AllowedHeroKeys = ["stats", "skills", "abilities", "resources", "spells", "actions", "speedmax"];
 
-    // Новый герой: копия текущего + разрешённая часть патча мастера + числа движка. Исходный герой не меняется.
+    // The new hero: a copy of the current one + the allowed part of the DM's patch + the engine's numbers. The original hero is unchanged.
     public Hero Apply(string? masterPatchJson)
     {
         var scratch = new Storage();
-        // Применение патча выставляет язык мира по своему состоянию (L.SetWorld) — у копии он тот же, что у игры.
+        // Applying the patch sets the world language from its state (L.SetWorld) — the copy's is the same as the game's.
         scratch.WorldState.Language = L.World;
         scratch.WorldState.Hero =JsonSerializer.Deserialize<Hero>(JsonSerializer.Serialize(Hero, CopyJson), CopyJson);
         if (masterPatchJson != null && JsonNode.Parse(masterPatchJson) is JsonObject root
@@ -267,7 +267,7 @@ public sealed class LevelUp
         }
 
         var hero = scratch.WorldState.Hero!;
-        // Цвет умения/заклинания, если мастер его не прислал, — «утилитарный», как у прочих (иначе строка выбивается).
+        // An ability/spell colour the DM did not send defaults to "utility", like the others (otherwise the line stands out).
         foreach (var ability in hero.Abilities.Where(x => x.Color is not { Count: 3 })) ability.Color = [.. UtilityColor];
         foreach (var spell in (hero.Spells ?? []).Where(x => x.Color is not { Count: 3 })) spell.Color = [.. UtilityColor];
         foreach (string ability in AbilityNames.All)
@@ -279,13 +279,13 @@ public sealed class LevelUp
             hero.Hp = $"{c + gain}/{m + gain}";
         hero.Level = To;
         hero.Xp = Hero.Xp;
-        hero.LevelUpDraft = null;   // уровень получен — черновик не нужен
+        hero.LevelUpDraft = null;   // the level is gained — the draft is no longer needed
         LimitPrepared(hero);
         return hero;
     }
 
-    // Подготовленных заклинаний (не заговоров) — не больше максимума класса: лишними становятся новые (выученные на
-    // этом уровне), подготовит их игрок сам. Классы «known» (без стата «Подготовлено») не трогаются.
+    // Prepared spells (not cantrips) — no more than the class maximum: the extra ones are the new ones (learned at
+    // this level); the player prepares them. "Known" classes (without the "Prepared" stat) are left alone.
     private void LimitPrepared(Hero hero)
     {
         if (!int.TryParse(hero.Stat(StatKeys.SpellsPrepared)?.Value?.Trim(), out int max)) return;
@@ -295,15 +295,15 @@ public sealed class LevelUp
         foreach (var sp in prepared.Skip(max)) sp.Prepared = false;
     }
 
-    // Предпросмотр для карточки героя до «Принять» — без нейронки: числа движка, полученное и выбранное — умениями,
-    // заклинания справочника — заклинаниями (навыки и спасброски пересчитает мастер при «Принять»).
+    // Preview for the hero card before "Accept" — without the AI: the engine's numbers, gains and picks as abilities,
+    // reference spells as spells (the DM recalculates skills and saving throws on "Accept").
     public Hero Preview()
     {
         var hero = Apply(null);
         var known = hero.Abilities.Select(a => a.Name).Concat((hero.Spells ?? []).Select(sp => sp.Name)).ToHashSet();
         foreach (var option in Gains.Concat(VisibleChoices.SelectMany(c => c.Picked.Order().Select(i => c.Options[i]))))
         {
-            // Изменение стата — новое значение в его строке (по названию или ключу), не умение.
+            // A stat change — the new value in its row (by name or key), not an ability.
             if (option.Stat != null)
             {
                 if (option.Value == null) continue;
@@ -314,7 +314,7 @@ public sealed class LevelUp
                 else hero.Stats.Add(new HeroStat { Name = option.Stat, Value = option.Value, Key = key });
                 continue;
             }
-            // Рост ресурса — новое значение в его строке (новый ресурс — новой строкой), не умение.
+            // A resource increase — the new value in its row (a new resource — a new row), not an ability.
             string resName = option.Resource ?? option.Name;
             if (option.Resource != null || hero.Resources.Any(r => r.Deleted != true && r.Name == resName))
             {
@@ -335,14 +335,14 @@ public sealed class LevelUp
         return hero;
     }
 
-    // ── Свой вариант (просьба игрока) ───────────────────────────────────────
+    // ── A custom option (player request) ────────────────────────────────────
 
     public string CustomRequest(string request) => OptionsRequest()
-        + $"\nПросьба игрока: {request.Trim()}\nВыбор на этом уровне: "
+        + $"\nPlayer request: {request.Trim()}\nChoices at this level: "
         + string.Join("; ", Choices.Select(c => $"{c.Id} — {c.Title} ({string.Join(", ", c.Options.Select(o => o.Name))})"));
 
-    // Ответ мастера на просьбу: {"choices":[{id,title,count,options:[…]}]} — варианты дописываются в группу с тем же id
-    // (новая группа — целиком), или {"refusal":"…"}. Возвращает текст отказа; null — вариант добавлен.
+    // The DM's answer to the request: {"choices":[{id,title,count,options:[…]}]} — options are appended to the group with the same id
+    // (a new group — whole), or {"refusal":"…"}. Returns the refusal text; null — the option was added.
     public string? MergeCustom(string json)
     {
         try
@@ -351,7 +351,7 @@ public sealed class LevelUp
             if (root?["refusal"]?.GetValue<string>() is { Length: > 0 } refusal) return refusal;
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             var groups = root?["choices"]?.Deserialize<List<Choice>>(options)?.Where(c => c.Options is { Count: > 0 }).ToList() ?? [];
-            if (groups.Count == 0) return L.T("Мастер не предложил вариант.");
+            if (groups.Count == 0) return L.T("The DM did not offer an option.");
             foreach (var g in groups)
             {
                 foreach (var o in g.Options) o.Custom = true;
@@ -366,7 +366,7 @@ public sealed class LevelUp
             }
             return null;
         }
-        catch { return L.T("Мастер не ответил — попробуй ещё раз."); }
+        catch { return L.T("The DM did not answer — try again."); }
     }
 
     private static readonly int[] UtilityColor = [220, 220, 220];

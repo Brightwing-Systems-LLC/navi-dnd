@@ -5,9 +5,9 @@ using NaviDnD;
 
 namespace NaviDnD.McpServer;
 
-// Библиотека иконок game-icons.net на диске: icons/000000/ffffff/1x1/<author>/<name>.svg —
-// см. NaviDnD/Helpers/SvgToBrailleConverter.cs, которая резолвит ТОТ ЖЕ слаг "author/name" в файл
-// для рендера в браиль-арт. Список слагов кешируется один раз лениво на время жизни процесса.
+// The game-icons.net icon library on disk: icons/000000/ffffff/1x1/<author>/<name>.svg —
+// see NaviDnD/Helpers/SvgToBrailleConverter.cs, which resolves THE SAME "author/name" slug to a file
+// for rendering as braille art. The slug list is cached lazily once for the lifetime of the process.
 [McpServerToolType]
 public sealed class IconTools(McpServerConfig config)
 {
@@ -32,15 +32,15 @@ public sealed class IconTools(McpServerConfig config)
 
     [McpServerTool]
     [Description("""
-        Ищет слаги иконок game-icons.net для поля "image". query = варианты через запятую от
-        точного к общему ("longsword,sword") — пробует каждый по очереди, пока не найдётся
-        совпадение; один вызов, не повторяй. Термины: 1-2 обычных английских существительных, тип
-        предмета, а не художественное название ("sword", а не "Blade of Kings"). Общий набор
-        иконок, не заточен под D&D — экзотические предметы может не найти.
-        Возвращает список подходящих слагов через запятую (author/name) — выбери сам, какое
-        название подходит лучше. Пустой результат → совпадений нет, пропусти "image", не угадывай.
+        Finds game-icons.net icon slugs for the "image" field. query = comma-separated alternatives from
+        specific to general ("longsword,sword") — tries each in turn until one
+        matches; one call, don't repeat. Terms: 1-2 plain English nouns, the item
+        type, not a flavourful name ("sword", not "Blade of Kings"). A general icon
+        set, not tailored to D&D — it may not find exotic items.
+        Returns a comma-separated list of matching slugs (author/name) — pick yourself which
+        name fits best. Empty result → no matches; leave out "image", don't guess.
         """)]
-    public string FindIcon([Description("варианты через запятую от точного к общему, например \"longsword,sword\"")] string query)
+    public string FindIcon([Description("comma-separated alternatives from specific to general, e.g. \"longsword,sword\"")] string query)
     {
         Log($"find_icon → \"{query}\"");
         try
@@ -94,8 +94,8 @@ public sealed class IconTools(McpServerConfig config)
             .ToList();
     }
 
-    // "long-sword_01" → "long sword 01" — дефисы/подчёркивания как разделители слов, чтобы
-    // "long sword" и "longsword" совпадали по словам, а не только по точной подстроке.
+    // "long-sword_01" → "long sword 01" — hyphens/underscores as word separators, so that
+    // "long sword" and "longsword" match word by word, not only as an exact substring.
     private static string NormalizeForCompare(string s) =>
         s.ToLowerInvariant().Replace('-', ' ').Replace('_', ' ');
 

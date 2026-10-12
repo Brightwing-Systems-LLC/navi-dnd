@@ -3,31 +3,31 @@ using NaviDnD.Helpers;
 
 namespace NaviDnD.Display;
 
-// Экран настроек в стиле анкеты новой игры: по центру рамка «НАСТРОЙКИ» с группами (звук, ИИ,
-// отладка) и рамка «ПОДСКАЗКА» с описанием пункта под курсором. ↑↓ — пункт, ←→ — переключить/
-// выбрать, на текстовом пункте (токен, путь к Claude) — сразу ввод. Изменения применяются сразу и
-// сохраняются (AppConfig.SaveUserSettings → Storage/settings.json). Esc — в меню.
-// Заголовок — функция: при смене языка он строится заново.
+// Settings screen styled like the new game form: a centered «SETTINGS» frame with groups (sound, AI,
+// debug) and a «HINT» frame describing the item under the cursor. ↑↓ picks an item, ←→ toggles/
+// chooses; on a text item (token, path to Claude) you type straight away. Changes apply immediately and
+// are saved (AppConfig.SaveUserSettings → Storage/settings.json). Esc returns to the menu.
+// The title is a function: it is rebuilt when the language changes.
 public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConfig config, Storage storage, Func<string> title)
 {
     private string _title = title();
     private List<MouseUiHelper.TitleTab> _titleTabs = [];
     private int _titleRow;
     private bool _escHovered;
-    private enum Kind { Toggle, Choice, Text, Info } // Info — строка справки (управление), не редактируется
+    private enum Kind { Toggle, Choice, Text, Info } // Info is a help line (controls), not editable
 
     private sealed class Item(string label, Kind kind, string hint)
     {
         public string Label = label;
         public Kind Kind = kind;
         public string Hint = hint;
-        public Func<string>? HintTail;               // меняющийся хвост подсказки (полный статус озвучки)
+        public Func<string>? HintTail;               // changing tail of the hint (full voice-over status)
         public Func<string> Get = () => "";
-        public Action<int> Step = _ => { };          // ←→ для переключателей и выбора
-        public Action<string> Set = _ => { };        // текст
-        public bool Secret;                          // токен — в списке не показываем целиком
-        public string? Group;                        // заголовок группы над пунктом
-        public Func<bool> Visible = () => true;      // скрыт — не рисуется и не выбирается (настройки другой нейронки)
+        public Action<int> Step = _ => { };          // ←→ for toggles and choices
+        public Action<string> Set = _ => { };        // text
+        public bool Secret;                          // a token is never shown in full in the list
+        public string? Group;                        // group heading above the item
+        public Func<bool> Visible = () => true;      // hidden: not drawn or selectable (settings of the other model)
     }
 
     private static readonly (string Id, string Name)[] Models =
@@ -66,7 +66,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         _drawnChars = null;
         _drawnFg = null;
         _titleTabs = MouseUiHelper.ComputeTitleTabs(_title);
-        Speech.WarmUp(both: true);   // пробные фразы обоих голосов — без задержки на загрузку модели
+        Speech.WarmUp(both: true);   // sample phrases for both voices, with no delay for model loading
         BuildItems();
         var border = new BorderDrawer(settings, display);
         _titleRow = Console.CursorTop - 1;
@@ -98,7 +98,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
             }
             if (click is { } c)
             {
-                // «[Esc]МЕНЮ» в заголовке — как Esc; остальная шапка — перетаскивание окна.
+                // «[Esc]MENU» in the title works like Esc; the rest of the header drags the window.
                 if (MouseUiHelper.GetHoveredTabKey(c.x, c.y, _titleTabs) == "Esc")
                 {
                     Speech.Stop();
@@ -108,7 +108,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
                     return;
                 }
                 if (c.y < _bodyTop) { ConsoleMouseReader.StartWindowDrag(); continue; }
-                // Стрелки «◄ ►» есть у каждого пункта и меняют именно его (а не пункт в фокусе).
+                // Every item has «◄ ►» arrows, and they change that item (not the focused one).
                 var (arrowItem, arrow) = ArrowAt(c.x, c.y);
                 int item = ItemAt(c.x, c.y);
                 if (arrow != 0)
@@ -122,7 +122,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
                 if (item >= 0)
                 {
                     if (_editing) Commit();
-                    // Клик по строке только выбирает пункт; значение меняют стрелки «◄ ►» (или ←→).
+                    // Clicking a row only selects the item; the value is changed by the «◄ ►» arrows (or ←→).
                     _focus = item;
                     Sound.PlayClick();
                     StartEditIfText();
@@ -137,7 +137,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
             {
                 if (key.Key == ConsoleKey.Escape)
                 {
-                    if (_editing) { _editing = false; break; } // отменить ввод
+                    if (_editing) { _editing = false; break; } // cancel input
                     return;
                 }
                 bool wasEditing = _editing;
@@ -149,7 +149,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         }
     }
 
-    // true — выйти в меню.
+    // true means exit to the menu.
     private bool HandleKey(ConsoleKeyInfo key)
     {
         var item = _items[_focus];
@@ -186,7 +186,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         return false;
     }
 
-    // Следующий настраиваемый пункт (строки справки управления пропускаются).
+    // The next configurable item (control help lines are skipped).
     private void Move(int dir)
     {
         for (int i = _focus + dir; i >= 0 && i < _items.Count; i += dir)
@@ -199,7 +199,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         }
     }
 
-    // Текстовый пункт в фокусе — сразу ввод (как поля анкеты), с текущим значением.
+    // A focused text item goes straight into input (like the form fields), starting from the current value.
     private void StartEditIfText()
     {
         if (_items[_focus].Kind != Kind.Text || _editing) return;
@@ -226,11 +226,11 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         Sound.PlayClick();
     }
 
-    // ── Пункты ────────────────────────────────────────────────────────────────
+    // ── Items ─────────────────────────────────────────────────────────────────
     private void BuildItems()
     {
         _items.Clear();
-        _items.Add(new Item(L.T("ЯЗЫК"), Kind.Choice, L.T("Язык меню и экранов. Новый мир создаётся на этом языке: на нём рассказ мастера, имена и озвучка. У готового мира язык свой и не меняется."))
+        _items.Add(new Item(L.T("LANGUAGE"), Kind.Choice, L.T("Language of menus and screens. New worlds are created in this language: the story, names and voice-over use it. An existing world keeps its own language."))
         {
             Get = () => L.IsEnglish ? "ENGLISH" : "РУССКИЙ",
             Step = _ =>
@@ -240,14 +240,14 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
                 BuildItems();
                 RedrawTitle();
             },
-            Group = L.T("ИНТЕРФЕЙС"),
+            Group = L.T("INTERFACE"),
         });
-        Toggle(L.T("ЭКРАН"), L.T("Весь экран: игра того же размера по центру монитора, вокруг — фон игры (панель задач скрыта). В окне — как обычно, окно можно перетаскивать."),
+        Toggle(L.T("SCREEN"), L.T("Full screen: the game at the same size centered on the monitor with the game background around it (taskbar hidden). Windowed — as usual, the window can be dragged."),
             () => config.Fullscreen, v => { config.Fullscreen = v; ApplyScreen(); },
-            on: L.T("ВЕСЬ ЭКРАН"), off: L.T("В ОКНЕ"));
+            on: L.T("FULL SCREEN"), off: L.T("WINDOWED"));
         string[] faces = ConsoleSetup.FontFaces;
-        _items.Add(new Item(L.T("ТИП ШРИФТА"), Kind.Choice,
-            L.T("Шрифт игры: Consolas — обычный, DejaVu Sans Mono — гладкий (из папки Fonts игры, ровный и на размерах крупнее 16)."))
+        _items.Add(new Item(L.T("FONT FACE"), Kind.Choice,
+            L.T("Game font: Consolas — regular, DejaVu Sans Mono — smooth (from the game's Fonts folder, crisp even at sizes above 16)."))
         {
             Get = () => config.FontFace,
             Step = dir =>
@@ -255,30 +255,30 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
                 int i = Math.Max(0, Array.IndexOf(faces, config.FontFace));
                 config.FontFace = faces[(i + dir + faces.Length) % faces.Length];
                 ConsoleSetup.FontFace = config.FontFace;
-                // У шрифта свои размеры — выбранного у него нет: авто.
+                // The font has its own sizes; if the selected one isn't among them: auto.
                 if (!ConsoleSetup.FontSizes(config.FontFace).Contains(config.FullscreenFontSize)) config.FullscreenFontSize = 0;
                 ApplyScreen();
             },
         });
-        _items.Add(new Item(L.T("ШРИФТ"), Kind.Choice,
-            L.T("Размер шрифта во весь экран — от него размер всей игры: авто — самый крупный, при котором игра влезает в монитор; число — этот размер (не влезает — сколько влезает). Размеры — те, где шрифт ровный: Consolas 14/16, DejaVu 16–22. В окне — всегда 16."))
+        _items.Add(new Item(L.T("FONT SIZE"), Kind.Choice,
+            L.T("Font size in full screen sets the size of the whole game: auto — the largest that fits the monitor; a number — that size (or as large as fits). Only crisp sizes are offered: Consolas 14/16, DejaVu 16–22. Windowed is always 16."))
         {
-            Get = () => config.FullscreenFontSize <= 0 ? L.T("авто") : config.FullscreenFontSize.ToString(),
+            Get = () => config.FullscreenFontSize <= 0 ? L.T("auto") : config.FullscreenFontSize.ToString(),
             Step = dir =>
             {
-                int[] fonts = [0, .. ConsoleSetup.FontSizes(config.FontFace)];   // авто + размеры этого шрифта
+                int[] fonts = [0, .. ConsoleSetup.FontSizes(config.FontFace)];   // auto + this font's sizes
                 int i = Math.Max(0, Array.IndexOf(fonts, config.FullscreenFontSize));
                 config.FullscreenFontSize = fonts[(i + dir + fonts.Length) % fonts.Length];
                 ApplyScreen();
             },
         });
-        Toggle(L.T("ПОДСКАЗКИ КЛАВИШ"), L.T("Подсказки клавиш [F1]…[F10], [Esc] у вкладок и подвкладок. Выключено — их не видно, клавиши работают как прежде."),
+        Toggle(L.T("KEY HINTS"), L.T("Key hints [F1]…[F10], [Esc] on tabs and sub-tabs. Off — they are hidden, the keys still work."),
             () => config.ShowKeyHints, v => { config.ShowKeyHints = v; display.ShowKeyHints = v; },
-            on: L.T("ПОКАЗЫВАТЬ"), off: L.T("СКРЫТЬ"));
+            on: L.T("SHOW"), off: L.T("HIDE"));
 
-        // Озвучка — на языке игры (Silero): русская и английская модели — в игре.
-        // Пробные фразы — на языке голоса, а не интерфейса.
-        Toggle(L.T("ОЗВУЧКА"), L.T("Локально, без ключа, на языке игры: русский и английский голоса уже в игре. F11 — остановить речь; Enter/Esc также останавливают её."),
+        // Voice-over is in the game's language (Silero): Russian and English models ship with the game.
+        // Sample phrases are in the voice's language, not the interface's.
+        Toggle(L.T("VOICE-OVER"), L.T("Local, no key, in the game's language: Russian and English voices are included. F11 stops speech; Enter/Esc stop it too."),
             () => config.SpeechEnabled, v =>
             {
                 config.SpeechEnabled = v;
@@ -286,12 +286,12 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
                 if (v) Speech.WarmUp();
                 if (v && L.WorldIsEnglish) Speech.Sample("Voice-over is on. I will read the story to you.", config.SileroVoiceEn);
                 else if (v) Speech.Sample("Озвучка включена. Я буду читать рассказ ведущего.", config.SileroVoice);
-            }, group: L.T("ОЗВУЧКА"));
-        // Строка «СТАТУС ОЗВУЧКИ» коротка для ошибки — целиком она в подсказке озвучки.
-        _items[^1].HintTail = () => config.SpeechEnabled ? "\n\n" + L.T("Статус: ") + Speech.Status : "";
-        _items.Add(new Item(L.T("ГОЛОС РАССКАЗЧИКА"), Kind.Choice, L.T("Голос русской игры. Айдар и Евгений — мужские голоса; Бая, Ксения и Ксения 2 — женские. При переключении звучит пробная фраза; выбор сохраняется."))
+            }, group: L.T("VOICE-OVER"));
+        // The «VOICE STATUS» line is too short for an error; the full text is in the voice-over hint.
+        _items[^1].HintTail = () => config.SpeechEnabled ? "\n\n" + L.T("Status: ") + Speech.Status : "";
+        _items.Add(new Item(L.T("NARRATOR VOICE"), Kind.Choice, L.T("Voice for Russian games. Aidar and Eugene are male voices; Baya, Kseniya and Kseniya 2 are female. A sample phrase plays when you switch; the choice is saved."))
         {
-            Get = () => config.SileroVoice switch { "aidar" => L.T("Айдар"), "baya" => L.T("Бая"), "kseniya" => L.T("Ксения"), "xenia" => L.T("Ксения 2"), _ => L.T("Евгений") },
+            Get = () => config.SileroVoice switch { "aidar" => L.T("Aidar"), "baya" => L.T("Baya"), "kseniya" => L.T("Kseniya"), "xenia" => L.T("Kseniya 2"), _ => L.T("Eugene") },
             Step = dir =>
             {
                 string[] voices = ["aidar", "eugene", "baya", "kseniya", "xenia"];
@@ -302,11 +302,11 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
                 Speech.Sample("Вы входите в тёмный лес. У старого дуба вас ждёт незнакомец.", config.SileroVoice);
             },
         });
-        _items.Add(new Item(L.T("АНГЛИЙСКИЙ ГОЛОС"), Kind.Choice, L.T("Голос английской игры: три мужских и два женских. При переключении звучит пробная фраза; выбор сохраняется."))
+        _items.Add(new Item(L.T("ENGLISH VOICE"), Kind.Choice, L.T("Voice for English games: three male and two female. A sample phrase plays when you switch; the choice is saved."))
         {
             Get = () => Array.IndexOf(Speech.EnglishVoices, config.SileroVoiceEn) switch
             {
-                0 => L.T("Мужской 1"), 1 => L.T("Мужской 2"), 2 => L.T("Мужской 3"), 3 => L.T("Женский 1"), _ => L.T("Женский 2"),
+                0 => L.T("Male 1"), 1 => L.T("Male 2"), 2 => L.T("Male 3"), 3 => L.T("Female 1"), _ => L.T("Female 2"),
             },
             Step = dir =>
             {
@@ -317,18 +317,18 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
                 Speech.Sample("You enter a dark forest. A stranger waits for you by the old oak tree.", config.SileroVoiceEn);
             },
         });
-        _items.Add(new Item(L.T("ГРОМКОСТЬ РЕЧИ"), Kind.Choice, L.T("Отдельная громкость речи, независимо от музыки и звуков. Шаг — 10%."))
+        _items.Add(new Item(L.T("SPEECH VOLUME"), Kind.Choice, L.T("Speech volume, separate from music and sounds. Step: 10%."))
         {
             Get = () => new string('█', config.SpeechVolume / 10) + new string('░', 10 - config.SpeechVolume / 10) + $" {config.SpeechVolume,3}%",
             Step = dir => config.SpeechVolume = Math.Clamp(config.SpeechVolume + dir * 10, 0, 100),
         });
-        _items.Add(new Item(L.T("СТАТУС ОЗВУЧКИ"), Kind.Info, L.T("Загрузка и ошибки озвучки. Подробности — в logs/speech.log. Чтобы повторить проверку, выключи и включи озвучку."))
-        { Get = () => config.SpeechEnabled ? Speech.Status : L.T("Выключена") });
-        Toggle(L.T("ЗВУКИ"), L.T("Щелчки кнопок, вкладок и стрелок, бросок кубика."),
-            () => config.SoundEnabled, v => { config.SoundEnabled = v; Sound.Enabled = v; }, group: L.T("ЗВУК"));
-        _items.Add(new Item(L.T("ГРОМКОСТЬ"), Kind.Choice, L.T("Общая громкость всех звуков игры: щелчки, бросок кубика, печать текста. Шаг — 10%."))
+        _items.Add(new Item(L.T("VOICE STATUS"), Kind.Info, L.T("Voice-over loading and errors. Details are in logs/speech.log. To check again, turn voice-over off and on."))
+        { Get = () => config.SpeechEnabled ? Speech.Status : L.T("Off") });
+        Toggle(L.T("SOUNDS"), L.T("Clicks of buttons, tabs and arrows, dice rolls."),
+            () => config.SoundEnabled, v => { config.SoundEnabled = v; Sound.Enabled = v; }, group: L.T("SOUND"));
+        _items.Add(new Item(L.T("VOLUME"), Kind.Choice, L.T("Overall volume of all game sounds: clicks, dice rolls, typing. Step: 10%."))
         {
-            // Проценты — всегда 3 знака (« 60%», «100%»): длина строки не меняется, полоска не прыгает.
+            // Percentages are always 3 characters (« 60%», «100%»): the line length doesn't change, the bar doesn't jump.
             Get = () => new string('█', config.SoundVolume / 10) + new string('░', 10 - config.SoundVolume / 10) + $" {config.SoundVolume,3}%",
             Step = dir =>
             {
@@ -336,9 +336,9 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
                 Sound.Volume = config.SoundVolume / 100f;
             },
         });
-        Toggle(L.T("МУЗЫКА"), L.T("Музыка по ситуации: своя в меню, в дороге, городе, таверне, подземелье, ночью и в бою."),
+        Toggle(L.T("MUSIC"), L.T("Music that fits the moment: its own in the menu, on the road, in town, in a tavern, in a dungeon, at night and in combat."),
             () => config.MusicEnabled, v => { config.MusicEnabled = v; Music.Enabled = v; });
-        _items.Add(new Item(L.T("ГРОМКОСТЬ МУЗЫКИ"), Kind.Choice, L.T("Громкость музыки — отдельно от звуков (ещё умножается на общую громкость). Шаг — 10%."))
+        _items.Add(new Item(L.T("MUSIC VOLUME"), Kind.Choice, L.T("Music volume, separate from sounds (also multiplied by the overall volume). Step: 10%."))
         {
             Get = () => new string('█', config.MusicVolume / 10) + new string('░', 10 - config.MusicVolume / 10) + $" {config.MusicVolume,3}%",
             Step = dir =>
@@ -347,49 +347,49 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
                 Music.Volume = config.MusicVolume / 100f;
             },
         });
-        Toggle(L.T("ЗВУКИ ОКРУЖЕНИЯ"), L.T("Птицы днём, сверчки ночью, камин в таверне, капли в подземелье, ветер в пути. Громкость — как у музыки."),
+        Toggle(L.T("AMBIENT SOUNDS"), L.T("Birds by day, crickets at night, a hearth in the tavern, dripping water in a dungeon, wind on the road. Volume follows the music."),
             () => config.AmbienceEnabled, v => { config.AmbienceEnabled = v; Music.AmbienceEnabled = v; });
-        Toggle(L.T("ЗВУК ПЕЧАТИ"), L.T("Тихий щипок струны, пока мастер печатает ответ в диалоге."),
+        Toggle(L.T("TYPING SOUND"), L.T("A soft string pluck while the Dungeon Master types a reply in the dialog."),
             () => config.TypingSoundEnabled, v => { config.TypingSoundEnabled = v; Sound.TypingEnabled = v; });
 
-        _items.Add(new Item(L.T("НЕЙРОНКА"), Kind.Choice,
-            L.T("Кто ведёт игру: Claude (Claude CLI) или Codex (OpenAI Codex CLI — нужен установленный codex и вход в аккаунт). Промпты и инструменты те же; игра отлаживалась на Claude, с Codex возможны отступления от формата."))
+        _items.Add(new Item(L.T("AI"), Kind.Choice,
+            L.T("Who runs the game: Claude (Claude CLI) or Codex (OpenAI Codex CLI — codex must be installed and signed in). Prompts and tools are the same; the game was tuned on Claude, Codex may stray from the format."))
         {
             Get = () => config.AiProvider == "codex" ? "Codex" : "Claude",
             Step = _ => config.AiProvider = config.AiProvider == "codex" ? "claude" : "codex",
-            Group = L.T("ИСКУССТВЕННЫЙ ИНТЕЛЛЕКТ"),
+            Group = L.T("ARTIFICIAL INTELLIGENCE"),
         });
-        string opusNote = "\n\n" + L.T("Настоятельно рекомендуется Opus: игра создавалась и тестировалась на нём, с другими моделями возможны баги.");
-        Model(L.T("МОДЕЛЬ ИГРЫ"), L.T("Модель Claude для ходов игры: действия, бой, триггеры.") + opusNote,
+        string opusNote = "\n\n" + L.T("Opus is strongly recommended: the game was built and tested on it; other models may cause bugs.");
+        Model(L.T("GAME MODEL"), L.T("Claude model for game turns: actions, combat, triggers.") + opusNote,
             () => config.ClaudeModel, v => config.ClaudeModel = v);
         OnlyFor("claude");
-        Model(L.T("МОДЕЛЬ МИРА"), L.T("Модель для старта новой игры: сюжет, план локации, наполнение стартового блока.") + opusNote,
+        Model(L.T("WORLD MODEL"), L.T("Model for starting a new game: plot, location plan, filling the starting block.") + opusNote,
             () => config.ClaudeStartNewGameModel, v => config.ClaudeStartNewGameModel = v);
         OnlyFor("claude");
-        Model(L.T("МОДЕЛЬ ГЕРОЯ"), L.T("Модель для создания героя по анкете: статы, снаряжение, способности.") + opusNote,
+        Model(L.T("HERO MODEL"), L.T("Model for creating a hero from the form: stats, equipment, features.") + opusNote,
             () => config.ClaudeCreateNewGameModel, v => config.ClaudeCreateNewGameModel = v);
         OnlyFor("claude");
-        Text(L.T("ТОКЕН CLAUDE"), L.T("OAuth-токен Claude (claude setup-token). Хранится только у тебя в Storage/settings.json."),
+        Text(L.T("CLAUDE TOKEN"), L.T("Claude OAuth token (claude setup-token). Stored only on your computer in Storage/settings.json."),
             () => config.ClaudeOAuthToken, v => config.ClaudeOAuthToken = v, secret: true);
         OnlyFor("claude");
-        Text(L.T("ПУТЬ К CLAUDE"), L.T("Путь к claude.exe (Claude CLI), через который игра обращается к мастеру."),
+        Text(L.T("CLAUDE PATH"), L.T("Path to claude.exe (Claude CLI), which the game uses to reach the Dungeon Master."),
             () => config.ClaudeCliPath, v => config.ClaudeCliPath = v);
         OnlyFor("claude");
-        Model(L.T("МОДЕЛЬ ИГРЫ"), L.T("Модель Codex для ходов игры: действия, бой, триггеры. Sol — баланс, Astra — сложные задачи, Luna — простые. Доступность зависит от аккаунта."),
+        Model(L.T("GAME MODEL"), L.T("Codex model for game turns: actions, combat, triggers. Sol — balanced, Astra — complex tasks, Luna — simple ones. Availability depends on your account."),
             () => config.CodexModel, v => config.CodexModel = v, choices: CodexModels);
         OnlyFor("codex");
-        Model(L.T("МОДЕЛЬ МИРА"), L.T("Модель Codex для концепции мира и старта новой игры: сюжет, план локации, стартовая сцена."),
+        Model(L.T("WORLD MODEL"), L.T("Codex model for the world concept and new game start: plot, location plan, opening scene."),
             () => string.IsNullOrWhiteSpace(config.CodexStartNewGameModel) ? config.CodexModel : config.CodexStartNewGameModel,
             v => config.CodexStartNewGameModel = v, choices: CodexModels);
         OnlyFor("codex");
-        Model(L.T("МОДЕЛЬ ГЕРОЯ"), L.T("Модель Codex для создания героя: характеристики, снаряжение, способности и описание."),
+        Model(L.T("HERO MODEL"), L.T("Codex model for creating a hero: ability scores, equipment, features and description."),
             () => string.IsNullOrWhiteSpace(config.CodexCreateNewGameModel) ? config.CodexModel : config.CodexCreateNewGameModel,
             v => config.CodexCreateNewGameModel = v, choices: CodexModels);
         OnlyFor("codex");
-        _items.Add(new Item(L.T("РАЗМЫШЛЕНИЕ CODEX"), Kind.Choice,
-            L.T("Быстро — меньше ожидание; средне — баланс для игры; глубоко — сложные правила, дольше ответ. Описание героя и починка JSON всегда используют быстрое размышление."))
+        _items.Add(new Item(L.T("CODEX REASONING"), Kind.Choice,
+            L.T("Fast — less waiting; medium — balanced for play; deep — complex rules, slower replies. Hero description and JSON repair always use fast reasoning."))
         {
-            Get = () => config.CodexReasoningEffort switch { "low" => L.T("БЫСТРО"), "high" => L.T("ГЛУБОКО"), _ => L.T("СРЕДНЕ") },
+            Get = () => config.CodexReasoningEffort switch { "low" => L.T("FAST"), "high" => L.T("DEEP"), _ => L.T("MEDIUM") },
             Step = dir =>
             {
                 string[] levels = ["low", "medium", "high"];
@@ -398,41 +398,41 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
             },
         });
         OnlyFor("codex");
-        Text(L.T("ПУТЬ К CODEX"), L.T("Путь к Codex CLI. «codex» — найти в PATH (из npm-пакета игра сама берёт codex.exe)."),
+        Text(L.T("CODEX PATH"), L.T("Path to Codex CLI. \"codex\" — look it up in PATH (for the npm package the game picks codex.exe itself)."),
             () => config.CodexCliPath, v => config.CodexCliPath = v.Trim().Length > 0 ? v.Trim() : "codex");
         OnlyFor("codex");
 
-        Toggle(L.T("ТУМАН ВОЙНЫ"), L.T("Сохранять исследованные клетки между запусками игры. Выключено — каждый запуск карта снова в тумане."),
+        Toggle(L.T("FOG OF WAR"), L.T("Keep explored cells between game launches. Off — the map is fogged again on every launch."),
             () => config.SaveExploredCells, v => { config.SaveExploredCells = v; storage.SaveExploredCells = v; },
-            group: L.T("ОТЛАДКА"), on: L.T("СОХРАНЯТЬ"), off: L.T("НЕ СОХРАНЯТЬ"));
-        Toggle(L.T("ВСЯ КАРТА"), L.T("Показать всю карту без тумана войны, все скрытые объекты и существ. Для отладки."),
-            () => config.RevealMap, v => config.RevealMap = v, on: L.T("ОТКРЫТА"), off: L.T("СКРЫТА"));
-        Toggle(L.T("ТРИГГЕРЫ"), L.T("Ловушки, засады, события раундов и наполнение блоков нейронкой. Выключено — герой ходит без событий."),
+            group: L.T("DEBUG"), on: L.T("KEEP"), off: L.T("DON'T KEEP"));
+        Toggle(L.T("WHOLE MAP"), L.T("Show the whole map without fog of war, all hidden objects and creatures. For debugging."),
+            () => config.RevealMap, v => config.RevealMap = v, on: L.T("REVEALED"), off: L.T("HIDDEN"));
+        Toggle(L.T("TRIGGERS"), L.T("Traps, ambushes, round events and AI filling of map blocks. Off — the hero walks without events."),
             () => !config.DisableTriggers, v => config.DisableTriggers = !v);
-        Toggle(L.T("ОШИБКИ ИИ"), L.T("Сбой нейронки (кривой ответ, обрыв) — подробно в диалоге. Выключено — коротко «повтори действие», подробности в логе."),
-            () => config.ShowAiErrors, v => config.ShowAiErrors = v, on: L.T("ПОДРОБНО"), off: L.T("КОРОТКО"));
-        // Управление — справка (без переназначения клавиш), отдельный блок справа под подсказкой.
+        Toggle(L.T("AI ERRORS"), L.T("AI failures (malformed reply, dropped connection) are shown in full in the dialog. Off — a short \"repeat the action\", details in the log."),
+            () => config.ShowAiErrors, v => config.ShowAiErrors = v, on: L.T("DETAILED"), off: L.T("SHORT"));
+        // Controls: help only (no key rebinding), a separate block on the right under the hint.
         _controls.Clear();
         _controls.AddRange([
-            (L.T("СТРЕЛКИ"), L.T("шаг героя")),
-            (L.T("ДВЕ СТРЕЛКИ"), L.T("шаг по диагонали (или NumPad)")),
-            (L.T("CTRL+СТРЕЛКИ"), L.T("сдвинуть карту")),
-            (L.T("МЫШЬ: ТЯНУТЬ"), L.T("сдвинуть карту / карту мира")),
-            (L.T("МЫШЬ: НАВЕСТИ"), L.T("путь, дистанция, карточка")),
-            (L.T("МЫШЬ: КЛИК"), L.T("закрепить карточку")),
-            (L.T("КОЛЕСО, CTRL +/−"), L.T("масштаб карты мира")),
-            (L.T("МИР: КЛИК, F10"), L.T("цель пути, в путь (F12 — темп)")),
-            ("TAB / SHIFT+TAB", L.T("выбрать существо или объект")),
-            ("ALT+← →", L.T("листать карточку")),
-            ("ALT+↑ ↓", L.T("листать диалог")),
-            (L.T("ТЕКСТ + ENTER"), L.T("действие героя — мастеру")),
-            ("F1–F5", L.T("вкладки: карта (серая — тактической карты нет), мир, журнал, персонаж, спутник")),
-            ("F6–F10", L.T("подвкладки текущей вкладки")),
-            ("ESC", L.T("главное меню")),
+            (L.T("ARROWS"), L.T("hero step")),
+            (L.T("TWO ARROWS"), L.T("diagonal step (or NumPad)")),
+            (L.T("CTRL+ARROWS"), L.T("pan the map")),
+            (L.T("MOUSE: DRAG"), L.T("pan the map / world map")),
+            (L.T("MOUSE: HOVER"), L.T("path, distance, card")),
+            (L.T("MOUSE: CLICK"), L.T("pin the card")),
+            (L.T("WHEEL, CTRL +/−"), L.T("world map zoom")),
+            (L.T("WORLD: CLICK, F10"), L.T("destination, travel (F12 — pace)")),
+            ("TAB / SHIFT+TAB", L.T("select a creature or object")),
+            ("ALT+← →", L.T("page through the card")),
+            ("ALT+↑ ↓", L.T("scroll the dialog")),
+            (L.T("TEXT + ENTER"), L.T("hero's action to the DM")),
+            ("F1–F5", L.T("tabs: map (gray — no tactical map), world, journal, character, companion")),
+            ("F6–F10", L.T("sub-tabs of the current tab")),
+            ("ESC", L.T("main menu")),
         ]);
     }
 
-    // Язык сменился — заголовок экрана заново (вкладка «[Esc]МЕНЮ» на новом языке).
+    // The language changed: rebuild the screen title (the «[Esc]MENU» tab in the new language).
     private void RedrawTitle()
     {
         _title = title();
@@ -443,7 +443,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         new BorderDrawer(settings, display).DrawContentLine(() => MouseUiHelper.WriteColoredTitle(_title, display));
     }
 
-    // Весь экран и масштаб — сразу: шрифт и размер окна (ConsoleSetup), подложка и окно по центру.
+    // The whole screen and scaling, applied immediately: font and window size (ConsoleSetup), backdrop and centered window.
     private void ApplyScreen()
     {
         _drawnChars = null;
@@ -456,7 +456,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         ConsoleMouseReader.RefreshWindowButtons();
     }
 
-    // Последний добавленный пункт — только для выбранной нейронки (claude/codex).
+    // The last added item applies only to the selected model (claude/codex).
     private void OnlyFor(string provider)
     {
         var item = _items[^1];
@@ -467,7 +467,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         string? on = null, string? off = null) =>
         _items.Add(new Item(label, Kind.Toggle, hint)
         {
-            Get = () => get() ? on ?? L.T("ВКЛ") : off ?? L.T("ВЫКЛ"), Step = _ => set(!get()), Group = group,
+            Get = () => get() ? on ?? L.T("ON") : off ?? L.T("OFF"), Step = _ => set(!get()), Group = group,
         });
 
     private void Model(string label, string hint, Func<string> get, Action<string> set, string? group = null,
@@ -487,7 +487,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
     private void Text(string label, string hint, Func<string> get, Action<string> set, bool secret = false) =>
         _items.Add(new Item(label, Kind.Text, hint) { Get = get, Set = set, Secret = secret });
 
-    // ── Мышь ──────────────────────────────────────────────────────────────────
+    // ── Mouse ─────────────────────────────────────────────────────────────────
     private int ItemAt(short x, short y)
     {
         foreach (var (row, item) in _itemRows)
@@ -496,7 +496,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         return -1;
     }
 
-    // Стрелка под мышью: (пункт, -1/+1) или (-1, 0).
+    // The arrow under the mouse: (item, -1/+1) or (-1, 0).
     private (int item, int dir) ArrowAt(short x, short y)
     {
         foreach (var (row, item, l, r) in _arrows)
@@ -508,7 +508,7 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         return (-1, 0);
     }
 
-    // ── Отрисовка ─────────────────────────────────────────────────────────────
+    // ── Drawing ───────────────────────────────────────────────────────────────
     private void Redraw()
     {
         _chars = new char[_height, _width];
@@ -520,22 +520,22 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         int total = ListWidth + Gap + HintWidth;
         _left = Math.Max(1, (_width - total) / 2);
         int rx = _left + ListWidth + Gap, textWidth = HintWidth - 6;
-        // Справа две рамки друг под другом: «ПОДСКАЗКА» сверху, «УПРАВЛЕНИЕ» снизу (клавиша — действие, перенос
-        // действия — под ним же). Слева — только настройки; общая высота — по большему из столбцов.
+        // On the right, two frames stacked: «HINT» on top, «CONTROLS» below (key, then action; a wrapped
+        // action continues under it). On the left, only the settings; total height follows the taller column.
         int keyWidth = _controls.Max(c => c.keys.Length) + 2;
         var controlLines = _controls.SelectMany(c => TextWrapper.WrapText(c.action, textWidth - keyWidth)
             .Select((line, n) => (keys: n == 0 ? c.keys : "", line))).ToList();
         int controlsHeight = controlLines.Count + 4;
-        // Подсказка влезает целиком для любого пункта: высота — по самой длинной.
+        // The hint fits in full for any item: height comes from the longest one.
         int hintHeight = _items.Where(i => i.Visible()).Max(i => HintLines(i, textWidth).Count) + 6;
         int contentRows = _items.Count(i => i.Visible()) + _items.Count(i => i.Group != null && i.Visible()) * 2 - 1;
         int boxHeight = Math.Max(Math.Max(BoxInner, contentRows + 3) + 2, hintHeight + RowGap + controlsHeight);
         hintHeight = boxHeight - RowGap - controlsHeight;
         int top = Math.Max(0, (_height - boxHeight - 3) / 2);
-        DrawBox(top, _left, ListWidth, boxHeight, L.T("НАСТРОЙКИ"));
-        DrawBox(top, rx, HintWidth, hintHeight, L.T("ПОДСКАЗКА"));
-        int controlsTop = top + hintHeight + RowGap;   // строка между рамками — как зазор Gap между столбцами
-        DrawBox(controlsTop, rx, HintWidth, controlsHeight, L.T("УПРАВЛЕНИЕ"));
+        DrawBox(top, _left, ListWidth, boxHeight, L.T("SETTINGS"));
+        DrawBox(top, rx, HintWidth, hintHeight, L.T("HINT"));
+        int controlsTop = top + hintHeight + RowGap;   // the row between frames matches the Gap between columns
+        DrawBox(controlsTop, rx, HintWidth, controlsHeight, L.T("CONTROLS"));
         for (int i = 0; i < controlLines.Count; i++)
         {
             Put(controlsTop + 2 + i, rx + 3, controlLines[i].keys, Fg);
@@ -558,13 +558,13 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
             y++;
         }
 
-        // Подсказка к пункту под курсором (мышь важнее фокуса клавиатуры).
+        // Hint for the item under the cursor (the mouse beats keyboard focus).
         var hinted = _items[_hovered >= 0 ? _hovered : _focus];
         Put(top + 2, rx + 3, hinted.Label, Bright);
         var lines = HintLines(hinted, textWidth);
         for (int i = 0; i < lines.Count && i < hintHeight - 6; i++) Put(top + 4 + i, rx + 3, lines[i], Fg);
 
-        string footer = _editing ? L.T("[Enter]СОХРАНИТЬ   [Esc]ОТМЕНИТЬ") : L.T("[↑↓]ПУНКТ   [←→]ИЗМЕНИТЬ");
+        string footer = _editing ? L.T("[Enter]SAVE   [Esc]CANCEL") : L.T("[↑↓]ITEM   [←→]CHANGE");
         CenterIn(top + boxHeight + 1, _left, total, footer, Dim);
 
         Console.CursorVisible = false;
@@ -604,8 +604,8 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         {
             case Kind.Toggle or Kind.Choice:
             {
-                // Значение — в поле фиксированной ширины: «◄» и «►» стоят на месте.
-                const int slot = 16; // влезает «██████████ 100%»
+                // The value sits in a fixed-width slot: «◄» and «►» stay in place.
+                const int slot = 16; // fits «██████████ 100%»
                 string value = Fit(item.Get(), slot);
                 int rx = vx + 2 + slot + 1;
                 Put(y, vx, "◄", lit ? Bright : Fg);
@@ -628,11 +628,11 @@ public class SettingsDisplay(WorldState settings, DisplayConfig display, AppConf
         }
     }
 
-    // Строки подсказки пункта: абзацы — по переносам строк (пустая строка — отступ между абзацами).
+    // Hint lines for an item: paragraphs split on line breaks (an empty line is spacing between paragraphs).
     private static List<string> HintLines(Item item, int width) =>
         (item.Hint + item.HintTail?.Invoke()).Split('\n').SelectMany(p => p.Length == 0 ? [""] : TextWrapper.WrapText(p, width)).ToList();
 
-    // Токен в списке — начало и конец, середина скрыта.
+    // A token in the list shows its start and end; the middle is hidden.
     private static string Mask(string token) =>
         token.Length <= 16 ? new string('•', token.Length) : token[..10] + "••••••" + token[^4..];
 

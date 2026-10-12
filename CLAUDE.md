@@ -1,5 +1,5 @@
 # NaviDnD
 
-Перед изменениями прочитай [AGENTS.md](AGENTS.md): общие инструкции применяются к Claude и Codex.
+Before making changes, read [AGENTS.md](AGENTS.md): the shared instructions apply to both Claude and Codex.
 
-Описание проекта: [README.md](README.md). Запуск из исходников и релизы: [docs/development.md](docs/development.md).
+Project overview: [README.md](README.md). Running from source and releases: [docs/development.md](docs/development.md).

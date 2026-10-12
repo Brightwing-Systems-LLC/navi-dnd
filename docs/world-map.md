@@ -1,56 +1,56 @@
-# Карта мира: как устроено и что нужно мастеру
+# World map: how it works and what the DM needs
 
-## Как игрок взаимодействует с картой
+## How the player interacts with the map
 
-| Что хочет игрок | Как это сделано |
+| What the player wants | How it is done |
 |---|---|
-| Понять, где он | Вкладка **[F2] Мир**: камера на герое (фиолетовые пиксели, как отметка старта), в легенде «■ Вы: место · королевство», наведение на героя — «Вы здесь». Без тактической карты «Продолжить» сразу открывает мир, а **[F1] Карта** серая. Журнал **[F3] → [F8] Локации**: «Вы здесь» / «Бывали» / «Знаете понаслышке». |
-| Посмотреть мир | Перетаскивание, колесо/Ctrl±, стрелки; фильтр [F6]–[F9]; Tab — места в окне; наведение — карточка места, рельефа, дороги, моста. |
-| Пойти в известное место | Клик по месту → пунктир маршрута, в легенде «Путь: X — N дн., дорогой Y%» → **[F10] в путь**. **[F12]** — темп. |
-| Пойти в неизведанное | Клик по любой клетке (лес, горы, побережье) — так же маршрут и [F10]. На месте мастер решает, что там (может добавить место). |
-| Переключиться между местностью и миром | **[F1] Карта** (местность, если есть) / **[F2] Мир** — клавишами или кликом по вкладкам. |
-| Выйти из локации | Шаг наружу через фиолетовый выход у входа в локацию. Локация сохраняется за местом, открывается вкладка Мир, Карта становится серой. |
-| Вернуться в место | Путь в место с сохранённой локацией — «всё как было» (NPC, предметы), герой у входа. |
+| Know where they are | The **[F2] World** tab: the camera is on the hero (purple pixels, like the start marker), the legend shows "■ You: place · kingdom", hovering the hero shows "You are here". Without a tactical map "Continue" opens the world right away and **[F1] Map** is grayed out. Journal **[F3] → [F8] Locations**: "You are here" / "You've been here" / "Known by hearsay". |
+| Look around the world | Drag, wheel/Ctrl±, arrows; filter [F6]–[F9]; Tab cycles places in view; hovering shows a card for the place, terrain, road or bridge. |
+| Go to a known place | Click a place → dashed route, the legend shows "Route: X — N days, by road Y%" → **[F10] set off**. **[F12]** sets the pace. |
+| Go into the unknown | Click any cell (forest, mountains, coast) — same route and [F10]. On arrival the DM decides what is there (and may add a place). |
+| Switch between the local area and the world | **[F1] Map** (the local area, if any) / **[F2] World** — by key or by clicking the tabs. |
+| Leave a location | Step out through the purple exit by the location's entrance. The location is kept with the place, the World tab opens, Map becomes gray. |
+| Return to a place | Travelling to a place with a saved location brings back "everything as it was" (NPCs, items), with the hero at the entrance. |
 
-## Путешествие (D&D 5e)
+## Travel (D&D 5e)
 
-Механику считает код (`TravelService`), мастер одним вызовом описывает дорогу (`GameAiClient.Travel`, раздел `## ПУТЕШЕСТВИЕ` в сообщении):
+The mechanics are computed by code (`TravelService`); the DM describes the road in a single call (`GameAiClient.Travel`, the `## TRAVEL` section of the message):
 
-- **Время.** Клетка мира — четверть дня пути (`WorldAtlas.CellDays`): по дороге ×0.75, вне дороги — дольше по рельефу (равнина ×1.5, лес ×2, горы и болото ×4) — маршрут держится дорог; брод +четверть дня. В путь — с утра (вечером/ночью — со следующего утра), прибытие — вечером.
-- **Темп.** Быстрый — +25% за день, −5 к пассивной Внимательности. Медленный — −25%, можно идти скрытно, враждебных встреч меньше.
-- **Встречи.** Бросок на каждый день пути по опасности края: тракт в королевстве — 5%, вне дорог — 9%, ничьи земли — 14%; болото, горы, чаща — +3%. Тип: враждебная 25% (медленный темп — 18%), мирная 45%, находка 30%. Враждебные встречи редкие и «по силам героя, можно избежать», чтобы не было душно. Встреча прерывает путь там, где выпала.
-- **Припасы и отдых.** Сводка пути даёт строку «Еда»: еда в инвентаре с id и количеством, еда внутри наборов (её выносят отдельным предметом). Мастер списывает по порции в день; не хватило — один бросок фуража (Выживание СЛ 10) на всю нехватку; излишек добычи — в инвентарь. Привал — `long_rest`.
-- **Согласованность.** Дни в пути считаются по тому же накопленному времени, что и оценка маршрута (сколько показали — столько и идёт). Сводка называет направление (`WorldAtlas.Direction`) и цель по имени области (`WorldAtlas.TileName`). Отложенные события покинутой сцены (`scheduledEvents`) отменяются и перечисляются мастеру.
-- **Ничего не теряется.** Перегрузка сервера (529/503) — запрос повторяется до 3 раз. Мастер так и не ответил — сводка пути остаётся в `WorldState.PendingTravel` и уходит ему со следующим действием игрока.
-- **Навигация.** Если больше половины пути вне дорог — Выживание СЛ 10–15, провал — +1 день. Броды — Атлетика СЛ 10.
-- **Экономия вызовов.** Один вызов нейронки на весь переход (или до встречи), без вызова на каждый день.
+- **Time.** A world cell is a quarter day of travel (`WorldAtlas.CellDays`): on a road ×0.75, off-road longer depending on terrain (plains ×1.5, forest ×2, mountains and swamp ×4) — routes stick to roads; a ford adds a quarter day. Departure is in the morning (in the evening/at night — the next morning), arrival in the evening.
+- **Pace.** Fast — +25% per day, −5 to passive Perception. Slow — −25%, allows stealthy travel, fewer hostile encounters.
+- **Encounters.** One roll per day of travel based on the region's danger: a highway within a kingdom — 5%, off-road — 9%, no-man's land — 14%; swamp, mountains, deep forest — +3%. Type: hostile 25% (slow pace — 18%), peaceful 45%, discovery 30%. Hostile encounters are rare and "within the hero's strength, avoidable", so the game doesn't feel stifling. An encounter interrupts the journey where it happened.
+- **Supplies and rest.** The travel summary includes a "Food" line: food in the inventory with id and quantity, and food inside kits (which is split out as a separate item). The DM deducts one ration per day; if there isn't enough — one foraging roll (Survival DC 10) for the whole shortfall; surplus forage goes into the inventory. Camping is `long_rest`.
+- **Consistency.** Days on the road are counted from the same accumulated time as the route estimate (what was shown is what elapses). The summary names the direction (`WorldAtlas.Direction`) and the destination by the region's name (`WorldAtlas.TileName`). Pending events of the scene left behind (`scheduledEvents`) are cancelled and listed for the DM.
+- **Nothing is lost.** On server overload (529/503) the request is retried up to 3 times. If the DM never answers, the travel summary stays in `WorldState.PendingTravel` and goes to it with the player's next action.
+- **Navigation.** If more than half the route is off-road — Survival DC 10–15, on a failure +1 day. Fords — Athletics DC 10.
+- **Fewer calls.** One model call for the whole journey (or up to the encounter), not one per day.
 
-## Тактическая карта — только когда нужна
+## The tactical map — only when needed
 
-- **Театр воображения.** Без тактической карты (в пути, на рынке, в таверне ради разговора) мастер ведёт сцену текстом. Строка `world:` в контексте помечается «без тактической карты».
-- **Когда строить сцену.** Когда нужна тактика (бой, подземелье, обыск руин, погоня), мастер вызывает `plan_location`. Посреди игры MCP-сервер пишет карту в сохранение, а игра перечитывает её (`location_planned.flag`).
-- **Местность с карты мира.** Тема открытых блоков берётся из биома клетки (`GameWorld.SiteAt`): лес, равнина, холмы, горы, болото, пустыня, снег, тайга. В горах не нарисуется пустыня. Река по клетке проходит через всю локацию (ширина — по величине реки, тропы переходят её бродом). Море или озеро рядом — край локации водой.
+- **Theater of the mind.** Without a tactical map (on the road, at the market, in a tavern for a conversation) the DM runs the scene in text. The `world:` line in the context is marked "no tactical map".
+- **When to build a scene.** When tactics are needed (combat, a dungeon, searching ruins, a chase), the DM calls `plan_location`. Mid-game the MCP server writes the map into the save and the game re-reads it (`location_planned.flag`).
+- **Terrain from the world map.** The theme of open chunks comes from the cell's biome (`GameWorld.SiteAt`): forest, plains, hills, mountains, swamp, desert, snow, taiga. A desert won't be drawn in the mountains. A river through the cell runs through the whole location (its width depends on the river's size; paths cross it by fords). A nearby sea or lake makes the edge of the location water.
 
-## Несколько игр в одном мире
+## Several games in one world
 
-- **Файл мира** (`Storage/Worlds/<id>/world.json`): геометрия и **хроника** — название и концепция мира, королевства, все места мастера (описание, тайна, тропа, сохранённая локация `locations/*.json`). Хроника общая: следующая игра в этом мире видит ту же концепцию и места, а таверну — «как было».
-- **Игра** (`WorldState.World`): что знает её герой (`known`), где бывал (`visited`), где он сейчас (клетка и место). Новый герой знает столицы и то, что узнает сам.
-- **Новая игра по шагам** (`NewGameWizard`): 1 МИР — новый (карта сразу, концепция от нейронки по «ПРИДУМАТЬ») или мир, где уже играли (карта и хроника); 2 ГЕРОЙ — новый или из библиотеки героев (личность, с 1 уровня) → анкета; 3 ПРИКЛЮЧЕНИЕ (после редактора) — пожелания и, по желанию, место старта кликом по карте.
+- **The world file** (`Storage/Worlds/<id>/world.json`): geometry and the **chronicle** — the world's name and concept, kingdoms, all of the DM's places (description, secret, path, saved location `locations/*.json`). The chronicle is shared: the next game in this world sees the same concept and places, and the tavern "as it was".
+- **A game** (`WorldState.World`): what its hero knows (`known`), where they've been (`visited`), where they are now (cell and place). A new hero knows the capitals and whatever they discover themselves.
+- **New game step by step** (`NewGameWizard`): 1 WORLD — a new one (map right away, the concept from the model via "INVENT") or a world that has already been played (map and chronicle); 2 HERO — a new one or from the hero library (personality, starting at level 1) → the questionnaire; 3 ADVENTURE (after the editor) — wishes and, optionally, a starting place picked by clicking the map.
 
-## Что нужно мастеру, чтобы вести такую игру
+## What the DM needs to run this kind of game
 
-1. **Где герой и что вокруг** — строка `world:` (место, королевство, рельеф, река, море, дорога, природная область рядом).
-2. **Справки о мире без выдумок** — `world_query`: `place:` (описание + тайна), `near:` (что рядом, направление, дни пути), `route:` (сколько идти, через какие королевства), `overview`.
-3. **Растить мир по сюжету** — `add_place`: деревня, о которой рассказал NPC; руины, куда отправили героя; скрытый замысел (`hidden:true`), который откроется позже. Клетку подбирает код по словам («3 дня на север», «в горах», «у реки»), к деревне или логову прокладывается тропа.
-4. **Концепция мира в начале** — коротко: название, королевства (культура, правитель, отношения), столицы. Остальное — по ходу.
-5. **Последовательность** — в мире с хроникой мастер не меняет концепцию и места, а продолжает их.
-6. **Сцена по требованию** — `plan_location` только для тактики; местность — с карты мира.
-7. **Путешествие как сцена** — сводка движка (дни, местность, реки, места по пути, встреча); рассказ на 2–4 записи без пересказа каждого дня.
+1. **Where the hero is and what is around** — the `world:` line (place, kingdom, terrain, river, sea, road, nearby natural region).
+2. **Facts about the world, not inventions** — `world_query`: `place:` (description + secret), `near:` (what's nearby, direction, days of travel), `route:` (how long to go, through which kingdoms), `overview`.
+3. **Growing the world with the story** — `add_place`: a village an NPC talked about; ruins the hero was sent to; a hidden plot (`hidden:true`) that will be revealed later. The code picks the cell from the wording ("3 days north", "in the mountains", "by the river"), and a path is laid to the village or lair.
+4. **The world concept at the start** — briefly: name, kingdoms (culture, ruler, relations), capitals. The rest as the game goes.
+5. **Consistency** — in a world with a chronicle the DM doesn't change the concept and places but continues them.
+6. **A scene on demand** — `plan_location` only for tactics; terrain comes from the world map.
+7. **Travel as a scene** — the engine's summary (days, terrain, rivers, places along the way, encounter); a story of 2–4 entries without recounting every day.
 
-## Дальше (идеи)
+## Next (ideas)
 
-- Погода и время года — влияние на путь и встречи.
-- Опасность края от сюжета (война, чума) — мастер помечает регион, код учитывает в шансе встреч.
-- Транспорт: лошадь, повозка, корабль (порты) — другой темп и маршруты по воде.
-- Фракции и слухи по королевствам — `world_query` с новостями.
-- Отметки игрока на карте мира (свои пометки, как заметки в журнале).
+- Weather and seasons — effect on travel and encounters.
+- Region danger driven by the story (war, plague) — the DM marks a region, the code factors it into encounter chances.
+- Transport: horse, cart, ship (ports) — a different pace and routes over water.
+- Factions and rumors by kingdom — `world_query` with news.
+- Player marks on the world map (personal notes, like notes in the journal).

@@ -5,28 +5,28 @@ using NaviDnD.Helpers;
 
 namespace NaviDnD.Clients;
 
-// Нейронка через OpenAI Codex CLI (`codex exec`) — вместо Claude CLI (настройка «НЕЙРОНКА»). Тот же промпт и тот же
-// MCP-сервер игры: кубики, вопросы игроку, выбор цели, plan_location и т.д. работают так же.
-//  - правила мастера заменяют инструкции программиста через model_instructions_file; контекст — в stdin;
-//  - MCP-сервер — переопределениями конфигурации `-c mcp_servers.navidnd.*` (свой config.toml пользователя не
-//    трогаем); набор инструментов действия сервер отдаёт сам (`--tools`, AiActionTools), раз у Codex нет
-//    аналога --allowedTools;
-//  - песочница read-only: агент Codex не меняет файлы и не запускает изменяющие команды;
-//  - ответ — последнее сообщение агента (`-o файл`), а события `--json` — для ошибок и лога.
-// Модель — CodexModel из настроек (пусто — модель Codex по умолчанию); модели Claude из запроса не применяются.
+// AI via the OpenAI Codex CLI (`codex exec`) — instead of the Claude CLI (the "AI" setting). Same prompt and same
+// game MCP server: dice, questions to the player, target selection, plan_location etc. work the same way.
+//  - the DM rules replace the coding-assistant instructions via model_instructions_file; the context goes to stdin;
+//  - the MCP server — via config overrides `-c mcp_servers.navidnd.*` (the user's own config.toml is left
+//    untouched); the server itself exposes the action's tool set (`--tools`, AiActionTools), since Codex has no
+//    equivalent of --allowedTools;
+//  - read-only sandbox: the Codex agent does not change files or run modifying commands;
+//  - the response is the agent's last message (`-o file`), and the `--json` events are for errors and the log.
+// Model — CodexModel from settings (empty — the Codex default model); Claude models from the request do not apply.
 public class CodexCliAiProvider(AppConfig config, AiLogger? logger = null) : IAiProvider
 {
-    // Codex — агент для кода; здесь он мастер игры: только ответ по формату промпта и MCP-инструменты игры.
+    // Codex is a coding agent; here it is the game's DM: only a response in the prompt's format and the game's MCP tools.
     private const string Preface =
-        "Ты работаешь внутри игры как её мастер, а не как помощник по коду: не читай и не меняй файлы, не запускай " +
-        "команды оболочки. Из инструментов используй только MCP-сервер navidnd. Ответ — строго в формате из " +
-        "инструкций ниже, без пояснений вокруг.\n\n";
+        "You are working inside a game as its Dungeon Master, not as a coding assistant: do not read or change files, do not run " +
+        "shell commands. Of the tools, use only the navidnd MCP server. The response is strictly in the format from " +
+        "the instructions below, with no explanation around it.\n\n";
 
     public Task<string> Complete(IReadOnlyList<string> systemBlocks, string userMessage, string actionPath, string model) =>
         WithRetry(() => CompleteOnce(systemBlocks, userMessage, actionPath), AiActionTools.ToolsFor(Path.GetFileName(actionPath)).Length == 0);
 
-    // Игра читает ответ целиком (SequentialHistoryPlayer), поток Codex отдаёт сообщения агента только готовыми —
-    // поэтому «поток» — весь ответ одним куском.
+    // The game reads the response whole (SequentialHistoryPlayer), and the Codex stream only emits finished agent messages —
+    // so the "stream" is the whole response in one chunk.
     public async Task<string> CompleteWithStreaming(IReadOnlyList<string> systemBlocks, string userMessage, string actionPath,
         string model, Action<string>? onChunk)
     {
@@ -35,7 +35,7 @@ public class CodexCliAiProvider(AppConfig config, AiLogger? logger = null) : IAi
         return response;
     }
 
-    // Перегрузка/сбой сети на стороне OpenAI — повтор только для запросов без игровых инструментов.
+    // Overload/network failure on the OpenAI side — retry only for requests without game tools.
     private static bool IsTransient(Exception ex) =>
         ex.Message.Contains("429") || ex.Message.Contains("503") || ex.Message.Contains("overloaded", StringComparison.OrdinalIgnoreCase)
         || ex.Message.Contains("stream disconnected", StringComparison.OrdinalIgnoreCase);
@@ -45,10 +45,10 @@ public class CodexCliAiProvider(AppConfig config, AiLogger? logger = null) : IAi
         for (int attempt = 1; ; attempt++)
         {
             try { return await call(); }
-            // MCP мог уже изменить мир или получить бросок: повтор всего хода повторит побочный эффект.
+            // MCP may have already changed the world or taken a roll: retrying the whole turn would repeat the side effect.
             catch (Exception ex) when (ex is not AiSetupException && canRetry && attempt < 3 && IsTransient(ex))
             {
-                logger?.LogNote($"Codex: временная ошибка (попытка {attempt}) — повтор через {attempt * 5} с");
+                logger?.LogNote($"Codex: transient error (attempt {attempt}) — retrying in {attempt * 5} s");
                 await Task.Delay(attempt * 5000);
             }
         }
@@ -64,7 +64,7 @@ public class CodexCliAiProvider(AppConfig config, AiLogger? logger = null) : IAi
         try
         {
             string userPart = systemBlocks.Count > 1 ? string.Join("\n\n", systemBlocks.Skip(1)) + "\n\n" + userMessage : userMessage;
-            if (systemBlocks.Count == 0) throw new ArgumentException("Не задан системный промпт мастера.", nameof(systemBlocks));
+            if (systemBlocks.Count == 0) throw new ArgumentException("The DM system prompt is not set.", nameof(systemBlocks));
             await File.WriteAllTextAsync(instructionsPath, Preface + systemBlocks[0], new UTF8Encoding(false));
             logger?.LogRequest(action, systemBlocks, userPart);
             logger?.LogNote($"Codex: model={ModelFor(action)}, reasoning={ReasoningFor(action)}");
@@ -75,15 +75,15 @@ public class CodexCliAiProvider(AppConfig config, AiLogger? logger = null) : IAi
             try { started = Process.Start(psi); }
             catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode is 2 or 3)
             {
-                throw new AiSetupException(L.F("Codex CLI не найден ({0}): установи его (npm i -g @openai/codex), войди (codex login) и при необходимости укажи путь в настройках («ПУТЬ К CODEX»).",
+                throw new AiSetupException(L.F("Codex CLI not found ({0}): install it (npm i -g @openai/codex), sign in (codex login) and set the path in the settings (\"CODEX PATH\") if needed.",
                     config.CodexCliPath));
             }
             catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 5)
             {
-                throw new AiSetupException(L.T("Нет доступа к запуску Codex CLI.\nПроверь разрешения, блокировку антивирусом и «ПУТЬ К CODEX» в настройках."));
+                throw new AiSetupException(L.T("Codex CLI can't be started.\nCheck permissions, antivirus blocking and \"CODEX PATH\" in the settings."));
             }
-            using var process = started ?? throw new Exception(L.T("Не удалось запустить Codex CLI."));
-            ChildProcessJob.Add(process);   // игру закрыли — запрос завершается вместе с ней
+            using var process = started ?? throw new Exception(L.T("Could not start Codex CLI."));
+            ChildProcessJob.Add(process);   // the game was closed — the request ends with it
             await process.StandardInput.WriteAsync(userPart);
             process.StandardInput.Close();
 
@@ -107,7 +107,7 @@ public class CodexCliAiProvider(AppConfig config, AiLogger? logger = null) : IAi
             if (string.IsNullOrWhiteSpace(final) && process.ExitCode == 0 && error == null) final = lastAgentText;
             if (process.ExitCode != 0 || error != null || string.IsNullOrWhiteSpace(final))
             {
-                string reason = error ?? (process.ExitCode != 0 ? L.F("код {0}", process.ExitCode) : L.T("пустой ответ"));
+                string reason = error ?? (process.ExitCode != 0 ? L.F("code {0}", process.ExitCode) : L.T("empty response"));
                 if (!string.IsNullOrWhiteSpace(stderr)) reason += $"; stderr: {stderr.Trim()}";
                 logger?.LogResponse(events.ToString(), $"ERROR: {reason}", sw.Elapsed);
                 throw CreateError($"Codex CLI: {reason}");
@@ -119,7 +119,7 @@ public class CodexCliAiProvider(AppConfig config, AiLogger? logger = null) : IAi
         finally
         {
             try { Directory.Delete(workDir, recursive: true); }
-            catch (Exception ex) { logger?.LogNote($"Не удалось удалить временную папку {workDir}: {ex.Message}"); }
+            catch (Exception ex) { logger?.LogNote($"Could not delete the temp folder {workDir}: {ex.Message}"); }
         }
     }
 
@@ -130,11 +130,11 @@ public class CodexCliAiProvider(AppConfig config, AiLogger? logger = null) : IAi
             "please login", "codex login", "token expired", "token has expired", "refresh_token_reused",
             "invalid_api_key", "incorrect api key", "401"];
         if (authMarkers.Any(marker => rawMessage.Contains(marker, StringComparison.OrdinalIgnoreCase)))
-            return new AiSetupException(L.T("Codex не авторизован или вход истёк.\nВыполни codex login в терминале и повтори запрос."));
+            return new AiSetupException(L.T("Codex is not signed in or the session expired.\nRun codex login in a terminal and try again."));
         string[] accessMarkers = ["403", "model_not_found", "does not have access", "do not have access",
             "insufficient_quota", "usage limit", "usage_limit"];
         if (accessMarkers.Any(marker => rawMessage.Contains(marker, StringComparison.OrdinalIgnoreCase)))
-            return new AiSetupException(L.T("Codex: нет доступа к модели или исчерпан лимит.\nПроверь аккаунт, подписку, лимиты и модель в настройках."));
+            return new AiSetupException(L.T("Codex: no access to the model or the limit is reached.\nCheck your account, subscription, limits and the model in the settings."));
         return new Exception(rawMessage);
     }
 
@@ -165,21 +165,21 @@ public class CodexCliAiProvider(AppConfig config, AiLogger? logger = null) : IAi
         Config(psi, "web_search", "'disabled'");
         Config(psi, "features.shell_tool", "false");
 
-        // MCP-сервер игры — только если действию нужны инструменты; набор отдаёт сам сервер (--tools).
+        // The game's MCP server — only if the action needs tools; the server itself exposes the set (--tools).
         if (AiActionTools.ToolsFor(action).Length > 0)
         {
             var args = AiActionTools.McpArgs(action, logger, withToolFilter: true);
             Config(psi, "mcp_servers.navidnd.command", TomlLiteral(config.McpServerPath));
             Config(psi, "mcp_servers.navidnd.args", "[" + string.Join(",", args.Select(TomlLiteral)) + "]");
             Config(psi, "mcp_servers.navidnd.required", "true");
-            // Игрок уже разрешил мастеру пользоваться инструментами игры; CLI работает без диалога approvals.
+            // The player has already allowed the DM to use the game's tools; the CLI runs without the approvals dialog.
             foreach (string tool in AiActionTools.ToolsFor(action))
                 Config(psi, $"mcp_servers.navidnd.tools.{tool}.approval_mode", "'approve'");
             Config(psi, "mcp_servers.navidnd.startup_timeout_sec", "30");
-            // ask_player/roll_dice ждут игрока (до 50 с), plan_location строит локацию — с запасом.
+            // ask_player/roll_dice wait for the player (up to 50 s), plan_location builds a location — with margin.
             Config(psi, "mcp_servers.navidnd.tool_timeout_sec", "180");
         }
-        psi.ArgumentList.Add("-");   // промпт — из stdin
+        psi.ArgumentList.Add("-");   // prompt comes from stdin
         return psi;
     }
 
@@ -207,12 +207,12 @@ public class CodexCliAiProvider(AppConfig config, AiLogger? logger = null) : IAi
         psi.ArgumentList.Add($"{key}={tomlValue}");
     }
 
-    // JSON-экранирование строк совместимо с базовыми строками TOML: сохраняет и пути, и апострофы.
+    // JSON string escaping is compatible with TOML basic strings: preserves both paths and apostrophes.
     private static string TomlLiteral(string s) => JsonSerializer.Serialize(s);
 
-    // Событие `codex exec --json` (строка JSON): текст сообщения агента и/или ошибка. Поддержаны оба известных
-    // формата: новый ({"type":"item.completed","item":{"type":"agent_message","text":…}}, "turn.failed", "error")
-    // и старый ({"msg":{"type":"agent_message","message":…}} / {"msg":{"type":"error",…}}).
+    // A `codex exec --json` event (a JSON line): agent message text and/or an error. Both known
+    // formats are supported: the new one ({"type":"item.completed","item":{"type":"agent_message","text":…}}, "turn.failed", "error")
+    // and the old one ({"msg":{"type":"agent_message","message":…}} / {"msg":{"type":"error",…}}).
     private static (string? text, string? error) ParseEvent(string line)
     {
         try
@@ -234,14 +234,14 @@ public class CodexCliAiProvider(AppConfig config, AiLogger? logger = null) : IAi
                 if (mtype is "error" or "stream_error") return (null, Str(msg, "message") ?? msg.ToString());
             }
         }
-        catch (JsonException) { /* не JSON — строка лога */ }
+        catch (JsonException) { /* not JSON — a log line */ }
         return (null, null);
     }
 
     private static string? Str(JsonElement e, string name) =>
         e.TryGetProperty(name, out var p) && p.ValueKind == JsonValueKind.String ? p.GetString() : null;
 
-    // Ответ в ```json … ``` — без ограждения (как у Claude CLI).
+    // Response in ```json … ``` — strip the fence (as with the Claude CLI).
     private static string StripMarkdownFences(string text)
     {
         var s = text.Trim();

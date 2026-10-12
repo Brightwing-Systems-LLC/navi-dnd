@@ -6,17 +6,17 @@ using System.Text.Unicode;
 
 namespace NaviDnD.Migrations;
 
-// Перевод файлов данных Storage к текущему формату (StorageFormat.Current). Запускается при обновлении игры:
-// помощник установщика после патчей вызывает «NaviDnD.exe --migrate <папка игры>»; запасной вызов — при старте,
-// если файлы всё ещё старые (сборка из исходников, сбой обновления). Код игры читает только текущий формат.
+// Migrates Storage data files to the current format (StorageFormat.Current). Runs when the game updates:
+// after the patches the installer helper calls "NaviDnD.exe --migrate <game folder>"; a fallback call happens at startup
+// if the files are still old (built from source, a failed update). Game code reads only the current format.
 //
-// Файлы и версия (поле formatVersion, без регистра):
-//   сохранения — game*.json, newGameState.json, worldState.json;  заметки — *.notes.json (старый — голый массив);
-//   карточки героев — Heroes/*.json (герой внутри — строкой HeroJson);  миры — Worlds/*/world.json,
-//   их локации (locations/*.json) — по версии своего мира.
-// Надёжность: до первой записи — копия всех переводимых файлов в Storage/Backup/format-<N>-<время>; не вышла копия —
-// ничего не трогаем. Каждый файл — через временный файл и замену (обрыв не оставит половину). Файл, который не
-// разобрался, остаётся как был (ошибка — в результат). Повторный запуск ничего не меняет.
+// Files and version (the formatVersion field, case-insensitive):
+//   saves — game*.json, newGameState.json, worldState.json;  notes — *.notes.json (the old one is a bare array);
+//   hero cards — Heroes/*.json (the hero inside as a HeroJson string);  worlds — Worlds/*/world.json,
+//   their locations (locations/*.json) — by their world's version.
+// Safety: before the first write, all files being migrated are copied to Storage/Backup/format-<N>-<time>; if the copy fails,
+// nothing is touched. Each file goes through a temporary file and a replace (an interruption never leaves half a file). A file that
+// cannot be parsed stays as it was (the error goes into the result). Running again changes nothing.
 public static class StorageMigration
 {
     public const int Current = StorageFormat.Current;
@@ -36,7 +36,7 @@ public static class StorageMigration
         WriteIndented = false,
     };
 
-    // Есть ли что переводить (быстро: только чтение версий).
+    // Whether there is anything to migrate (fast: only reads versions).
     public static bool Needed(string storageDir) => Collect(storageDir).Any();
 
     public static Result Run(string storageDir)
@@ -49,7 +49,7 @@ public static class StorageMigration
         try { backup = Backup(storageDir, jobs); }
         catch (Exception e)
         {
-            errors.Add("Резервная копия не создана, файлы не изменены: " + e.Message);
+            errors.Add("Backup was not created, files were not changed: " + e.Message);
             return new(0, errors, null);
         }
 
@@ -62,7 +62,7 @@ public static class StorageMigration
         return new(migrated, errors, backup);
     }
 
-    // ── Какие файлы ──────────────────────────────────────────────────────────
+    // ── Which files ──────────────────────────────────────────────────────────
 
     private static IEnumerable<Job> Collect(string storageDir)
     {
@@ -93,7 +93,7 @@ public static class StorageMigration
             }
     }
 
-    // Версия файла: поле formatVersion (без регистра), нет поля или массив — 0; не JSON — null (пропуск).
+    // File version: the formatVersion field (case-insensitive); no field or an array — 0; not JSON — null (skip).
     private static int? VersionOf(string path)
     {
         try
@@ -106,7 +106,7 @@ public static class StorageMigration
         catch { return null; }
     }
 
-    // ── Резервная копия ──────────────────────────────────────────────────────
+    // ── Backup ───────────────────────────────────────────────────────────────
 
     private static string Backup(string storageDir, List<Job> jobs)
     {
@@ -120,17 +120,17 @@ public static class StorageMigration
         return dir;
     }
 
-    // ── Перевод файла ────────────────────────────────────────────────────────
+    // ── Migrating a file ─────────────────────────────────────────────────────
 
     private static void MigrateJob(Job job)
     {
         var root = JsonNode.Parse(File.ReadAllText(job.Path, Encoding.UTF8))
-                   ?? throw new InvalidDataException("пустой файл");
-        // Сначала локации мира (если упадут — мир останется старым и переведётся снова целиком).
+                   ?? throw new InvalidDataException("empty file");
+        // World locations first (if they fail, the world stays old and is migrated again in full).
         foreach (string location in job.Locations)
         {
             var map = JsonNode.Parse(File.ReadAllText(location, Encoding.UTF8)) as JsonObject
-                      ?? throw new InvalidDataException("локация не объект: " + System.IO.Path.GetFileName(location));
+                      ?? throw new InvalidDataException("location is not an object: " + System.IO.Path.GetFileName(location));
             for (int v = job.Version; v < Current; v++) Steps[v].Location(map);
             Save(location, map);
         }
@@ -149,7 +149,7 @@ public static class StorageMigration
         Save(job.Path, root);
     }
 
-    // Запись через временный файл рядом и замену — оригинал не теряется при обрыве.
+    // Write via a temporary file alongside and a replace — the original is not lost on interruption.
     private static void Save(string path, JsonNode node)
     {
         string tmp = path + ".migrating";
@@ -157,9 +157,9 @@ public static class StorageMigration
         File.Move(tmp, path, overwrite: true);
     }
 
-    private static JsonObject AsObject(JsonNode node) => node as JsonObject ?? throw new InvalidDataException("ожидался объект");
+    private static JsonObject AsObject(JsonNode node) => node as JsonObject ?? throw new InvalidDataException("expected an object");
 
-    // ── Шаги: Steps[v] — из версии v в v+1 ───────────────────────────────────
+    // ── Steps: Steps[v] — from version v to v+1 ──────────────────────────────
 
     private sealed record Step(
         Func<JsonObject, JsonObject> Save,
@@ -172,8 +172,8 @@ public static class StorageMigration
 
     private static class Migration1
     {
-        // 0 → 1: ключи вместо русских слов (часть суток, особые статы героя, категории ресурсов), проходы-комнаты
-        // отмечены флагом passage, язык игры и мира — русский (до выбора языка все игры были русскими).
+        // 0 → 1: keys instead of Russian words (part of day, special hero stats, resource categories), passage rooms
+        // are marked with the passage flag, the game and world language is Russian (before language selection every game was Russian).
         public static readonly Step Step = new(SaveFile, NotesFile, HeroCard, WorldFile, map => Rooms(map));
 
         private static JsonObject SaveFile(JsonObject save)
@@ -193,7 +193,7 @@ public static class StorageMigration
             {
                 if (item is not JsonObject note) continue;
                 list.Remove(note);
-                // Прежние заметки писались с именами полей как в C# (Text, PartOfDay) — теперь camelCase.
+                // Old notes were written with C#-style field names (Text, PartOfDay) — now camelCase.
                 var fresh = new JsonObject();
                 foreach (var (key, value) in note.ToList())
                 {
@@ -216,8 +216,8 @@ public static class StorageMigration
         private static JsonObject WorldFile(JsonObject world)
         {
             if (Get(world, "Language") is not JsonValue) Set(world, "Language", L.Russian);
-            // Острова с сокращёнными именами (были недолго) — полностью: «о. Тилдан» → «Остров Тилдан»,
-            // «о. Туманный» → «Туманный остров» (раньше это делала загрузка мира).
+            // Islands with abbreviated names (briefly existed) get full names: «о. Тилдан» → «Остров Тилдан»,
+            // «о. Туманный» → «Туманный остров» (world loading used to do this).
             if (Get(world, "Features") is JsonArray features)
                 foreach (var f in features.OfType<JsonObject>())
                     if (Get(f, "Biome") is JsonValue b && b.ToString() == "I"
@@ -229,7 +229,7 @@ public static class StorageMigration
             return world;
         }
 
-        // Ключи статов и категорий ресурсов — по тем же правилам, что Storage для ответов мастера.
+        // Stat and resource category keys — by the same rules Storage uses for the DM's responses.
         private static JsonObject Hero(JsonObject hero)
         {
             if (Get(hero, "stats") is JsonArray stats)
@@ -251,7 +251,7 @@ public static class StorageMigration
                 Set(holder, "partOfDay", Data.Models.PartsOfDay.Normalize(value));
         }
 
-        // Проходы прежних генераторов назывались «Коридор», «Лаз», «Галерея» (до перевода — «Corridor»).
+        // Passages from older generators were named «Коридор», «Лаз», «Галерея» (before translation, "Corridor").
         private static readonly string[] PassageNames = ["Коридор", "Лаз", "Галерея", "Corridor"];
 
         private static void Rooms(JsonObject map)
@@ -265,8 +265,8 @@ public static class StorageMigration
 
     private static class Migration2
     {
-        // 1 → 2: уровень и опыт героя — поля hero.level/xp (ведёт движок), а не текст статов «Класс: Воин 3 ур»
-        // и «Опыт: 900/2700».
+        // 1 → 2: the hero's level and XP become the hero.level/xp fields (maintained by the engine) instead of stat text «Класс: Воин 3 ур»
+        // and «Опыт: 900/2700».
         public static readonly Step Step = new(SaveFile, notes => notes, HeroCard, world => world, _ => { });
 
         private static JsonObject SaveFile(JsonObject save)
@@ -298,7 +298,7 @@ public static class StorageMigration
                 }
                 else if (Data.Models.ClassLevel.IsExperienceStat(name))
                 {
-                    // «900/2700» — набранный опыт первым числом.
+                    // "900/2700" — earned XP is the first number.
                     var m = System.Text.RegularExpressions.Regex.Match(value, @"\d+");
                     if (m.Success) xp = int.Parse(m.Value);
                     stats.Remove(s);
@@ -310,12 +310,12 @@ public static class StorageMigration
         }
     }
 
-    // ── JSON без учёта регистра имён (сохранения — camelCase, миры и карточки — как в C#) ─────────────
+    // ── Case-insensitive JSON names (saves are camelCase, worlds and cards are C#-style) ─────────────
 
     private static JsonNode? Get(JsonObject o, string name) =>
         o.FirstOrDefault(p => p.Key.Equals(name, StringComparison.OrdinalIgnoreCase)).Value;
 
-    // Значение в существующее поле (с его написанием) или новое поле с именем newName ?? name.
+    // Value into an existing field (keeping its spelling) or a new field named newName ?? name.
     private static void Set(JsonObject o, string name, JsonNode? value, string? newName = null)
     {
         string? existing = o.Select(p => p.Key).FirstOrDefault(k => k.Equals(name, StringComparison.OrdinalIgnoreCase));

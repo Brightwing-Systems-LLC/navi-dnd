@@ -9,22 +9,22 @@ public class HeroDisplay
     private readonly WorldState _settings;
     private readonly DisplayConfig _display;
 
-    // Пример при активной вкладке "inv": "  → ИНВЕНТАРЬ ←    [F7]СПОСОБНОСТИ    [F8]СОСТОЯНИЯ      ◄ ►"
-    // Каждая вкладка занимает ФИКСИРОВАННУЮ ширину (SubTabPrefixLen + label + SubTabSuffixLen)
-    // независимо от активности — меняется только сам декоратор ("[Fn]"/"  " ↔ "  → "/" ←"), а не его
-    // длина, поэтому название вкладки никогда не сдвигается при переключении между ними.
+    // Example with the "inv" tab active: "  → INVENTORY ←    [F7]FEATURES    [F8]CONDITIONS      ◄ ►"
+    // Every tab takes a FIXED width (SubTabPrefixLen + label + SubTabSuffixLen)
+    // whether active or not; only the decorator itself changes ("[Fn]"/"  " ↔ "  → "/" ←"), not its
+    // length, so a tab's name never shifts when switching between them.
     private const int SubTabIndent = 3;
     private const int SubTabGap = 6;
-    private const int SubTabPrefixLen = 4; // "[Fn]" или "  → "
-    private const int SubTabSuffixLen = 2; // "  " (неактивна) или " ←" (активна)
-    private const int SubTabBarContentLen = 137; // до "◄ N/M ►"
+    private const int SubTabPrefixLen = 4; // "[Fn]" or "  → "
+    private const int SubTabSuffixLen = 2; // "  " (inactive) or " ←" (active)
+    private const int SubTabBarContentLen = 137; // up to "◄ N/M ►"
 
     private static (string Key, string Label, string FKey)[] _subTabs =>
     [
-        ("inv",  L.T("ИНВЕНТАРЬ"),   "F6"),
-        ("abil", L.T("СПОСОБНОСТИ"), "F7"),
-        ("eff",  L.T("СОСТОЯНИЯ"),   "F8"),
-        ("spell",L.T("ЗАКЛИНАНИЯ"),  "F9"),
+        ("inv",  L.T("INVENTORY"),   "F6"),
+        ("abil", L.T("FEATURES"), "F7"),
+        ("eff",  L.T("CONDITIONS"),   "F8"),
+        ("spell",L.T("SPELLS"),  "F9"),
     ];
 
     private BorderDrawer? _cachedBorderDrawer;
@@ -46,33 +46,33 @@ public class HeroDisplay
 
     private int _spellContentStartY = -1;
     private int _spellRows = 0;
-    private int[] _spellSplitX = []; // 3 границы между 4 колонками (абсолютные экранные X)
+    private int[] _spellSplitX = []; // 3 boundaries between 4 columns (absolute screen X)
     private int[][] _spellColRowToItem = [];
 
-    // Нет ни одного не удалённого заклинания у героя — вкладка "ЗАКЛИНАНИЯ" показывается серой и
-    // некликабельной (SubTabInfo не отдаёт под неё зону клика/наведения), чтобы не вести на пустую
-    // страницу без заклинаний. Public — Program.cs проверяет то же самое перед [F9].
-    // Сколько герой видит сейчас (как обзор на карте, MapObjectsProvider): под открытым небом — по свету дня
-    // (ночью — тёмное зрение или 10 фт), под крышей — своё зрение или «по свету» (факелы, светящиеся предметы).
-    // Раньше в карточке стояло поле visionFt как есть — пустое у большинства героев и не то, что на карте.
+    // The hero has no non-deleted spells at all: the "SPELLS" tab is shown grey and
+    // unclickable (SubTabInfo gives it no click/hover zone), so it doesn't lead to an empty
+    // page with no spells. Public: Program.cs checks the same thing before [F9].
+    // How far the hero can see right now (like the view on the map, MapObjectsProvider): under the open sky, by daylight
+    // (at night, darkvision or 10 ft); indoors, their own sight or «by the light» (torches, glowing items).
+    // The sheet used to show the visionFt field as is: empty for most heroes and not what the map uses.
     private string SightText(Hero hero)
     {
-        if (hero.VisionFt == 0) return L.T("слеп");
+        if (hero.VisionFt == 0) return L.T("blind");
         int dv = hero.DarkvisionFt ?? 0;
-        string dark = dv > 0 ? " · " + L.F("тёмн. {0}", dv) : "";
+        string dark = dv > 0 ? " · " + L.F("darkv. {0}", dv) : "";
         if (hero.Position is { Count: >= 2 } p && _settings.Map.TerrainAt(p[0], p[1]) is { Indoor: false })
         {
             int light = MovementCalculator.DaylightFt(_settings, p[0], p[1]) ?? Math.Max(dv, 10);
             int ft = hero.VisionFt is > 0 and var v ? Math.Min(v, light) : light;
-            return L.F("{0} фт", ft) + (_settings.Time.PartOfDay == PartsOfDay.Night ? " " + L.T("(ночь)") : "");
+            return L.F("{0} ft", ft) + (_settings.Time.PartOfDay == PartsOfDay.Night ? " " + L.T("(night)") : "");
         }
-        return (hero.VisionFt is > 0 and var own ? L.F("{0} фт", own) : L.T("по свету")) + dark;
+        return (hero.VisionFt is > 0 and var own ? L.F("{0} ft", own) : L.T("by light")) + dark;
     }
 
     public bool HasSpells => _settings.Hero?.Spells?.Any(s => s.Deleted != true) == true;
 
-    // Режим «Новый уровень» (LevelUpDisplay): карточка показывает героя после повышения (Preview), отличия от
-    // нынешнего (PreviewBase) — золотым («+2 (15) → +3 (16)»), новые умения и заклинания — золотым «+».
+    // «Level Up» mode (LevelUpDisplay): the sheet shows the hero after leveling (Preview), differences from
+    // the current one (PreviewBase) in gold («+2 (15) → +3 (16)»), new features and spells with a gold «+».
     public Hero? Preview { get; set; }
     public Hero? PreviewBase { get; set; }
 
@@ -82,10 +82,10 @@ public class HeroDisplay
     private bool IsNewInPreview(string name) => PreviewBase != null
         && !PreviewBase.Abilities.Any(a => a.Name == name) && !(PreviewBase.Spells ?? []).Any(sp => sp.Name == name);
 
-    // Карточка в игре (не в редакторе новой игры): показывать кнопку «Новый уровень», когда он доступен.
+    // The sheet in the game (not in the new game editor): show the «Level Up» button when it is available.
     public bool OfferLevelUp { get; set; }
 
-    // Кнопка «[F10]НОВЫЙ УРОВЕНЬ» внизу колонки статов (экранные координаты) — клик и наведение (MouseUiHelper); null — нет.
+    // The «[F10]LEVEL UP» button at the bottom of the stats column (screen coordinates), for click and hover (MouseUiHelper); null if none.
     public (int y, int x, int width)? LevelUpHit { get; private set; }
 
     public bool IsOnLevelUp((short x, short y) pos) =>
@@ -101,7 +101,7 @@ public class HeroDisplay
         _ => "eff",
     };
 
-    // *StartX..*EndX — clickable zone for the inactive "[Fn]Название" label (-1,-1 if that tab is active)
+    // *StartX..*EndX — clickable zone for the inactive "[Fn]Name" label (-1,-1 if that tab is active)
     // leftX, rightX — positions of ◄ and ►
     public (int invStartX, int invEndX, int abilStartX, int abilEndX, int effStartX, int effEndX,
             int spellStartX, int spellEndX,
@@ -122,8 +122,8 @@ public class HeroDisplay
                 bool active = key == activeKey;
                 int slotWidth = SubTabPrefixLen + label.Length + SubTabSuffixLen;
                 bool clickable = key != "spell" || HasSpells;
-                // Кликабельная зона — сам "[Fn]Название" без хвостовых пробелов-заполнителя.
-                // Без подсказки «[Fn]»: наведение на неё не подсвечивает вкладку и не меняет курсор.
+                // The clickable zone is "[Fn]Name" itself, without the trailing filler spaces.
+                // Without the «[Fn]» hint: hovering over it doesn't highlight the tab or change the cursor.
                 if (!active && clickable) zones[key] = (cs + pos + SubTabPrefixLen, cs + pos + SubTabPrefixLen + label.Length);
                 pos += slotWidth;
                 if (i < _subTabs.Length - 1) pos += SubTabGap;
@@ -143,8 +143,8 @@ public class HeroDisplay
     public (int startY, int rows, int splitX, int[] col1Map, int[] col2Map) InventoryHitInfo =>
         (_invContentStartY, _invRows, _invSplitX, _invCol1RowToItem, _invCol2RowToItem);
 
-    // splitX — 3 границы между 4 колонками; colMaps[col][row] — глобальный индекс в SortedSpells(hero),
-    // или -1, если в этой ячейке нет заклинания (аналог InventoryHitInfo, но на 4 колонки).
+    // splitX: 3 boundaries between 4 columns; colMaps[col][row] is the global index into SortedSpells(hero),
+    // or -1 if this cell has no spell (like InventoryHitInfo, but for 4 columns).
     public (int startY, int rows, int[] splitX, int[][] colMaps) SpellsHitInfo =>
         (_spellContentStartY, _spellRows, _spellSplitX, _spellColRowToItem);
 
@@ -156,7 +156,7 @@ public class HeroDisplay
         RedrawSubTabTitle();
     }
 
-    // Наведение на кнопку «Новый уровень»: плашка ярче (как кнопки мастера новой игры), перерисовывается только она.
+    // Hovering over the «Level Up» button: the plate gets brighter (like the new game wizard buttons); only it is redrawn.
     private bool _levelUpHovered;
     private string _levelUpText = "";
     private bool _levelUpActive;
@@ -192,8 +192,8 @@ public class HeroDisplay
         RedrawSubTabTitle();
     }
 
-    // Текст "текущая/всего" между стрелками ◄/► — одно место, чтобы формула здесь и в SubTabInfo
-    // (позиция ► зависит от длины этого текста) не разъехались.
+    // The "current/total" text between the ◄/► arrows lives in one place so the formula here and in SubTabInfo
+    // (the ► position depends on this text's length) don't drift apart.
     private string SubTabPageText() => $"{_subTabPage + 1}/{_subTabPageCount}";
 
     private void RedrawSubTabTitle()
@@ -215,8 +215,8 @@ public class HeroDisplay
         var hoverCol = ColorHelper.Pale(_display.MainForeground, 0.75);
         var arrowHi  = ColorHelper.Pale(_display.MainForeground, 0.75);
         var arrowInactive = ColorHelper.Darker(_display.MainForeground, 0.5);
-        // Ввод временно недоступен (кубик крутится) — [Fn]-префиксы и обе стрелки затемнены,
-        // независимо от того, реально ли можно листать/наводить прямо сейчас.
+        // Input is temporarily unavailable (the die is spinning): the [Fn] prefixes and both arrows are dimmed,
+        // regardless of whether paging/hovering is actually possible right now.
         bool disabled = _display.InputDisabled;
         var leftColor  = disabled ? arrowInactive : !_canScrollLeft  ? arrowInactive : (_leftArrowHovered  ? arrowHi : _display.MainForeground);
         var rightColor = disabled ? arrowInactive : !_canScrollRight ? arrowInactive : (_rightArrowHovered ? arrowHi : _display.MainForeground);
@@ -233,8 +233,8 @@ public class HeroDisplay
                 bool active2 = key == activeKey;
                 bool noSpells = key == "spell" && !HasSpells;
                 var color = noSpells ? arrowInactive : active2 ? hoverCol : _hoveredSubTab == key ? hoverCol : dim;
-                // Декоратор всегда SubTabPrefixLen/SubTabSuffixLen символов — меняется его вид,
-                // не длина, поэтому название вкладки не сдвигается при переключении.
+                // The decorator is always SubTabPrefixLen/SubTabSuffixLen characters; its look changes,
+                // not its length, so the tab name doesn't shift when switching.
                 string prefix = active2 ? "  → " : $"[{fkey}]";
                 string suffix = active2 ? " ←" : "  ";
                 var prefixColor = disabled && !active2 ? arrowInactive : active2 ? color : MouseUiHelper.KeyHintColor(_display);
@@ -271,13 +271,13 @@ public class HeroDisplay
         public string Suffix { get; set; }
         public List<int>? Color { get; set; }
         public bool HasColor => Color != null && Color.Count == 3;
-        public string? FullText { get; set; } // значение не влезло и обрезано с «...» — полный текст для бегущей строки
-        public string? KeyHint { get; set; }  // «[F10]» перед текстом — цветом подсказок клавиш заголовка
+        public string? FullText { get; set; } // the value didn't fit and was cut with «...»: the full text for the marquee
+        public string? KeyHint { get; set; }  // «[F10]» before the text, in the title's key-hint color
     }
 
-    // ── Обрезанные значения карточки и бегущая строка при наведении ─────────────
-    // Значение, не влезающее в колонку, рисуется обрезанным с «...» (без переноса строки); при наведении
-    // мыши оно через паузу прокручивается, как новостная лента (UpdateMarquee из опроса мыши).
+    // ── Truncated sheet values and the marquee on hover ─────────────────────────
+    // A value that doesn't fit in its column is drawn truncated with «...» (no line wrap); on mouse
+    // hover, after a pause, it scrolls like a news ticker (UpdateMarquee from mouse polling).
     private readonly List<(int y, int x, int width, string text, List<int>? color)> _truncated = [];
     private int _marqueeIdx = -1;
     private DateTime _marqueeStart;
@@ -322,7 +322,7 @@ public class HeroDisplay
         DrawMarqueeFrame(_marqueeIdx, step);
     }
 
-    // step < 0 — исходный обрезанный вид с «...»; иначе окно ленты «текст   текст» со сдвигом step.
+    // step < 0: the original truncated view with «...»; otherwise a ticker window «text   text» shifted by step.
     private void DrawMarqueeFrame(int idx, int step)
     {
         var (y, x, width, text, color) = _truncated[idx];
@@ -392,29 +392,29 @@ public class HeroDisplay
         borderDrawer.DrawSeparatorTop();
 
         int leftKeyMax = hero.EquipmentSlots.Max(s => s.Length);
-        leftKeyMax = Math.Max(leftKeyMax, L.T("Вдохновение").Length);
+        leftKeyMax = Math.Max(leftKeyMax, L.T("Inspiration").Length);
         leftKeyMax = Math.Max(leftKeyMax, hero.Resources?.Count > 0 ? hero.Resources.Max(s => s.Name.Length) : 0);
 
-        // Раса/Класс — обычные hero.stats (как Опыт/Уровень и т.п.), но показываются не в колонке
-        // статов, а сразу под именем (это база персонажа) — вытаскиваются из статов отдельно,
-        // до сборки middleItems, чтобы не задваивались.
+        // Race/Class are ordinary hero.stats (like Experience/Level etc.), but shown not in the stats
+        // column but right under the name (they're the character's basics); they're pulled out of the stats separately,
+        // before middleItems is built, so they aren't duplicated.
         string? StatValue(string key) => hero.Stat(key)?.Value;
         string? heroRace = StatValue(StatKeys.Race);
         string? heroClass = StatValue(StatKeys.Class);
 
-        // Заклинательные статы — та же логика: обычные hero.stats, но показываются не в колонке
-        // статов, а в динамическом блоке колонки 1 (только на подвкладке Заклинания), перед ячейками
-        // заклинаний (когда те появятся) и ресурсами категории "Заклинания".
-        // Подготовлено/Известно — стат хранит только МАКСИМУМ (число, по правилам класса/уровня),
-        // текущее число всегда считается тут же из hero.spells (не заговоры — Level > 0), а не
-        // держится отдельной цифрой в статах: раньше ИИ должен был вручную пересчитывать N при
-        // каждой подготовке/снятии заклинания и не поспевал — число расходилось с реальным списком.
+        // Spellcasting stats follow the same logic: ordinary hero.stats, but shown not in the stats
+        // column but in the dynamic block of column 1 (only on the Spells sub-tab), before the spell
+        // slots (when those appear) and the resources of the "Spells" category.
+        // Prepared/Known: the stat stores only the MAXIMUM (a number, by class/level rules);
+        // the current number is always computed right here from hero.spells (not cantrips, Level > 0), rather than
+        // kept as a separate number in the stats: the AI used to have to recount N by hand on
+        // every spell prepared/unprepared and couldn't keep up, so the number drifted from the actual list.
         int preparedSpellCount = hero.Spells?.Count(s => s.Deleted != true && s.Level > 0 && s.Prepared == true) ?? 0;
         int knownSpellCount    = hero.Spells?.Count(s => s.Deleted != true && s.Level > 0) ?? 0;
         string? preparedMax = StatValue(StatKeys.SpellsPrepared);
         string? knownMax    = StatValue(StatKeys.SpellsKnown);
 
-        // Предпросмотр уровня: заклинательный стат изменился — «было → стало» золотым.
+        // Level preview: a spellcasting stat changed, shown «before → after» in gold.
         string? SpellStat(string key, string? shown, string? before)
         {
             string? was = PreviewBase?.Stat(key)?.Value;
@@ -423,38 +423,38 @@ public class HeroDisplay
         int baseSpells(bool prepared) => PreviewBase?.Spells?.Count(s => s.Deleted != true && s.Level > 0 && (!prepared || s.Prepared == true)) ?? 0;
         (string label, string? value)[] spellStatLines =
         [
-            (L.T("Заклинательная х-ка"), SpellStat(StatKeys.SpellAbility, StatValue(StatKeys.SpellAbility), null)),
-            (L.T("Спасбросок закл."), SpellStat(StatKeys.SpellSave, StatValue(StatKeys.SpellSave), null)),
-            (L.T("Атака заклинанием"), SpellStat(StatKeys.SpellAttack, StatValue(StatKeys.SpellAttack), null)),
-            (L.T("Подготовлено закл."), SpellStat(StatKeys.SpellsPrepared, preparedMax != null ? $"{preparedSpellCount}/{preparedMax}" : null,
+            (L.T("Spellcasting abil."), SpellStat(StatKeys.SpellAbility, StatValue(StatKeys.SpellAbility), null)),
+            (L.T("Spell save DC"), SpellStat(StatKeys.SpellSave, StatValue(StatKeys.SpellSave), null)),
+            (L.T("Spell attack"), SpellStat(StatKeys.SpellAttack, StatValue(StatKeys.SpellAttack), null)),
+            (L.T("Spells prepared"), SpellStat(StatKeys.SpellsPrepared, preparedMax != null ? $"{preparedSpellCount}/{preparedMax}" : null,
                 $"{baseSpells(true)}/{PreviewBase?.Stat(StatKeys.SpellsPrepared)?.Value}")),
-            (L.T("Известно закл."), SpellStat(StatKeys.SpellsKnown, knownMax != null ? $"{knownSpellCount}/{knownMax}" : null,
+            (L.T("Spells known"), SpellStat(StatKeys.SpellsKnown, knownMax != null ? $"{knownSpellCount}/{knownMax}" : null,
                 $"{baseSpells(false)}/{PreviewBase?.Stat(StatKeys.SpellsKnown)?.Value}")),
         ];
         leftKeyMax = Math.Max(leftKeyMax, spellStatLines.Max(l => l.label.Length));
 
         var leftSlots = new List<(string slotName, string itemName, List<int> itemColor)>
         {
-            (L.T("Имя").PadRight(leftKeyMax) + "   ", $"{hero.Symbol} {hero.Name}", hero.Color),
+            (L.T("Name").PadRight(leftKeyMax) + "   ", $"{hero.Symbol} {hero.Name}", hero.Color),
         };
         if (!string.IsNullOrEmpty(heroRace))
-            leftSlots.Add((L.T("Раса").PadRight(leftKeyMax) + "   ", heroRace, null));
-        // Уровень (ведёт движок) — в строке класса: «Воин 1 ур».
+            leftSlots.Add((L.T("Race").PadRight(leftKeyMax) + "   ", heroRace, null));
+        // Level (managed by the engine) is in the class line: «Fighter 1 lvl».
         var rules = LevelRules.Current;
         int level = LevelRules.LevelOf(hero);
         if (!string.IsNullOrEmpty(heroClass))
-            leftSlots.Add((L.T("Класс").PadRight(leftKeyMax) + "   ", L.F("{0} {1} ур", heroClass, level),
+            leftSlots.Add((L.T("Class").PadRight(leftKeyMax) + "   ", L.F("{0} {1} lvl", heroClass, level),
                 PreviewBase != null && LevelRules.LevelOf(PreviewBase) != level ? LevelUpColor : null));
         leftSlots.Add(("HP".PadRight(leftKeyMax) + "   ", (PreviewValue(PreviewBase?.Hp, hero.Hp) ?? hero.Hp) + " ❤",
             PreviewValue(PreviewBase?.Hp, hero.Hp) != null ? LevelUpColor : null));
-        leftSlots.Add((L.T("Обзор").PadRight(leftKeyMax) + "   ", SightText(hero), null));
-        leftSlots.Add((L.T("Вдохновение").PadRight(leftKeyMax) + "   ", hero.Inspiration == true ? L.T("Да") : "—", null));
+        leftSlots.Add((L.T("Sight").PadRight(leftKeyMax) + "   ", SightText(hero), null));
+        leftSlots.Add((L.T("Inspiration").PadRight(leftKeyMax) + "   ", hero.Inspiration == true ? L.T("Yes") : "—", null));
 
-        // Разделитель сразу после базового блока — дальше идёт контекстная часть колонки 1, разная
-        // под каждую подвкладку: Инвентарь — слоты экипировки, Способности/Заклинания — их ресурсы
-        // (Ярость/Ки/Кости Хитрости или ячейки и т.п., HeroResource.Category), Состояния — ничего
-        // (там своя информация снизу). Слоты экипировки раньше показывались всегда — теперь только
-        // на своей подвкладке, как и было задумано изначально.
+        // A divider right after the base block; next comes the contextual part of column 1, different
+        // for each sub-tab: Inventory shows equipment slots, Features/Spells their resources
+        // (Rage/Ki/Superiority Dice or slots etc., HeroResource.Category), Conditions nothing
+        // (it has its own info below). Equipment slots used to show always; now only
+        // on their own sub-tab, as originally intended.
         leftSlots.Add(("".PadRight(leftKeyMax) + "   ", "", null));
 
         switch (_display.CharacterSubTab)
@@ -479,7 +479,7 @@ public class HeroDisplay
                 }
                 else
                 {
-                    leftSlots.Add(("", L.T("(нет слотов)"), null));
+                    leftSlots.Add(("", L.T("(no slots)"), null));
                 }
                 break;
 
@@ -488,7 +488,7 @@ public class HeroDisplay
                 break;
 
             case CharacterSubTab.Spells:
-                // Заклинательные статы — перед ячейками заклинаний (когда появятся) и ресурсами.
+                // Spellcasting stats come before spell slots (when they appear) and resources.
                 foreach (var (label, value) in spellStatLines)
                     if (!string.IsNullOrEmpty(value))
                         leftSlots.Add((label.PadRight(leftKeyMax) + "   ", value, value.Contains(" → ") ? LevelUpColor : null));
@@ -511,11 +511,11 @@ public class HeroDisplay
         var middleItems = new List<(string key, string value, List<int> valueColor)>();
         if (hero.Stats != null && hero.Stats.Any())
         {
-            // Раса/Класс/заклинательные статы уже показаны в колонке 1 (leftSlots) — не дублируем.
+            // Race/Class/spellcasting stats are already shown in column 1 (leftSlots); don't duplicate them.
             string[] shownElsewhere = [StatKeys.Race, StatKeys.Class, StatKeys.SpellAbility, StatKeys.SpellSave,
                 StatKeys.SpellAttack, StatKeys.SpellsPrepared, StatKeys.SpellsKnown];
-            // Опыт — строкой движка в конце колонки; стат «Опыт» от мастера по старой привычке не дублируем.
-            // Размер и тип существа — одной строкой «Существо: Средний гуманоид» (колонка короче, кнопке уровня есть место).
+            // Experience is the engine's line at the end of the column; we don't duplicate the DM's old habit of an «Experience» stat.
+            // Creature size and type in one line, «Creature: Medium humanoid» (the column is shorter, leaving room for the level button).
             var size = hero.Stats.FirstOrDefault(s => s.Deleted != true && CreatureNames.IsSize(s.Name));
             var type = hero.Stats.FirstOrDefault(s => s.Deleted != true && CreatureNames.IsType(s.Name));
             foreach (var stat in hero.Stats.Where(s => s.Deleted != true && !shownElsewhere.Contains(s.Key) && !ClassLevel.IsExperienceStat(s.Name)))
@@ -524,7 +524,7 @@ public class HeroDisplay
                 if (size != null && type != null && stat == size)
                 {
                     string t = type.Value?.Trim() ?? "";
-                    middleItems.Add((L.T("Существо"), $"{size.Value?.Trim()} {(t.Length > 0 ? char.ToLower(t[0]) + t[1..] : "")}".Trim(), null));
+                    middleItems.Add((L.T("Creature"), $"{size.Value?.Trim()} {(t.Length > 0 ? char.ToLower(t[0]) + t[1..] : "")}".Trim(), null));
                     continue;
                 }
             {
@@ -535,11 +535,11 @@ public class HeroDisplay
         }
         if (middleItems.Count == 0)
         {
-            middleItems.Add(("", L.T("(нет характеристик)"), null));
+            middleItems.Add(("", L.T("(no stats)"), null));
         }
-        // Опыт — последней строкой колонки статов; опыта хватает — внизу колонки по центру кнопка «Новый уровень».
-        middleItems.Add((L.T("Опыт"), rules.NextXp(level) is int next ? $"{hero.Xp ?? 0}/{next}" : (hero.Xp ?? 0).ToString(), null));
-        // Опыта хватает — кнопка видна; в бою она серая и не нажимается (LevelUp.Available).
+        // Experience is the last line of the stats column; with enough XP, the «Level Up» button sits centered at the bottom of the column.
+        middleItems.Add((L.T("Experience"), rules.NextXp(level) is int next ? $"{hero.Xp ?? 0}/{next}" : (hero.Xp ?? 0).ToString(), null));
+        // Enough XP: the button is visible; in combat it is grey and can't be pressed (LevelUp.Available).
         bool showLevelUp = OfferLevelUp && Preview == null && hero.Dead != true && rules.CanLevelUp(hero);
         bool canLevelUp = showLevelUp && LevelUp.Available(_settings);
 
@@ -554,10 +554,10 @@ public class HeroDisplay
         }
         if (rightItems.Count == 0)
         {
-            rightItems.Add(("", L.T("(нет навыков)"), null));
+            rightItems.Add(("", L.T("(no skills)"), null));
         }
 
-        // -3: отступ слева в начале каждой из 3 колонок (Console.Write(" ") ниже).
+        // -3: left padding at the start of each of the 3 columns (Console.Write(" ") below).
         int colWidth = (innerWidth - 2 - 3) / 3;
         int leftWidth = colWidth;
         int middleWidth = colWidth;
@@ -566,20 +566,20 @@ public class HeroDisplay
         int middleKeyMax = middleItems.Max(r => r.key.Length);
         int rightKeyMax  = rightItems.Max(r => r.key.Length);
 
-        // Значения не переносятся: не влезло — обрезается с «...», полный текст — бегущей строкой при наведении.
+        // Values don't wrap: if it doesn't fit, it's cut with «...», and the full text scrolls as a marquee on hover.
         var leftLines = leftSlots.Select(slot => FitLine(slot.slotName, slot.itemName, leftWidth, slot.itemColor)).ToList();
         var middleLines = middleItems.Select(item => FitLine(item.key.PadRight(middleKeyMax) + "   ", item.value, middleWidth, item.valueColor)).ToList();
         var rightLines = rightItems.Select(item => FitLine(item.key.PadRight(rightKeyMax) + "   ", item.value, rightWidth, item.valueColor)).ToList();
 
-        // Кнопка — последней строкой блока, от опыта её отделяет хотя бы одна пустая строка.
+        // The button is the last line of the block, separated from Experience by at least one empty line.
         int levelUpRow = -1;
         int maxLinesCount = Math.Max(leftLines.Count, Math.Max(middleLines.Count + (showLevelUp ? 2 : 0), rightLines.Count));
         if (showLevelUp)
         {
             while (middleLines.Count < maxLinesCount - 1) middleLines.Add(new ColoredLine { Prefix = "", ColoredText = "", Suffix = new string(' ', middleWidth), Color = null });
-            // Плашка «  НОВЫЙ УРОВЕНЬ  » на фоне — по центру колонки, подсказка «[F10]» — слева от неё, в центровке не участвует.
+            // The «  LEVEL UP  » plate on a background, centered in the column; the «[F10]» hint is to its left and doesn't count for centering.
             const string key = LevelUpKey;
-            string button = $"  {L.T("НОВЫЙ УРОВЕНЬ")}  ";
+            string button = $"  {L.T("LEVEL UP")}  ";
             if (key.Length + button.Length > middleWidth) button = button[..Math.Max(0, middleWidth - key.Length)];
             int pad = Math.Max(key.Length, (middleWidth - button.Length) / 2) - key.Length;
             if (canLevelUp) levelUpRow = middleLines.Count;
@@ -597,7 +597,7 @@ public class HeroDisplay
         _truncated.Clear();
         _marqueeIdx = -1;
         LevelUpHit = null;
-        // Начало текста колонок в строке: отступ + рамка + " " (колонка 1), далее «│ » между колонками.
+        // Where the column text starts in a row: padding + frame + " " (column 1), then «│ » between columns.
         int leftX   = DisplayConfig.LeftMargin + 2;
         int middleX = leftX + leftWidth + 2;
         int rightX  = middleX + middleWidth + 2;
@@ -609,7 +609,7 @@ public class HeroDisplay
             var right  = rightLines[i];
 
             int rowY = Console.CursorTop;
-            if (i == levelUpRow) LevelUpHit = (rowY, middleX + middle.Prefix.Length, (middle.KeyHint?.Length ?? 0) + middle.ColoredText.Length);   // с подсказкой
+            if (i == levelUpRow) LevelUpHit = (rowY, middleX + middle.Prefix.Length, (middle.KeyHint?.Length ?? 0) + middle.ColoredText.Length);   // with the hint
             if (left.FullText != null)   _truncated.Add((rowY, leftX + left.Prefix.Length, left.ColoredText.Length, left.FullText, left.Color));
             if (middle.FullText != null) _truncated.Add((rowY, middleX + middle.Prefix.Length, middle.ColoredText.Length, middle.FullText, middle.Color));
             if (right.FullText != null)  _truncated.Add((rowY, rightX + right.Prefix.Length, right.ColoredText.Length, right.FullText, right.Color));
@@ -682,26 +682,26 @@ public class HeroDisplay
         }
     }
 
-    // Горизонтальные линии над/под колонками — без ┬ ┴ ┼: вертикальный разделитель упирается в сплошную линию.
+    // Horizontal lines above/below the columns, without ┬ ┴ ┼: the vertical divider butts into a solid line.
 
-    // Единая точка правды для позиции разделителя в 2-колоночных секциях (Инвентарь/Способности/
-    // Состояния) — используется и там, и в SpellColumnWidths для 2-й линии, чтобы они не могли
-    // разъехаться при будущих правках одной без другой.
+    // Single source of truth for the divider position in 2-column sections (Inventory/Features/
+    // Conditions); used both there and in SpellColumnWidths for the 2nd line, so they can't
+    // drift apart when one is edited without the other.
     private static int TwoColumnDividerX(int innerWidth) => (innerWidth - 1) / 2 ;
 
-    // 2-я вертикальная линия обязана совпадать с общим разделителем Инвентаря/Способностей/Состояний
-    // (тот же innerWidth, та же формула), 3-я линия остаётся на месте (не двигается) — разницу
-    // между ними забирает 3-я колонка, а не 1-я/4-я, чтобы их позиции тоже не поехали.
+    // The 2nd vertical line must match the shared Inventory/Features/Conditions divider
+    // (same innerWidth, same formula); the 3rd line stays put (doesn't move); the difference
+    // between them is taken up by the 3rd column, not the 1st/4th, so their positions don't shift either.
     private static (int w1, int w2, int w3, int w4) SpellColumnWidths(int innerWidth)
     {
-        int available = innerWidth - 3; // 3 внутренних разделителя между 4 колонками
+        int available = innerWidth - 3; // 3 inner dividers between 4 columns
         int baseW = available / 4;
         int remainder = available - baseW * 4;
 
-        int w1 = baseW + remainder - 2; // 1-я линия на 1 символ левее — div2/div3 при этом не двигаются
+        int w1 = baseW + remainder - 2; // the 1st line is 1 character further left; div2/div3 don't move
         int w4 = baseW + 1;
         int div2Target = TwoColumnDividerX(innerWidth) - 1;
-        int div3Target = w1 + baseW + (baseW - 1);  // прежняя (правильная) позиция 3-й линии
+        int div3Target = w1 + baseW + (baseW - 1);  // the previous (correct) position of the 3rd line
         int w2 = div2Target - w1;
         int w3 = div3Target - div2Target + 2;
 
@@ -724,12 +724,12 @@ public class HeroDisplay
             string marker = item.EquipmentedSlot?.Count > 0 ? "•" : " ";
             string name = item.Quantity is > 1 ? $"{item.Name} ×{item.Quantity}" : item.Name;
             int prefixLen = marker.Length + name.Length + 2;
-            // -1: резерв под стрелку "←" при наведении/выборе — без него описание могло впритык
-            // заполнить всю ширину колонки (written == colWidth), и стрелке не оставалось места
-            // (условие "written < colWidth" в WriteInvLine строгое, silently её не рисовало).
+            // -1: reserve for the "←" arrow on hover/selection; without it the description could
+            // fill the whole column width exactly (written == colWidth), leaving no room for the arrow
+            // (the "written < colWidth" condition in WriteInvLine is strict, so it silently wasn't drawn).
             int firstLineWidth = Math.Max(1, col1W - prefixLen - 1);
-            // Строки-продолжения (marker=" ", без имени) не стеснены названием предмета — им
-            // доступна вся ширина колонки за вычетом только маркера, а не узкий бюджет первой строки.
+            // Continuation lines (marker=" ", no name) aren't constrained by the item name; they
+            // get the full column width minus just the marker, not the narrow budget of the first line.
             int continuationWidth = Math.Max(1, col1W - 1);
             string desc = string.IsNullOrEmpty(item.Description) ? "" : $"  {item.Description}";
             var descLines = TextWrapper.WrapText(desc, continuationWidth, firstLineWidth);
@@ -741,7 +741,7 @@ public class HeroDisplay
         }
 
         if (flat.Count == 0)
-            flat.Add(new InvLine(-1, false, "", "", null, L.T("(пусто)")));
+            flat.Add(new InvLine(-1, false, "", "", null, L.T("(empty)")));
 
         int rows = Math.Max(1, preTitleRows - 4);
         int pageSize = rows * 2;
@@ -764,7 +764,7 @@ public class HeroDisplay
 
         _invContentStartY = Console.CursorTop;
         _invRows = rows;
-        // Отступ + рамка(1) до начала col1, затем col1W до разделителя-колонки.
+        // Padding + frame(1) up to the start of col1, then col1W up to the column divider.
         _invSplitX = col1W + 1 + DisplayConfig.LeftMargin;
         _invCol1RowToItem = Enumerable.Range(0, rows).Select(r => r < col1.Count ? col1[r].ItemIdx : -1).ToArray();
         _invCol2RowToItem = Enumerable.Range(0, rows).Select(r => r < col2.Count ? col2[r].ItemIdx : -1).ToArray();
@@ -816,9 +816,9 @@ public class HeroDisplay
             string marker = isNew ? "+" : " ";
             string name = ability.Name;
             int prefixLen = marker.Length + name.Length + 2;
-            // -1: резерв под стрелку "←" при наведении/выборе — без него описание могло впритык
-            // заполнить всю ширину колонки (written == colWidth), и стрелке не оставалось места
-            // (условие "written < colWidth" в WriteInvLine строгое, silently её не рисовало).
+            // -1: reserve for the "←" arrow on hover/selection; without it the description could
+            // fill the whole column width exactly (written == colWidth), leaving no room for the arrow
+            // (the "written < colWidth" condition in WriteInvLine is strict, so it silently wasn't drawn).
             int firstLineWidth = Math.Max(1, col1W - prefixLen - 1);
             int continuationWidth = Math.Max(1, col1W - 1);
             string desc = string.IsNullOrEmpty(ability.Description) ? "" : $"  {ability.Description}";
@@ -831,7 +831,7 @@ public class HeroDisplay
         }
 
         if (flat.Count == 0)
-            flat.Add(new InvLine(-1, false, "", "", null, L.T("(нет способностей)")));
+            flat.Add(new InvLine(-1, false, "", "", null, L.T("(no features)")));
 
         int rows = Math.Max(1, preTitleRows - 4);
         int pageSize = rows * 2;
@@ -875,8 +875,8 @@ public class HeroDisplay
     }
 
     private static string EffectDuration(StatusEffect e) => e.ExpiresAtRound.HasValue
-        ? L.F("до раунда {0}", e.ExpiresAtRound)
-        : e.UntilLongRest == true ? L.T("до долгого отдыха") : L.T("бессрочно");
+        ? L.F("until round {0}", e.ExpiresAtRound)
+        : e.UntilLongRest == true ? L.T("until long rest") : L.T("indefinite");
 
     private void DrawEffectsSection(Hero hero, int innerWidth, int preTitleRows, BorderDrawer borderDrawer)
     {
@@ -891,9 +891,9 @@ public class HeroDisplay
             string marker = " ";
             string name = effect.Name;
             int prefixLen = marker.Length + name.Length + 2;
-            // -1: резерв под стрелку "←" при наведении/выборе — без него описание могло впритык
-            // заполнить всю ширину колонки (written == colWidth), и стрелке не оставалось места
-            // (условие "written < colWidth" в WriteInvLine строгое, silently её не рисовало).
+            // -1: reserve for the "←" arrow on hover/selection; without it the description could
+            // fill the whole column width exactly (written == colWidth), leaving no room for the arrow
+            // (the "written < colWidth" condition in WriteInvLine is strict, so it silently wasn't drawn).
             int firstLineWidth = Math.Max(1, col1W - prefixLen - 1);
             int continuationWidth = Math.Max(1, col1W - 1);
             string duration = EffectDuration(effect);
@@ -949,7 +949,7 @@ public class HeroDisplay
             borderDrawer.DrawContentLine2Columns(() => {}, () => {}, col1W, col2W);
     }
 
-    // В D&D 5e нет "0-го" уровня в римской нотации — заговор (level 0) обозначается отдельным заголовком.
+    // D&D 5e has no "0th" level in Roman numerals: a cantrip (level 0) gets its own heading.
     private static string LevelToRoman(int level) => level switch
     {
         1 => "I", 2 => "II", 3 => "III", 4 => "IV", 5 => "V",
@@ -957,23 +957,23 @@ public class HeroDisplay
         _ => level.ToString(),
     };
 
-    private static string SpellColumnHeader(int level) => level == 0 ? L.T("ЗАГОВОРЫ") : L.F("{0} КРУГ", LevelToRoman(level));
+    private static string SpellColumnHeader(int level) => level == 0 ? L.T("CANTRIPS") : L.F("LEVEL {0}", LevelToRoman(level));
 
-    // Единая точка правды для порядка/фильтра заклинаний — использует и отрисовка (группировка по
-    // кругам), и Program.cs (Tab/Shift+Tab), чтобы оба места ссылались на один и тот же индекс.
+    // Single source of truth for spell order/filtering: used by both drawing (grouping by
+    // level) and Program.cs (Tab/Shift+Tab), so both places refer to the same index.
     public static List<HeroSpell> SortedSpells(Hero hero) =>
         (hero.Spells ?? []).Where(s => s.Deleted != true).OrderBy(s => s.Level).ThenBy(s => s.Name).ToList();
 
-    // 4 колонки, каждая — свой круг заклинаний. Круг, не уместившийся в одну колонку, занимает
-    // несколько колонок подряд (тот же заголовок повторяется), а следующие круги сдвигаются вправо —
-    // поэтому колонки строятся как плоский список (level, chunk, глобальный индекс первого элемента
-    // в SortedSpells) и уже потом режутся по 4 на страницу.
+    // 4 columns, each its own spell level. A level that doesn't fit in one column takes
+    // several columns in a row (the same heading repeats), and the following levels shift right;
+    // so the columns are built as a flat list (level, chunk, global index of the first element
+    // in SortedSpells) and only then cut into 4 per page.
     private void DrawSpellsSection(Hero hero, int innerWidth, int preTitleRows, BorderDrawer borderDrawer)
     {
         var (col1W, col2W, col3W, col4W) = SpellColumnWidths(innerWidth);
 
         int rows = Math.Max(1, preTitleRows - 4);
-        int itemsPerCol = Math.Max(1, rows - 2); // заголовок круга + разделитель под ним
+        int itemsPerCol = Math.Max(1, rows - 2); // level heading + divider under it
 
         var sorted = SortedSpells(hero);
         var columns = new List<(string Header, List<HeroSpell> Items, int GlobalStart)>();
@@ -1009,7 +1009,7 @@ public class HeroDisplay
         while (visible.Count < 4)
             visible.Add(("", [], -1));
 
-        // Границы Tab/Shift+Tab перелистывания страниц — по аналогии с InventoryPageFirst*/Last*.
+        // Bounds for Tab/Shift+Tab page flipping, like InventoryPageFirst*/Last*.
         _display.SpellsPageFirstItemIdx = pageColumns.Count > 0 && pageColumns[0].Items.Count > 0
             ? pageColumns[0].GlobalStart : -1;
         var lastCol = pageColumns.LastOrDefault(c => c.Items.Count > 0);

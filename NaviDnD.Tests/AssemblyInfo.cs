@@ -1,3 +1,3 @@
-// Язык интерфейса и мира (L), сохранения и папка Storage — общие на процесс: тесты, которые их меняют, не должны
-// идти параллельно с остальными. Набор быстрый — последовательно.
+// The UI and world language (L), saves and the Storage folder are process-wide: tests that change them must not
+// run in parallel with the rest. The suite is fast, so it runs sequentially.
 [assembly: Xunit.CollectionBehavior(DisableTestParallelization = true)]

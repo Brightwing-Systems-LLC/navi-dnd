@@ -3,9 +3,9 @@ using System.Text.Json.Serialization;
 
 namespace NaviDnD.Data.Models;
 
-// Список строк (aiInfo, memory, knownMonsters, …), который ИИ иногда присылает одной строкой —
-// "aiInfo": "текст" вместо ["текст"]. Без этого весь ответ падал на разборе (JsonException), и
-// патч не применялся целиком. Одиночное значение → список из одного элемента; null → null.
+// A list of strings (aiInfo, memory, knownMonsters, …) that the AI sometimes sends as a single string —
+// "aiInfo": "text" instead of ["text"]. Without this the whole response failed to parse (JsonException), and
+// the patch wasn't applied at all. A single value → a one-element list; null → null.
 public class LenientStringListConverter : JsonConverter<List<string>?>
 {
     private static readonly LenientStringConverter Item = new();

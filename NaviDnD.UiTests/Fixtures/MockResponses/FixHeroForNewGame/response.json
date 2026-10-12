@@ -2,15 +2,15 @@
   "hero": {
     "inventory": [
       {
-        "name": "Элегантный плащ",
-        "description": "Добавлен мок-ответом FixHeroForNewGame.",
+        "name": "Elegant Cloak",
+        "description": "Added by the FixHeroForNewGame mock response.",
         "quantity": 1,
-        "equipmentedSlot": ["Плащ"],
+        "equipmentedSlot": ["Cloak"],
         "color": [140, 90, 200]
       }
     ]
   },
   "history": [
-    { "text": "Ты получаешь элегантный плащ — теперь он в твоём снаряжении." }
+    { "text": "You receive an elegant cloak — it is now part of your gear." }
   ]
 }

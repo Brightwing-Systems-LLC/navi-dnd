@@ -7,7 +7,7 @@ using NAudio.Wave.SampleProviders;
 
 namespace NaviDnD.Helpers;
 
-// Единственный фоновый потребитель: реплики не перекрываются и не задерживают игровой поток.
+// A single background consumer: lines do not overlap and do not hold up the game thread.
 internal static class Speech
 {
     private static readonly Channel<(string Text, string? Ssml, string Voice, bool Warmup, CancellationToken Token)> Queue =
@@ -17,7 +17,7 @@ internal static class Speech
     private static CancellationTokenSource session = new();
     private static readonly CancellationTokenSource Lifetime = new();
     private static AppConfig? config;
-    private static string status = L.T("Выключена");
+    private static string status = L.T("Off");
     private static int started;
     private static volatile bool _windowMinimized;
     private static IWavePlayer? _activeOutput;
@@ -62,15 +62,15 @@ internal static class Speech
         config = settings;
         if (Interlocked.Exchange(ref started, 1) == 0) _ = Task.Run(ConsumeAsync);
         AppDomain.CurrentDomain.ProcessExit += (_, _) => { Lifetime.Cancel(); Stop(); SileroSpeech.Close(); };
-        status = settings.SpeechEnabled ? L.T("Готова к запуску") : L.T("Выключена");
+        status = settings.SpeechEnabled ? L.T("Ready to start") : L.T("Off");
         WarmUp();
     }
 
-    // Модели — в память заранее, даже при выключенной озвучке: включение и пробные фразы в настройках — без
-    // задержки. Язык игры (и интерфейса); both — оба языка (экран настроек). Ничего не устанавливает и не скачивает.
+    // Load models into memory in advance, even with voice-over off: turning it on and sample phrases in the settings then have no
+    // delay. The game's (and interface's) language; both means both languages (settings screen). Installs and downloads nothing.
     public static void WarmUp(bool both = false)
     {
-        // В UI-тестах (своё состояние, озвучка выключена) модели не грузим — тесты быстрее и без лишних процессов.
+        // In UI tests (their own state, voice-over off) models are not loaded — tests run faster and without extra processes.
         if (config == null || !SileroSpeech.Installed || Environment.GetEnvironmentVariable("NAVIDND_TEST_WORLDSTATE") != null) return;
         bool english = both || L.WorldIsEnglish || L.IsEnglish, russian = both || !L.WorldIsEnglish || !L.IsEnglish;
         if (russian)
@@ -100,7 +100,7 @@ internal static class Speech
         session = new CancellationTokenSource();
     }
 
-    // Английские голоса модели v3_en (по высоте тона: en_57/en_31/en_20 — мужские, en_21/en_11 — женские).
+    // English voices of the v3_en model (by pitch: en_57/en_31/en_20 are male, en_21/en_11 female).
     public static readonly string[] EnglishVoices = ["en_57", "en_31", "en_20", "en_21", "en_11"];
     private const string EnglishNpcMale = "en_23", EnglishNpcFemale = "en_6";
 
@@ -110,14 +110,14 @@ internal static class Speech
         text = PrepareText(text);
         if (text.Length == 0) return;
         string? ssml = ValidateSsml(speechText);
-        // Голос — языка игры (рассказ мастера на нём): русская или английская модель.
+        // The voice matches the game's language (the DM narrates in it): the Russian or English model.
         string voice = SelectVoice(author, ssml, L.WorldIsEnglish ? config.SileroVoiceEn : config.SileroVoice, L.WorldIsEnglish);
         ssml = ApplyVoiceStyle(text, ssml, author);
         lock (Gate)
             if (!_windowMinimized) Queue.Writer.TryWrite((text, ssml, voice, false, session.Token));
     }
 
-    // Пробная фраза выбранным голосом (настройки) — независимо от языка игры.
+    // A sample phrase in the chosen voice (settings) — regardless of the game's language.
     public static void Sample(string text, string voice)
     {
         if (config?.SpeechEnabled != true) return;
@@ -138,7 +138,7 @@ internal static class Speech
     internal static string ApplyVoiceStyle(string text, string? ssml, string? author)
     {
         var root = ssml == null ? new XElement("speak", text) : XElement.Parse(ssml);
-        root.Attribute("voice")?.Remove(); // служебный выбор голоса обрабатывается приложением
+        root.Attribute("voice")?.Remove(); // the service voice selection is handled by the application
         if (IsNarrator(author))
         {
             foreach (var prosody in root.Descendants("prosody")) prosody.Attribute("pitch")?.Remove();
@@ -185,7 +185,7 @@ internal static class Speech
     internal static string DisplayText(string text)
     {
         if (!text.TrimStart().StartsWith("<speak", StringComparison.OrdinalIgnoreCase)) return text;
-        // Сохраняем механические пометки на экране, но убираем теги и маркеры произношения.
+        // Keep the mechanical annotations on screen but strip the tags and pronunciation markers.
         string plain = Regex.Replace(text, @"<(?:break\b[^>]*|/(?:p|s))>", " ", RegexOptions.IgnoreCase);
         plain = Regex.Replace(plain, "<[^>]*>", "");
         plain = System.Net.WebUtility.HtmlDecode(plain);
@@ -195,7 +195,7 @@ internal static class Speech
 
     internal static string PrepareText(string text)
     {
-        text = Regex.Replace(text, @"\[[^\]]*\]", " "); // механические пометки не читаются
+        text = Regex.Replace(text, @"\[[^\]]*\]", " "); // mechanical annotations are not read aloud
         text = Regex.Replace(text, @"[*#`_]", "");
         return Regex.Replace(text, @"\s+", " ").Trim();
     }
@@ -204,22 +204,22 @@ internal static class Speech
     {
         await foreach (var item in Queue.Reader.ReadAllAsync())
         {
-            // Заранее загрузить модель (Warmup) — и при выключенной озвучке; реплики — только при включённой.
+            // Preload the model (Warmup) even with voice-over off; lines only when it is on.
             if (item.Token.IsCancellationRequested || !item.Warmup && config?.SpeechEnabled != true) continue;
             if (item.Warmup && !SileroSpeech.Installed) continue;
             string wav = Path.Combine(Path.GetTempPath(), $"NaviDnD-speech-{Guid.NewGuid():N}.wav");
             try
             {
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(item.Token);
-                timeout.CancelAfter(TimeSpan.FromMinutes(15)); // первый запуск Silero устанавливает CPU PyTorch
+                timeout.CancelAfter(TimeSpan.FromMinutes(15)); // the first Silero run installs CPU PyTorch
                 var token = timeout.Token;
                 await SileroSpeech.SynthesizeAsync(item.Text, item.Ssml, item.Voice, wav, config!.SileroPythonPath,
                     value => { if (!item.Warmup || config.SpeechEnabled) status = value; }, token);
-                if (item.Warmup) { if (config!.SpeechEnabled) status = L.T("Готова"); continue; }
+                if (item.Warmup) { if (config!.SpeechEnabled) status = L.T("Ready"); continue; }
                 using var reader = new WaveFileReader(wav);
                 using var output = new WaveOutEvent();
-                // Громкость — в самом потоке: WaveOutEvent.Volume (waveOutSetVolume) меняет громкость всего приложения,
-                // и музыка оставалась на громкости речи.
+                // Volume is applied in the stream itself: WaveOutEvent.Volume (waveOutSetVolume) changes the whole application's volume,
+                // and the music stayed at the speech volume.
                 var volume = new VolumeSampleProvider(reader.ToSampleProvider())
                     { Volume = _windowMinimized ? 0 : Math.Clamp(config!.SpeechVolume / 100f, 0, 1) };
                 output.Init(volume);
@@ -232,7 +232,7 @@ internal static class Speech
                         _activeOutput = output;
                         output.Play();
                     }
-                    status = L.T("Озвучивание");
+                    status = L.T("Speaking");
                     while (output.PlaybackState == PlaybackState.Playing)
                     {
                         await Task.Delay(30, token);
@@ -245,13 +245,13 @@ internal static class Speech
                         if (ReferenceEquals(_activeOutput, output)) _activeOutput = null;
                     Music.Ducked = false;
                 }
-                status = L.T("Готова");
+                status = L.T("Ready");
             }
-            catch (OperationCanceledException) { status = L.T("Остановлена"); }
+            catch (OperationCanceledException) { status = L.T("Stopped"); }
             catch (Exception ex)
             {
-                status = L.T("Ошибка: ") + ex.Message;
-                // Текст реплики и секреты в диагностический лог не записываются.
+                status = L.T("Error: ") + ex.Message;
+                // Line text and secrets are not written to the diagnostic log.
                 try { File.AppendAllText(Path.Combine(AppConfig.ProjectRoot, "logs", "speech.log"), $"{DateTime.Now:s} {ex.GetType().Name}: {ex.Message}\n"); } catch { }
             }
             finally { try { File.Delete(wav); } catch { } }

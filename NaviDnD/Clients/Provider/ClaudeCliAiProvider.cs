@@ -33,8 +33,8 @@ public class ClaudeCliAiProvider(AppConfig config, AiLogger? logger = null) : IA
         }
     });
 
-    // Сервер перегружен/недоступен (529, 503, overloaded) — временно: запрос повторяется (до 3 попыток, пауза растёт),
-    // иначе ход мастера терялся при первой же перегрузке.
+    // Server overloaded/unavailable (529, 503, overloaded) — transient: the request is retried (up to 3 attempts, growing pause),
+    // otherwise the DM's turn was lost on the very first overload.
     private static bool IsTransient(Exception ex) =>
         ex.Message.Contains("529") || ex.Message.Contains("503") || ex.Message.Contains("verloaded", StringComparison.OrdinalIgnoreCase);
 
@@ -45,7 +45,7 @@ public class ClaudeCliAiProvider(AppConfig config, AiLogger? logger = null) : IA
             try { return await call(); }
             catch (Exception ex) when (attempt < 3 && IsTransient(ex))
             {
-                logger?.LogNote($"Сервер перегружен (попытка {attempt}) — повтор через {attempt * 5} с");
+                logger?.LogNote($"Server overloaded (attempt {attempt}) — retrying in {attempt * 5} s");
                 await Task.Delay(attempt * 5000);
             }
         }
@@ -59,13 +59,13 @@ public class ClaudeCliAiProvider(AppConfig config, AiLogger? logger = null) : IA
         Action<string>? onChunk) =>
         WithRetry(() => CompleteWithStreamingOnce(systemBlocks, userMessage, actionPath, model, onChunk));
 
-    // Claude CLI не запустился (нет по пути из настроек) — ошибка настройки, а не сбой ответа.
+    // The Claude CLI did not start (not at the path from settings) — a setup error, not a response failure.
     private Process StartCli(ProcessStartInfo psi)
     {
-        try { return Process.Start(psi) ?? throw new AiSetupException(L.T("Не удалось запустить Claude CLI.")); }
+        try { return Process.Start(psi) ?? throw new AiSetupException(L.T("Could not start Claude CLI.")); }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode is 2 or 3)
         {
-            throw new AiSetupException(L.T("Claude не найден.\nУстанови Claude Code или укажи «ПУТЬ К CLAUDE» в настройках."));
+            throw new AiSetupException(L.T("Claude not found.\nInstall Claude Code or set \"CLAUDE PATH\" in the settings."));
         }
     }
 
@@ -82,7 +82,7 @@ public class ClaudeCliAiProvider(AppConfig config, AiLogger? logger = null) : IA
 
             var sw = Stopwatch.StartNew();
             using var process = StartCli(psi);
-            ChildProcessJob.Add(process);   // игру закрыли — запрос завершается вместе с ней
+            ChildProcessJob.Add(process);   // the game was closed — the request ends with it
             await process.StandardInput.WriteAsync(stdinContent);
             process.StandardInput.Close();
 
@@ -96,7 +96,7 @@ public class ClaudeCliAiProvider(AppConfig config, AiLogger? logger = null) : IA
                 logger?.LogNote($"STDERR: {stderr.Trim()}");
 
             if (process.ExitCode != 0)
-                throw CreateError($"Claude CLI (код {process.ExitCode}): {output}\n{stderr}");
+                throw CreateError($"Claude CLI (code {process.ExitCode}): {output}\n{stderr}");
 
             try
             {
@@ -143,7 +143,7 @@ public class ClaudeCliAiProvider(AppConfig config, AiLogger? logger = null) : IA
 
             var sw = Stopwatch.StartNew();
             using var process = StartCli(psi);
-            ChildProcessJob.Add(process);   // игру закрыли — запрос завершается вместе с ней
+            ChildProcessJob.Add(process);   // the game was closed — the request ends with it
             await process.StandardInput.WriteAsync(stdinContent);
             process.StandardInput.Close();
 
@@ -181,7 +181,7 @@ public class ClaudeCliAiProvider(AppConfig config, AiLogger? logger = null) : IA
 
             if (process.ExitCode != 0 && fullResult == null)
             {
-                string exitMessage = L.F("Claude CLI завершился с ошибкой (код {0}). Попробуй ещё раз.", process.ExitCode);
+                string exitMessage = L.F("Claude CLI exited with an error (code {0}). Try again.", process.ExitCode);
                 if (!string.IsNullOrWhiteSpace(stderr)) exitMessage += $" stderr: {stderr.Trim()}";
                 throw CreateError(exitMessage);
             }
@@ -288,12 +288,12 @@ public class ClaudeCliAiProvider(AppConfig config, AiLogger? logger = null) : IA
         psi.ArgumentList.Add("--model");
         psi.ArgumentList.Add(model);
 
-        // Windows ограничивает длину командной строки процесса 32 767 символами — большой
-        // системный промпт (SendAction уже ~25К) через --system-prompt рано или поздно упрётся в
-        // это. --system-prompt-file (недокументированный, но реальный флаг — см. описание --bare:
-        // "--system-prompt[-file]") читает промпт из файла, так что в команду попадает только путь.
-        // workDir создаётся заново на каждый вызов и удаляется в finally после завершения процесса
-        // (см. Complete/CompleteWithStreaming), так что файл живёт ровно пока нужен.
+        // Windows limits a process command line to 32,767 characters — a large
+        // system prompt (SendAction is already ~25K) passed via --system-prompt will hit that
+        // sooner or later. --system-prompt-file (undocumented but real flag — see the --bare description:
+        // "--system-prompt[-file]") reads the prompt from a file, so only the path goes into the command.
+        // workDir is created fresh for each call and deleted in finally after the process exits
+        // (see Complete/CompleteWithStreaming), so the file lives exactly as long as needed.
         string systemPromptPath = Path.Combine(workDir, "system-prompt.txt");
         File.WriteAllText(systemPromptPath, systemPrompt, new UTF8Encoding(false));
         psi.ArgumentList.Add("--system-prompt-file");
@@ -302,7 +302,7 @@ public class ClaudeCliAiProvider(AppConfig config, AiLogger? logger = null) : IA
         psi.ArgumentList.Add("--tools");
         psi.ArgumentList.Add("");
 
-        // Инструменты действия — общий список (AiActionTools), у Claude CLI — с префиксом сервера.
+        // The action's tools — the shared list (AiActionTools), prefixed with the server name for the Claude CLI.
         string[] allowedTools = [.. AiActionTools.ToolsFor(Path.GetFileName(actionPath)).Select(t => "mcp__navidnd__" + t)];
 
         if (allowedTools is { Length: > 0 })
@@ -352,16 +352,16 @@ public class ClaudeCliAiProvider(AppConfig config, AiLogger? logger = null) : IA
         return workDir;
     }
 
-    // claude.exe запускает MCP-сервер (NaviDnD.McpServer.exe) как дочерний процесс с CWD=workDir
-    // (наследуется от родителя — см. BuildPsi WorkingDirectory). При успешном завершении claude.exe
-    // сам останавливает MCP-сервер до выхода, поэтому Directory.Delete обычно проходит. Но если
-    // claude.exe падает рано (например ошибка авторизации — "does not have access to Claude") ДО
-    // штатного завершения, MCP-сервер может остаться висеть с CWD внутри workDir — Windows не даёт
-    // удалить директорию, пока она чья-то текущая рабочая, и Directory.Delete бросает IOException
-    // "used by another process". Эта ошибка вылетала из finally ПОВЕРХ уже летящего исключения с
-    // настоящей причиной (ошибка авторизации) — C# при исключении внутри finally теряет
-    // оригинальное, наружу уходило только "файл используется другим процессом", а понятный текст
-    // про логин пропадал. Поэтому очистка — best-effort и не должна перекрывать реальную ошибку.
+    // claude.exe starts the MCP server (NaviDnD.McpServer.exe) as a child process with CWD=workDir
+    // (inherited from the parent — see BuildPsi WorkingDirectory). On a normal exit claude.exe
+    // stops the MCP server itself before exiting, so Directory.Delete usually succeeds. But if
+    // claude.exe crashes early (e.g. an auth error — "does not have access to Claude") BEFORE
+    // a normal exit, the MCP server may stay alive with its CWD inside workDir — Windows won't let
+    // you delete a directory while it is someone's current working directory, and Directory.Delete throws IOException
+    // "used by another process". That error escaped from finally ON TOP of the in-flight exception with
+    // the real cause (the auth error) — when an exception is thrown inside finally, C# loses
+    // the original one, only "file is being used by another process" got out, and the clear text
+    // about logging in was lost. So cleanup is best-effort and must not mask the real error.
     private void CleanupWorkDir(string workDir)
     {
         try
@@ -370,7 +370,7 @@ public class ClaudeCliAiProvider(AppConfig config, AiLogger? logger = null) : IA
         }
         catch (Exception ex)
         {
-            logger?.LogNote($"Не удалось удалить временную папку {workDir}: {ex.Message}");
+            logger?.LogNote($"Could not delete the temp folder {workDir}: {ex.Message}");
         }
     }
 
@@ -380,9 +380,9 @@ public class ClaudeCliAiProvider(AppConfig config, AiLogger? logger = null) : IA
             "authentication_error", "invalid authentication", "invalid oauth token",
             "oauth token has expired", "token expired", "unauthorized", "failed to authenticate"];
         if (authMarkers.Any(marker => rawMessage.Contains(marker, StringComparison.OrdinalIgnoreCase)))
-            return new AiSetupException(L.T("Claude не авторизован или вход истёк.\nВыполни claude auth login; если задан токен в настройках игры, обнови или удали его."));
+            return new AiSetupException(L.T("Claude is not signed in or the session expired.\nRun claude auth login; if a token is set in the game settings, update or remove it."));
         if (rawMessage.Contains("does not have access to Claude", StringComparison.OrdinalIgnoreCase))
-            return new AiSetupException(L.T("Аккаунт не имеет доступа к Claude.\nПроверь аккаунт, подписку и токен в настройках."));
+            return new AiSetupException(L.T("The account has no access to Claude.\nCheck your account, subscription and the token in the settings."));
         return new Exception(rawMessage);
     }
 

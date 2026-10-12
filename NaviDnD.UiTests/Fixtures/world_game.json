@@ -1,10 +1,10 @@
 {
   "hero": {
     "symbol": "RUS",
-    "name": "Рустем",
+    "name": "Rustem",
     "hp": "12/12",
     "visionFt": 60,
-    "state": "нет",
+    "state": "none",
     "color": [
       80,
       160,
@@ -13,162 +13,162 @@
     "speedMax": 30,
     "speedLeft": 30,
     "equipmentSlots": [
-      "Голова",
-      "Шея",
-      "Тело",
-      "Плащ",
-      "Л Рука",
-      "П Рука",
-      "Пояс",
-      "Ноги",
-      "Обувь",
-      "Кольцо 1",
-      "Кольцо 2"
+      "Head",
+      "Neck",
+      "Body",
+      "Cloak",
+      "L Hand",
+      "R Hand",
+      "Belt",
+      "Legs",
+      "Feet",
+      "Ring 1",
+      "Ring 2"
     ],
     "stats": [
       {
-        "name": "Сила",
+        "name": "Strength",
         "value": "\u002B2 (14)"
       },
       {
-        "name": "Ловкость",
+        "name": "Dexterity",
         "value": "\u002B4 (18)"
       },
       {
-        "name": "Телосложение",
+        "name": "Constitution",
         "value": "\u002B2 (14)"
       },
       {
-        "name": "Интеллект",
+        "name": "Intelligence",
         "value": "\u002B0 (10)"
       },
       {
-        "name": "Мудрость",
+        "name": "Wisdom",
         "value": "\u002B1 (13)"
       },
       {
-        "name": "Харизма",
+        "name": "Charisma",
         "value": "\u002B0 (10)"
       },
       {
-        "name": "Класс Доспеха",
+        "name": "Armor Class",
         "value": "16"
       },
       {
-        "name": "Инициатива",
+        "name": "Initiative",
         "value": "\u002B4"
       },
       {
-        "name": "Скорость",
-        "value": "30 фт"
+        "name": "Speed",
+        "value": "30 ft"
       },
       {
-        "name": "Бонус Мастерства",
+        "name": "Proficiency Bonus",
         "value": "\u002B2"
       },
       {
-        "name": "Спасброски",
-        "value": "Сила \u002B4, Тел \u002B4"
+        "name": "Saving Throws",
+        "value": "Str +4, Con +4"
       },
       {
-        "name": "Уровень",
+        "name": "Level",
         "value": "1"
       },
       {
-        "name": "Размер",
-        "value": "Средний"
+        "name": "Size",
+        "value": "Medium"
       },
       {
-        "name": "Тип существа",
-        "value": "Гуманоид (эльф)"
+        "name": "Creature Type",
+        "value": "Humanoid (elf)"
       },
       {
-        "name": "Темное зрение",
-        "value": "60 фт"
+        "name": "Darkvision",
+        "value": "60 ft"
       }
     ],
     "skills": [
       {
-        "name": "Атлетика",
+        "name": "Athletics",
         "value": "\u002B2 \u002B2"
       },
       {
-        "name": "Акробатика",
+        "name": "Acrobatics",
         "value": "\u002B4"
       },
       {
-        "name": "Ловкость рук",
+        "name": "Sleight of Hand",
         "value": "\u002B4"
       },
       {
-        "name": "Скрытность",
+        "name": "Stealth",
         "value": "\u002B4 \u002B2"
       },
       {
-        "name": "История",
+        "name": "History",
         "value": "\u002B0"
       },
       {
-        "name": "Магия",
+        "name": "Arcana",
         "value": "\u002B0"
       },
       {
-        "name": "Природа",
+        "name": "Nature",
         "value": "\u002B0"
       },
       {
-        "name": "Расследование",
+        "name": "Investigation",
         "value": "\u002B0"
       },
       {
-        "name": "Религия",
+        "name": "Religion",
         "value": "\u002B0"
       },
       {
-        "name": "Восприятие",
+        "name": "Perception",
         "value": "\u002B1 \u002B2"
       },
       {
-        "name": "Выживание",
+        "name": "Survival",
         "value": "\u002B1 \u002B2"
       },
       {
-        "name": "Медицина",
+        "name": "Medicine",
         "value": "\u002B1"
       },
       {
-        "name": "Проницательность",
+        "name": "Insight",
         "value": "\u002B1"
       },
       {
-        "name": "Уход за животными",
+        "name": "Animal Handling",
         "value": "\u002B1"
       },
       {
-        "name": "Выступление",
+        "name": "Performance",
         "value": "\u002B0"
       },
       {
-        "name": "Запугивание",
+        "name": "Intimidation",
         "value": "\u002B0"
       },
       {
-        "name": "Обман",
+        "name": "Deception",
         "value": "\u002B0"
       },
       {
-        "name": "Убеждение",
+        "name": "Persuasion",
         "value": "\u002B0"
       }
     ],
     "inventory": [
       {
-        "name": "Длинный лук",
-        "description": "Дальнобойное, дист 150/600 фт, урон 1d8 колющий, двуручное, требует обеих рук для стрельбы",
+        "name": "Longbow",
+        "description": "Ranged, range 150/600 ft, 1d8 piercing damage, two-handed, needs both hands to shoot",
         "quantity": 1,
         "equipmentedSlot": [
-          "Л Рука",
-          "П Рука"
+          "L Hand",
+          "R Hand"
         ],
         "color": [
           160,
@@ -177,8 +177,8 @@
         ]
       },
       {
-        "name": "Длинный меч",
-        "description": "Рукопашное, урон 1d8 рубящий, универсальное 1d10 при хвате двумя руками",
+        "name": "Longsword",
+        "description": "Melee, 1d8 slashing damage, versatile 1d10 when held in two hands",
         "quantity": 1,
         "equipmentedSlot": [],
         "color": [
@@ -186,14 +186,14 @@
           160,
           160
         ],
-        "text": "Клинок принадлежал стражу восточных врат — на лезвии выгравировано его имя."
+        "text": "The blade belonged to the guard of the eastern gate — his name is engraved on it."
       },
       {
-        "name": "Кольчуга",
-        "description": "Средний доспех, КД 14\u002BЛов(макс 2), помеха на Скрытность, надевается 10 минут",
+        "name": "Chain Shirt",
+        "description": "Medium armor, AC 14 + Dex (max 2), disadvantage on Stealth, takes 10 minutes to don",
         "quantity": 1,
         "equipmentedSlot": [
-          "Тело"
+          "Body"
         ],
         "color": [
           160,
@@ -202,8 +202,8 @@
         ]
       },
       {
-        "name": "Стрелы",
-        "description": "Боеприпасы для лука, после боя половина ломается и не подлежит восстановлению",
+        "name": "Arrows",
+        "description": "Ammunition for a bow; after a fight half of them break and cannot be recovered",
         "quantity": 38,
         "equipmentedSlot": [],
         "color": [
@@ -213,11 +213,11 @@
         ]
       },
       {
-        "name": "Колчан",
-        "description": "Вмещает до 20 стрел, крепится на пояс, быстрый доступ бонусным действием",
+        "name": "Quiver",
+        "description": "Holds up to 20 arrows, attaches to the belt, quick access as a bonus action",
         "quantity": 1,
         "equipmentedSlot": [
-          "Пояс"
+          "Belt"
         ],
         "color": [
           160,
@@ -226,8 +226,8 @@
         ]
       },
       {
-        "name": "Набор путешественника",
-        "description": "Рюкзак, спальник, трут, факелы(10), рацион(10), верёвка 50 фт, котелок",
+        "name": "Explorer's Pack",
+        "description": "Backpack, bedroll, tinderbox, torches (10), rations (10), 50 ft of rope, mess kit",
         "quantity": 1,
         "equipmentedSlot": [],
         "color": [
@@ -237,8 +237,8 @@
         ]
       },
       {
-        "name": "Кинжал",
-        "description": "Рукопашное/метательное, дист 20/60 фт, урон 1d4 колющий, лёгкое оружие",
+        "name": "Dagger",
+        "description": "Melee/thrown, range 20/60 ft, 1d4 piercing damage, light weapon",
         "quantity": 2,
         "equipmentedSlot": [],
         "color": [
@@ -248,8 +248,8 @@
         ]
       },
       {
-        "name": "Золотые монеты",
-        "description": "Стандартная валюта. 1 зм = 10 см = 100 мм. Вес не учитывается до 500 монет.",
+        "name": "Gold Coins",
+        "description": "Standard currency. 1 gp = 10 sp = 100 cp. Weight is ignored up to 500 coins.",
         "quantity": 110,
         "equipmentedSlot": [],
         "color": [
@@ -259,8 +259,8 @@
         ]
       },
       {
-        "name": "Сердце Балора",
-        "description": "Рубин культа Кровавой Длани. Тёплый на ощупь, внутри пульсирует тёмный свет.",
+        "name": "Heart of Balor",
+        "description": "A ruby of the cult of the Bloody Hand. Warm to the touch, a dark light pulses inside it.",
         "equipmentedSlot": [],
         "color": [
           180,
@@ -269,8 +269,8 @@
         ]
       },
       {
-        "name": "Щит",
-        "description": "Лёгкий деревянный щит, \u002B2 к Классу Доспеха, занимает одну руку",
+        "name": "Shield",
+        "description": "A light wooden shield, +2 to Armor Class, takes one hand",
         "quantity": 1,
         "equipmentedSlot": [],
         "color": [
@@ -280,8 +280,8 @@
         ]
       },
       {
-        "name": "Зелье лечения",
-        "description": "Восстанавливает 2d4\u002B2 хитов при выпитии, действие на использование",
+        "name": "Potion of Healing",
+        "description": "Restores 2d4+2 hit points when drunk, takes an action to use",
         "quantity": 3,
         "equipmentedSlot": [],
         "color": [
@@ -291,8 +291,8 @@
         ]
       },
       {
-        "name": "Верёвка шёлковая",
-        "description": "50 футов, выдерживает 250 фунтов, не гниёт от влаги",
+        "name": "Silk Rope",
+        "description": "50 feet, holds 250 pounds, does not rot from damp",
         "quantity": 1,
         "equipmentedSlot": [],
         "color": [
@@ -302,8 +302,8 @@
         ]
       },
       {
-        "name": "Факел",
-        "description": "Горит 1 час, освещает область радиусом 20 футов ярким светом",
+        "name": "Torch",
+        "description": "Burns for 1 hour, sheds bright light in a 20-foot radius",
         "quantity": 6,
         "equipmentedSlot": [],
         "color": [
@@ -313,8 +313,8 @@
         ]
       },
       {
-        "name": "Отмычки воровские",
-        "description": "Инструмент для взлома замков, требуется владение для эффекта",
+        "name": "Thieves' Tools",
+        "description": "A tool for picking locks, requires proficiency to be effective",
         "quantity": 1,
         "equipmentedSlot": [],
         "color": [
@@ -324,8 +324,8 @@
         ]
       },
       {
-        "name": "Плащ странника",
-        "description": "Даёт преимущество на проверки Скрытности в дикой местности",
+        "name": "Wanderer's Cloak",
+        "description": "Gives advantage on Stealth checks in the wilderness",
         "quantity": 1,
         "equipmentedSlot": [],
         "color": [
@@ -335,8 +335,8 @@
         ]
       },
       {
-        "name": "Кольцо защиты",
-        "description": "\u002B1 к Классу Доспеха и спасброскам, требует настройки 1 час",
+        "name": "Ring of Protection",
+        "description": "+1 to Armor Class and saving throws, requires 1 hour of attunement",
         "quantity": 1,
         "equipmentedSlot": [],
         "color": [
@@ -346,8 +346,8 @@
         ]
       },
       {
-        "name": "Карта подземелья",
-        "description": "Неполная карта верхних уровней, отмечены известные ловушки",
+        "name": "Dungeon Map",
+        "description": "An incomplete map of the upper levels, with known traps marked",
         "quantity": 1,
         "equipmentedSlot": [],
         "color": [
@@ -357,8 +357,8 @@
         ]
       },
       {
-        "name": "Флейта эльфийская",
-        "description": "Музыкальный инструмент, даёт бонус к проверкам Выступления",
+        "name": "Elven Flute",
+        "description": "A musical instrument, gives a bonus to Performance checks",
         "quantity": 1,
         "equipmentedSlot": [],
         "color": [
@@ -368,8 +368,8 @@
         ]
       },
       {
-        "name": "Мешочек с песком",
-        "description": "Используется для отвлечения внимания или тушения огня",
+        "name": "Bag of Sand",
+        "description": "Used to create a distraction or put out fire",
         "quantity": 2,
         "equipmentedSlot": [],
         "color": [
@@ -381,8 +381,8 @@
     ],
     "abilities": [
       {
-        "name": "Боевой стиль: Стрельба",
-        "description": "\u002B2 к броскам атаки дальнобойным оружием, не действует в ближнем бою",
+        "name": "Fighting Style: Archery",
+        "description": "+2 to attack rolls with ranged weapons, does not apply in melee",
         "color": [
           200,
           50,
@@ -390,8 +390,8 @@
         ]
       },
       {
-        "name": "Второе дыхание",
-        "description": "Бон. действие: восстановить 1d10\u002B1 хитов, 1 раз до отдыха",
+        "name": "Second Wind",
+        "description": "Bonus action: regain 1d10+1 hit points, once per rest",
         "color": [
           50,
           100,
@@ -399,8 +399,8 @@
         ]
       },
       {
-        "name": "Фейское наследие",
-        "description": "Преимущество на спасброски против очарования, магия не усыпляет тебя",
+        "name": "Fey Ancestry",
+        "description": "Advantage on saving throws against being charmed, magic can't put you to sleep",
         "color": [
           220,
           220,
@@ -408,8 +408,8 @@
         ]
       },
       {
-        "name": "Обострённые чувства",
-        "description": "Владение навыком Восприятие, добавляет бонус мастерства",
+        "name": "Keen Senses",
+        "description": "Proficiency in the Perception skill, adds the proficiency bonus",
         "color": [
           220,
           220,
@@ -417,8 +417,8 @@
         ]
       },
       {
-        "name": "Транс",
-        "description": "Медитация 4 часа заменяет 8 часов сна, сохраняешь частичное осознание",
+        "name": "Trance",
+        "description": "Meditating for 4 hours replaces 8 hours of sleep; you stay partly aware",
         "color": [
           220,
           220,
@@ -426,8 +426,8 @@
         ]
       },
       {
-        "name": "Знание оружия эльфов",
-        "description": "Владение длинным и коротким луком, длинным и коротким мечом",
+        "name": "Elf Weapon Training",
+        "description": "Proficiency with longbow and shortbow, longsword and shortsword",
         "color": [
           220,
           220,
@@ -435,8 +435,8 @@
         ]
       },
       {
-        "name": "Скрытный охотник",
-        "description": "Преимущество на Скрытность, если двигаешься не более половины скорости",
+        "name": "Stealthy Hunter",
+        "description": "Advantage on Stealth if you move no more than half your speed",
         "color": [
           80,
           160,
@@ -444,8 +444,8 @@
         ]
       },
       {
-        "name": "Природное чутьё",
-        "description": "Не оставляешь следов в дикой местности при обычной ходьбе",
+        "name": "Natural Instinct",
+        "description": "You leave no tracks in the wilderness when walking normally",
         "color": [
           80,
           160,
@@ -453,8 +453,8 @@
         ]
       },
       {
-        "name": "Быстрый выстрел",
-        "description": "Бонусным действием можно сделать дополнительный выстрел из лука раз за ход",
+        "name": "Quick Shot",
+        "description": "As a bonus action, you can make an extra bow shot once per turn",
         "color": [
           200,
           50,
@@ -462,8 +462,8 @@
         ]
       },
       {
-        "name": "Меткий глаз",
-        "description": "Игнорирует укрытие в три четверти при стрельбе по видимой цели",
+        "name": "Keen Eye",
+        "description": "Ignores three-quarters cover when shooting at a visible target",
         "color": [
           200,
           50,
@@ -471,8 +471,8 @@
         ]
       },
       {
-        "name": "Знаток трав",
-        "description": "Преимущество на проверки Природы, связанные с растениями и ядами",
+        "name": "Herb Expert",
+        "description": "Advantage on Nature checks involving plants and poisons",
         "color": [
           220,
           220,
@@ -480,8 +480,8 @@
         ]
       },
       {
-        "name": "Голос леса",
-        "description": "Понимает простые сигналы животных, не полноценная речь",
+        "name": "Voice of the Forest",
+        "description": "Understands simple animal signals, not full speech",
         "color": [
           220,
           220,
@@ -489,8 +489,8 @@
         ]
       },
       {
-        "name": "Хладнокровие в бою",
-        "description": "Не получаешь помеху от испуга при виде превосходящего противника",
+        "name": "Battle Composure",
+        "description": "You don't get disadvantage from fear at the sight of a superior foe",
         "color": [
           200,
           50,
@@ -498,8 +498,8 @@
         ]
       },
       {
-        "name": "Ловкий уклон",
-        "description": "Реакцией можешь сократить урон от одной атаки в раунд наполовину",
+        "name": "Uncanny Dodge",
+        "description": "As a reaction, you can halve the damage from one attack per round",
         "color": [
           80,
           160,
@@ -507,8 +507,8 @@
         ]
       },
       {
-        "name": "Чувство опасности",
-        "description": "Преимущество на спасброски от ловушек и area-эффектов, которые видишь",
+        "name": "Danger Sense",
+        "description": "Advantage on saving throws against traps and area effects you can see",
         "color": [
           80,
           160,
@@ -516,8 +516,8 @@
         ]
       },
       {
-        "name": "Второе чутьё следопыта",
-        "description": "Не теряешь след цели даже при потере прямой видимости на короткое время",
+        "name": "Ranger's Sixth Sense",
+        "description": "You don't lose a target's trail even if you lose sight of it for a short time",
         "color": [
           220,
           220,
@@ -525,8 +525,8 @@
         ]
       },
       {
-        "name": "Устойчивость к ядам",
-        "description": "Преимущество на спасброски против ядов, сопротивление урону ядом",
+        "name": "Poison Resilience",
+        "description": "Advantage on saving throws against poison, resistance to poison damage",
         "color": [
           220,
           220,
@@ -534,8 +534,8 @@
         ]
       },
       {
-        "name": "Ночное зрение эльфов",
-        "description": "Видишь в тусклом свете как при дневном, различаешь цвета в темноте",
+        "name": "Elven Night Vision",
+        "description": "You see in dim light as if it were daylight and can tell colors in the dark",
         "color": [
           220,
           220,
@@ -543,8 +543,8 @@
         ]
       },
       {
-        "name": "Быстрые ноги",
-        "description": "Скорость увеличена на 10 футов при облегчённой броне или без брони",
+        "name": "Fleet of Foot",
+        "description": "Speed increased by 10 feet in light armor or no armor",
         "color": [
           80,
           160,
@@ -552,8 +552,8 @@
         ]
       },
       {
-        "name": "Верный выстрел",
-        "description": "Перебрасываешь один d20 при промахе дальнобойной атакой раз за отдых",
+        "name": "True Shot",
+        "description": "Reroll one d20 when you miss with a ranged attack, once per rest",
         "color": [
           200,
           50,
@@ -561,8 +561,8 @@
         ]
       },
       {
-        "name": "Полевой медик",
-        "description": "Даёт цели дополнительную Кость Хитов при коротком отдыхе действием",
+        "name": "Field Medic",
+        "description": "Gives the target an extra Hit Die on a short rest, as an action",
         "color": [
           50,
           100,
@@ -570,8 +570,8 @@
         ]
       },
       {
-        "name": "Спокойствие духа",
-        "description": "Преимущество на спасброски против испуга и подчинения воли",
+        "name": "Calm Spirit",
+        "description": "Advantage on saving throws against fear and domination",
         "color": [
           220,
           220,
@@ -579,8 +579,8 @@
         ]
       },
       {
-        "name": "Знаток следов",
-        "description": "Автоматический успех при выслеживании существ известного типа",
+        "name": "Tracking Expert",
+        "description": "Automatic success when tracking creatures of a known type",
         "color": [
           80,
           160,
@@ -590,27 +590,27 @@
     ],
     "resources": [
       {
-        "name": "Второе дыхание",
+        "name": "Second Wind",
         "value": "1/1"
       },
       {
-        "name": "Кости хитов (d10)",
+        "name": "Hit Dice (d10)",
         "value": "1/1"
       }
     ],
     "actions": [
       {
-        "name": "Действие",
+        "name": "Action",
         "value": 1,
         "maxValue": 1
       },
       {
-        "name": "Бон. действие",
+        "name": "Bonus action",
         "value": 1,
         "maxValue": 1
       },
       {
-        "name": "Реакция",
+        "name": "Reaction",
         "value": 1,
         "maxValue": 1
       }
@@ -626,57 +626,57 @@
     "objects": []
   },
   "narrative": {
-    "world": "Мрачный тёмный фэнтези-мир на границе королевства Азарин. Заброшенное подземелье под руинами старого монастыря захвачено культом Кровавой Длани.",
-    "currentArc": "Сердце Балора — рубин культа",
+    "world": "A grim dark fantasy world on the border of the kingdom of Azarin. An abandoned dungeon beneath the ruins of an old monastery has been seized by the cult of the Bloody Hand.",
+    "currentArc": "Heart of Balor — the cult's ruby",
     "plotThreads": [
       {
-        "name": "Ритуал культа",
-        "status": "активна",
-        "description": "Культист Мораг проводит ритуал в Зале жертвоприношений."
+        "name": "The Cult's Ritual",
+        "status": "active",
+        "description": "Morag the Cultist is performing a ritual in the Sacrificial Hall."
       },
       {
-        "name": "Пленник Керим",
-        "status": "активна",
-        "description": "В камере прикован измождённый человек."
+        "name": "Kerim the Prisoner",
+        "status": "active",
+        "description": "An emaciated man is chained up in the cell."
       }
     ],
     "npcs": [
       {
-        "name": "Керим",
-        "attitude": "дружелюбный",
-        "notes": "Пленник в камере, знает секреты культа"
+        "name": "Kerim",
+        "attitude": "friendly",
+        "notes": "A prisoner in the cell, knows the cult's secrets"
       },
       {
-        "name": "Мораг",
-        "attitude": "враждебный",
-        "notes": "Культист-заклинатель, главарь логова."
+        "name": "Morag",
+        "attitude": "hostile",
+        "notes": "A cultist spellcaster, leader of the lair."
       }
     ]
   },
   "time": {
     "totalRounds": 1,
-    "partOfDay": "Утро"
+    "partOfDay": "Morning"
   },
   "history": [
     {
       "author": "DM",
-      "text": "Ты стоишь в тихой каменной комнате, факелы едва потрескивают на стенах."
+      "text": "You stand in a quiet stone room; torches crackle faintly on the walls."
     },
     {
-      "author": "Рустем",
-      "text": "Осматриваюсь по сторонам."
+      "author": "Rustem",
+      "text": "I look around."
     }
   ],
   "world": {
     "id": "world-uitest",
-    "place": "Ключи",
+    "place": "Springs",
     "x": 91,
     "y": 25,
     "known": [
-      "Ключи"
+      "Springs"
     ],
     "visited": [
-      "Ключи"
+      "Springs"
     ]
   },
   "combat": null

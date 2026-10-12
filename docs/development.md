@@ -1,85 +1,85 @@
-# Разработка NaviDnD
+# Developing NaviDnD
 
-## Запуск из исходников
+## Running from source
 
-1. Установи [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) и один из клиентов: [Codex CLI](https://developers.openai.com/codex/cli) или [Claude Code](https://code.claude.com/docs/en/quickstart). Нужен аккаунт с доступом к выбранной нейронке.
-2. Скачай репозиторий и открой PowerShell в его папке.
-3. Собери игру и сервер инструментов:
+1. Install the [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) and one of the clients: [Codex CLI](https://developers.openai.com/codex/cli) or [Claude Code](https://code.claude.com/docs/en/quickstart). You need an account with access to the chosen model.
+2. Download the repository and open PowerShell in its folder.
+3. Build the game and the tool server:
 
    ```powershell
    dotnet build NaviDnD.McpServer/NaviDnD.McpServer.csproj
    ```
 
-4. Запусти игру в отдельном окне консоли:
+4. Start the game in a separate console window:
 
    ```powershell
    Start-Process .\NaviDnD\bin\Debug\net9.0\NaviDnD.exe
    ```
 
-5. В меню **Настройки** выбери нейронку. Укажи путь к её exe, если она не найдена в PATH, и доступные твоему аккаунту модели игры, мира и героя.
-   - **Codex:** один раз выполни `codex login`. Отдельный токен в игре не нужен. Начни с Sol 6.1 и среднего размышления, если модель доступна аккаунту.
-   - **Claude:** войди через `claude auth login` и оставь поле токена пустым либо получи токен по инструкции ниже.
-6. Выбери **Новая игра** и создай персонажа.
+5. In the **Settings** menu pick the AI. Specify the path to its exe if it isn't found on PATH, and the game, world and hero models available to your account.
+   - **Codex:** run `codex login` once. No separate token is needed in the game. Start with Sol 6.1 and medium reasoning if your account has access to the model.
+   - **Claude:** sign in with `claude auth login` and leave the token field empty, or get a token using the instructions below.
+6. Choose **New game** and create a character.
 
-Папки хранения и файл настроек создаются автоматически при первом запуске; сохранения, миры и герои — по мере игры. Данные находятся в `NaviDnD/Storage/`, логи — в `NaviDnD/logs/`. Обе папки исключены из Git. Перед пересборкой закрой игру. Обновление исходников — `git pull` и повторная сборка.
+The storage folders and the settings file are created automatically on first launch; saves, worlds and heroes as you play. Data lives in `NaviDnD/Storage/`, logs in `NaviDnD/logs/`. Both folders are excluded from Git. Close the game before rebuilding. To update the sources, `git pull` and build again.
 
-### Поиск клиентов
+### Finding the clients
 
-При каждом запуске игра ищет клиенты в фоне: PATH, стандартные папки, npm и расширения VS Code, Cursor и Windsurf. Устаревшие пути исправляются автоматически, работающие ручные пути сохраняются; меню не ждёт завершения поиска. Если найден только Codex, он будет выбран автоматически. Начальные модели: Codex — Sol 6.1 со средним размышлением, Claude — Opus 5.5.
+On every launch the game looks for the clients in the background: PATH, standard folders, npm and the VS Code, Cursor and Windsurf extensions. Stale paths are fixed automatically, working manual paths are kept; the menu doesn't wait for the search to finish. If only Codex is found, it is selected automatically. Initial models: Codex — Sol 6.1 with medium reasoning, Claude — Opus 5.5.
 
-### Токен Claude для настроек игры
+### Claude token for the game settings
 
-1. Установи [Claude Code](https://code.claude.com/docs/en/quickstart). Для токена нужна подписка Claude Pro, Max, Team или Enterprise.
-2. Выполни в PowerShell `claude setup-token`. Если команда не найдена, укажи путь к exe: `& "C:\путь\к\claude.exe" setup-token`.
-3. Открой предложенную ссылку, войди в аккаунт Claude и подтверди доступ. Если браузер покажет код подтверждения, вставь его в терминал.
-4. Скопируй OAuth-токен. В игре открой **Настройки**, выбери **Claude** и вставь его в поле **Токен Claude**.
+1. Install [Claude Code](https://code.claude.com/docs/en/quickstart). A token requires a Claude Pro, Max, Team or Enterprise subscription.
+2. Run `claude setup-token` in PowerShell. If the command isn't found, give the path to the exe: `& "C:\path\to\claude.exe" setup-token`.
+3. Open the suggested link, sign in to your Claude account and confirm access. If the browser shows a confirmation code, paste it into the terminal.
+4. Copy the OAuth token. In the game open **Settings**, choose **Claude** and paste it into the **Claude token** field.
 
-Ключ API из Anthropic Console сюда не подходит. Токен хранится локально в `Storage/settings.json`, исключённом из Git. Если токен истёк, снова выполни `claude setup-token`. [Официальная инструкция](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token).
+An API key from the Anthropic Console does not work here. The token is stored locally in `Storage/settings.json`, which is excluded from Git. If the token has expired, run `claude setup-token` again. [Official instructions](https://code.claude.com/docs/en/authentication#generate-a-long-lived-token).
 
-## Озвучка Silero
+## Silero voice-over
 
-В готовой сборке Silero, русская модель, Python и CPU PyTorch включены в установщик; комплект находится в `Speech/silero/`. Для запуска из исходников без комплекта нужен Python 3.10–3.12 x64; установка: `powershell -NoProfile -ExecutionPolicy Bypass -File NaviDnD/Speech/setup-silero.ps1`. Для сборки автономного релиза кэш Silero должен использовать Python 3.12. Используется [Silero v5.5](https://github.com/snakers4/silero-models).
+In the release build Silero, the Russian model, Python and CPU PyTorch are included in the installer; the bundle lives in `Speech/silero/`. Running from source without the bundle requires Python 3.10–3.12 x64; to install: `powershell -NoProfile -ExecutionPolicy Bypass -File NaviDnD/Speech/setup-silero.ps1`. To build a standalone release, the Silero cache must use Python 3.12. [Silero v5.5](https://github.com/snakers4/silero-models) is used.
 
-При включённой озвучке ведущий передаёт один `text` с SSML-разметкой: на экране игра скрывает теги, ударения и смысловые выделения, а Silero получает паузы и настройки интонации. Флаг `speechEnabled:true/false` передаётся одной строкой в контексте; при выключенной озвучке ведущий присылает обычный текст. Если разметка некорректна, используется обычная речь. При запуске с включённой озвучкой модель загружается и прогревается в фоне без звука. Если звука нет, проверь статус в настройках и `logs/speech.log`.
+With voice-over enabled, the DM sends a single `text` with SSML markup: on screen the game hides the tags, stress marks and emphasis, while Silero gets the pauses and intonation settings. The `speechEnabled:true/false` flag is passed as a single line in the context; with voice-over off the DM sends plain text. If the markup is invalid, plain speech is used. When the game starts with voice-over enabled, the model is loaded and warmed up silently in the background. If there is no sound, check the status in the settings and `logs/speech.log`.
 
-## Проверка кода
+## Checking the code
 
 ```powershell
 dotnet test NaviDnD.Tests/NaviDnD.Tests.csproj
 ```
 
-Не запускай тесты всего решения без необходимости: `NaviDnD.PromptTests` делает реальные запросы к нейронке и расходует лимиты/средства. Подробнее о Codex: [codex.md](codex.md).
+Don't run the tests for the whole solution unless you need to: `NaviDnD.PromptTests` makes real requests to the model and spends quota/money. More about Codex: [codex.md](codex.md).
 
-## Языки
+## Languages
 
-Текст на экране — через `L.T("Русская строка")`, с подстановками — `L.F("День {0}", day)`; текст, который сохраняется или уходит мастеру на языке игры (история, названия генератора), — `L.W`/`L.WF`. Английский перевод — в `NaviDnD.Data/Localization/en.json` с тем же ключом; строка установщика — ещё и в `NaviDnD.Installer/en.json`. Служебные инструкции мастеру не оборачиваются. `LocalizationTests` показывает строки без перевода. Подробности и границы — [localization.md](localization.md).
+English is the source language. On-screen text goes through `L.T("English string")`, with substitutions `L.F("Day {0}", day)`; text that is saved or sent to the DM in the game's language (history, generator names) goes through `L.W`/`L.WF`; plurals through `L.Plural(n, "day", "days")`. The Russian translation lives in `NaviDnD.Data/Localization/ru.json` under the same key (plural forms under `"day|days"`); installer strings also go into `NaviDnD.Installer/ru.json`. The DM's service instructions are in English and are not wrapped. `LocalizationTests` lists strings without a translation. Details and boundaries: [localization.md](localization.md).
 
-## Формат сохранений и миграции
+## Save format and migrations
 
-У файлов данных (сохранения, заметки, карточки героев, миры с локациями) есть поле `formatVersion` — `StorageFormat.Current`. Меняешь, как данные лежат в файле (переименование поля, новые значения-ключи, перенос), — увеличь `StorageFormat.Current` и добавь шаг в `NaviDnD/Migrations/StorageMigration.cs` (из версии N в N+1, над JSON), с тестом в `StorageMigrationTests`. Код игры читает только текущий формат.
+Data files (saves, notes, hero cards, worlds with locations) have a `formatVersion` field — `StorageFormat.Current`. If you change how data is laid out in the file (renaming a field, new key values, moving things), bump `StorageFormat.Current` and add a step to `NaviDnD/Migrations/StorageMigration.cs` (from version N to N+1, over JSON), with a test in `StorageMigrationTests`. The game code reads only the current format.
 
-Шаги выполняет `NaviDnD.exe --migrate <папка игры>`: его запускает помощник обновления после патчей; при запуске из исходников — сама игра при старте (или вручную после `git pull`). Перед записью — копия файлов в `Storage/Backup/format-<N>-<время>`; лог — `logs/migrations.log`.
+The steps are run by `NaviDnD.exe --migrate <game folder>`: the update helper runs it after patches; when running from source, the game itself does it at startup (or manually after `git pull`). Before writing, the files are copied to `Storage/Backup/format-<N>-<time>`; the log is `logs/migrations.log`.
 
-## Обновления
+## Updates
 
-Готовая сборка проверяет новую версию в фоне при запуске; вручную — **Обновления** в главном меню. После проверки SHA256 игра закрывается, обновляется без отдельного окна установщика и запускается снова. Сохранения, настройки и модель Silero сохраняются. Логи — `logs/updates.log`.
+The release build checks for a new version in the background on launch; manually via **Updates** in the main menu. After the SHA256 check the game closes, updates without a separate installer window and starts again. Saves, settings and the Silero model are preserved. Logs: `logs/updates.log`.
 
-Начиная с 1.1.5 обновления приходят **патчами**: скачиваются только изменённые файлы. Перед применением игра проверяет SHA256 скачанного и все файлы установленной версии; патч применяет помощник `Updater/NaviDnD-Setup-win-x64.exe` (копия установщика, ставится вместе с игрой). Замена идёт с резервом: при любой ошибке прежние файлы возвращаются. Если файлы игры повреждены или версия слишком старая, игра скачивает полную базовую сборку и патчи к ней.
+Starting with 1.1.5 updates arrive as **patches**: only changed files are downloaded. Before applying, the game verifies the SHA256 of what was downloaded and of all files in the installed version; the patch is applied by the helper `Updater/NaviDnD-Setup-win-x64.exe` (a copy of the installer, installed together with the game). Files are replaced with a backup: on any error the previous files are restored. If the game files are damaged or the version is too old, the game downloads the full base build and the patches for it.
 
-**Переход на патчи (версии до 1.1.4 включительно).** Старая игра патчей не понимает и обновляется полной сборкой (около 500 МБ). Новый установщик ставит её, докачивает патчи и ставит помощника. Если переход сорвался, игра останется на базовой версии 1.1.4 и предложит обновиться снова.
+**Moving to patches (versions up to and including 1.1.4).** The old game doesn't understand patches and updates with the full build (about 500 MB). The new installer installs it, downloads the patches and installs the helper. If the transition fails, the game stays on base version 1.1.4 and offers to update again.
 
-Файлы `NaviDnD-payload.*` — части базовой сборки (игра, .NET и озвучка Silero), разделённые из-за лимита размера файлов. Установщик ставит базу и доводит её до актуальной версии патчами из `releases/patches/`; если их рядом нет — скачивает из последнего релиза.
+The `NaviDnD-payload.*` files are parts of the base build (the game, .NET and Silero voice-over), split because of the file size limit. The installer installs the base and brings it up to the current version with patches from `releases/patches/`; if they aren't next to it, it downloads them from the latest release.
 
-## Публикация новой версии
+## Publishing a new version
 
-Измени `Version` в `Directory.Build.props`, закоммить исходники, запусти `build-release.ps1`, закоммить `releases/` и `.gitlab/release.json`, затем отправь коммит и тег `v<версия>`. GitLab CI создаст релиз со ссылками на базу, установщик и патчи. Для обновлений без авторизации проект должен быть публичным.
+Change `Version` in `Directory.Build.props`, commit the sources, run `build-release.ps1`, commit `releases/` and `.gitlab/release.json`, then push the commit and the tag `v<version>`. GitLab CI creates a release with links to the base, the installer and the patches. For updates without authentication the project must be public.
 
 `powershell -NoProfile -ExecutionPolicy Bypass -File build-release.ps1`:
 
-- **без ключей — патч-релиз** (обычный случай). Игра и MCP-сервер собираются заново и сравниваются с описанием файлов предыдущей версии (`releases/manifests/<версия>.json`); в `releases/patches/` появляется `NaviDnD-patch-<было>-<стало>.zip` только с изменёнными файлами, списком удалённых и полным списком исходных файлов с SHA256. База (`NaviDnD-payload.*` с .NET и Silero) не пересобирается и не отправляется заново — ссылки ведут на тег, где она опубликована. Установщик пересобирается, только если изменились его исходники (`NaviDnD.Installer`), — поэтому их нужно закоммитить до сборки. Цепочка патчей описана в `releases/NaviDnD-updates.json`, а `SHA256SUMS.txt` остаётся в старом формате для клиентов до 1.1.4;
-- `-Base` — новая полная база с Silero (когда меняется озвучка или патчи стали слишком большими): части архива, установщик, описание файлов, цепочка патчей с нуля;
-- `-AdoptBase` — объявить базой уже собранные части без пересборки (так 1.1.4 стала базой для патчей).
+- **with no switches — a patch release** (the usual case). The game and the MCP server are rebuilt and compared against the file manifest of the previous version (`releases/manifests/<version>.json`); `releases/patches/` gets `NaviDnD-patch-<from>-<to>.zip` with only the changed files, a list of removed files and the full list of source files with SHA256. The base (`NaviDnD-payload.*` with .NET and Silero) is not rebuilt or re-uploaded — the links point to the tag where it was published. The installer is rebuilt only if its sources (`NaviDnD.Installer`) changed — so they must be committed before the build. The patch chain is described in `releases/NaviDnD-updates.json`, while `SHA256SUMS.txt` stays in the old format for clients up to 1.1.4;
+- `-Base` — a new full base with Silero (when the voice-over changes or the patches have grown too large): archive parts, installer, file manifest, a patch chain from scratch;
+- `-AdoptBase` — declare already-built parts the base without rebuilding (this is how 1.1.4 became the base for patches).
 
-Игровые данные не включаются; ресурсы берутся только из файлов, отслеживаемых Git. Исходники и релиз хранятся в одном репозитории. Проверка без окна: `NaviDnD-Setup-win-x64.exe --extract <папка>` ставит базу, `--apply-patches <папка> <папка с патчами>` применяет цепочку.
+Game data is not included; resources are taken only from files tracked by Git. Sources and releases are kept in one repository. Checking without a window: `NaviDnD-Setup-win-x64.exe --extract <folder>` installs the base, `--apply-patches <folder> <patches folder>` applies the chain.
 
-Промежуточные файлы релиза создаются в системной временной папке и автоматически удаляются после сборки, в том числе при ошибке.
+Intermediate release files are created in the system temp folder and are removed automatically after the build, including on failure.

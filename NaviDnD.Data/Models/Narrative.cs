@@ -2,25 +2,25 @@ namespace NaviDnD.Data.Models;
 
 public class Narrative
 {
-    /// <summary>Сеттинг: тон, атмосфера, описание мира</summary>
+    /// <summary>Setting: tone, atmosphere, world description</summary>
     public string World { get; set; } = "";
 
-    /// <summary>Текущий квест / основная арка</summary>
+    /// <summary>Current quest / main arc</summary>
     public string CurrentArc { get; set; } = "";
 
-    /// <summary>Параметры приключения, выбранные игроком (жанр, упор, длина, сложность, темп) — мастер следует им всю игру</summary>
+    /// <summary>Adventure parameters chosen by the player (genre, focus, length, difficulty, pace) — the DM follows them all game</summary>
     public string Style { get; set; } = "";
 
-    /// <summary>Активные и завершённые сюжетные нити</summary>
+    /// <summary>Active and completed story threads</summary>
     public List<PlotThread> PlotThreads { get; set; } = [];
 
-    /// <summary>Запомненные NPC: отношение и ключевые факты</summary>
+    /// <summary>Remembered NPCs: attitude and key facts</summary>
     public List<NpcRecord> Npcs { get; set; } = [];
 
     /// <summary>
-    /// Виды монстров, которых герой опознал (MonsterKey из map.entities) — по виду, не по конкретной
-    /// сущности: один раз изучил гоблина, все гоблины дальше узнаваемы. Список целиком заменяется
-    /// патчем (не PatchByIndex) — сюда никогда не пишут id/deleted.
+    /// Monster kinds the hero has identified (MonsterKey from map.entities) — by kind, not by a specific
+    /// entity: study a goblin once and every goblin after that is recognizable. The list is replaced wholesale
+    /// by a patch (not PatchByIndex) — id/deleted are never written here.
     /// </summary>
     public List<string>? KnownMonsters { get; set; }
 }
@@ -31,21 +31,21 @@ public class PlotThread : IPatchable
 
     public string Name { get; set; }
 
-    /// <summary>"активна" | "раскрыта" | "завершена"</summary>
+    /// <summary>"active" | "revealed" | "completed"</summary>
     public string Status { get; set; }
 
-    /// <summary>Что о задании знает герой (показывается в журнале).</summary>
+    /// <summary>What the hero knows about the quest (shown in the journal).</summary>
     public string Description { get; set; }
 
-    /// <summary>true — герой о нити ещё не знает (заговор, будущий поворот): в журнале её нет.</summary>
+    /// <summary>true — the hero doesn't know about the thread yet (a conspiracy, a future twist): it's not in the journal.</summary>
     public bool? Hidden { get; set; }
 
-    /// <summary>Заметки мастера: скрытая правда, планы на сюжет — только для ИИ, герою не показываются.</summary>
+    /// <summary>DM notes: the hidden truth, plot plans — for the AI only, never shown to the hero.</summary>
     public string? DmNotes { get; set; }
 
     /// <summary>
-    /// Шаги по ходу задания («Узнал, что ключ у старосты») — журнал героя. Как npcs[i].memory: движок
-    /// только дописывает новые строки (Storage.MergeInto).
+    /// Steps along the quest ("Learned that the headman has the key") — the hero's journal. Like npcs[i].memory: the engine
+    /// only appends new lines (Storage.MergeInto).
     /// </summary>
     public List<string>? Steps { get; set; }
 }
@@ -56,21 +56,21 @@ public class NpcRecord : IPatchable
 
     public string Name { get; set; }
 
-    /// <summary>Отношение к герою: дружелюбный / нейтральный / враждебный / неизвестно</summary>
+    /// <summary>Attitude toward the hero: friendly / neutral / hostile / unknown</summary>
     public string Attitude { get; set; }
 
-    /// <summary>Что герой знает о NPC: кто он, как выглядит, чем занят (показывается в журнале)</summary>
+    /// <summary>What the hero knows about the NPC: who they are, what they look like, what they do (shown in the journal)</summary>
     public string Notes { get; set; }
 
-    /// <summary>true — герой встретил NPC или знает о нём: только такие видны в журнале.</summary>
+    /// <summary>true — the hero has met the NPC or knows about them: only these are visible in the journal.</summary>
     public bool? Met { get; set; }
 
-    /// <summary>Заметки мастера: истинные мотивы, тайны, планы NPC — только для ИИ, герою не показываются.</summary>
+    /// <summary>DM notes: the NPC's true motives, secrets, plans — for the AI only, never shown to the hero.</summary>
     public string? DmNotes { get; set; }
 
     /// <summary>
-    /// Память о разговорах с героем: каждая строка — факт с явным автором («Нурс сказал: …»).
-    /// Движок только дописывает новые строки (Storage.MergeInto), старые не теряются при перезаписи notes.
+    /// Memory of conversations with the hero: each line is a fact with an explicit author ("Nurs said: …").
+    /// The engine only appends new lines (Storage.MergeInto); old ones aren't lost when notes are overwritten.
     /// </summary>
     public List<string>? Memory { get; set; }
 }

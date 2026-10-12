@@ -13,7 +13,7 @@ public class InputBox
     private readonly bool _arrowKeysMovement;
 
     private int _textWidth;
-    private string _prompt = " " + L.T("Ввод: ");
+    private string _prompt = " " + L.T("Input: ");
     private int _promptLength;
 
     private int _maxLine = 1;
@@ -25,17 +25,17 @@ public class InputBox
 
     private Action<int> _bottomAction;
 
-    // Общий для всех полей ввода: поле пересоздаётся на каждом ходу, а отложенное нажатие должно дожить до следующего.
+    // Shared by all input fields: the field is recreated every turn, but a deferred key press has to survive until the next one.
     private static ConsoleKeyInfo? _bufferedKey;
 
-    // Автоповтор F-клавиш: пока клавишу держат, повторы идут каждые ~30 мс — их отсекаем (окно меньше, чем
-    // успевает человек между двумя нажатиями: быстрое двойное нажатие, например чтобы вернуть фильтр, проходит).
+    // F-key auto-repeat: while a key is held, repeats come every ~30 ms; we drop them (the window is shorter than
+    // a human can manage between two presses, so a quick double press, e.g. to restore a filter, gets through).
     private static ConsoleKey? _lastFKey;
     private static DateTime _lastFKeyAt;
     private const int FKeyRepeatMs = 110;
 
-    // true — это автоповтор зажатой F-клавиши (тот же Fn, что и только что). Общий для поля ввода и
-    // переключения вкладок во время ответа мастера (DialogDisplay.SwitchTab).
+    // true if this is an auto-repeat of a held F-key (the same Fn as just now). Shared by the input field and
+    // tab switching while the DM is answering (DialogDisplay.SwitchTab).
     public static bool IsFKeyRepeat(ConsoleKey key)
     {
         if (key is < ConsoleKey.F1 or > ConsoleKey.F12) return false;
@@ -88,13 +88,13 @@ public class InputBox
             if (_bufferedKey.HasValue) { key = _bufferedKey.Value; _bufferedKey = null; }
             else key = ReadKeyWithPolling();
 
-            // Зажатая F-клавиша (автоповтор) — только первое нажатие: повторы того же Fn подряд, пока клавишу
-            // держат, игнорируются (иначе экран перерисовывался бы непрерывно).
+            // Held F-key (auto-repeat): only the first press counts; repeats of the same Fn in a row while the key
+            // is held are ignored (otherwise the screen would redraw continuously).
             if (IsFKeyRepeat(key.Key)) continue;
 
             bool hasText = lines.Any(l => l.Length > 0);
 
-            // Ctrl+«+»/«−» на карте — масштаб карты мира (MapScreenLoop: только на экране Мира).
+            // Ctrl+«+»/«−» on the map zooms the world map (MapScreenLoop: only on the World screen).
             if (_arrowKeysMovement && (key.Modifiers & ConsoleModifiers.Control) != 0)
             {
                 if (key.Key is ConsoleKey.OemPlus or ConsoleKey.Add) return "ZoomIn";
@@ -109,7 +109,7 @@ public class InputBox
                     if (_display != null) _display.PendingInputText = "";
                     return string.Join(" ", lines);
 
-                // Журнал: [Del] при пустом вводе — удалить выбранную заметку.
+                // Journal: [Del] with empty input deletes the selected note.
                 case ConsoleKey.Delete when !hasText && _display != null && _display.JournalShown:
                     return "Delete";
 
@@ -132,13 +132,13 @@ public class InputBox
                 case ConsoleKey.LeftArrow:
                     if ((key.Modifiers & ConsoleModifiers.Alt) != 0)
                         return "Left";
-                    // Ctrl+стрелки на карте — сдвиг камеры, герой не двигается.
+                    // Ctrl+arrows on the map pan the camera; the hero doesn't move.
                     if (_arrowKeysMovement && (key.Modifiers & ConsoleModifiers.Control) != 0)
                         return "PanLeft";
-                    // На карте стрелки — движение: закреплённая карточка с экрана персонажа их не перехватывает.
+                    // On the map, arrows move the hero: a pinned card from the character screen doesn't intercept them.
                     if (!_arrowKeysMovement && !hasText && _display.NotePageCount > 1 && (_display.PinnedInventoryIndex >= 0 || _display.PinnedSpellIndex >= 0))
                         return "NoteLeft";
-                    // Журнал: ←→ при пустом вводе — листать книгу.
+                    // Journal: ←→ with empty input flips the book's pages.
                     if (!hasText && _display != null && _display.JournalShown) return "Left";
                     if (_arrowKeysMovement && !hasText)
                         return TryReadChordArrow(80, ConsoleKey.LeftArrow) switch {
@@ -155,10 +155,10 @@ public class InputBox
                         return "Right";
                     if (_arrowKeysMovement && (key.Modifiers & ConsoleModifiers.Control) != 0)
                         return "PanRight";
-                    // На карте стрелки — движение: закреплённая карточка с экрана персонажа их не перехватывает.
+                    // On the map, arrows move the hero: a pinned card from the character screen doesn't intercept them.
                     if (!_arrowKeysMovement && !hasText && _display.NotePageCount > 1 && (_display.PinnedInventoryIndex >= 0 || _display.PinnedSpellIndex >= 0))
                         return "NoteRight";
-                    // Журнал: ←→ при пустом вводе — листать книгу.
+                    // Journal: ←→ with empty input flips the book's pages.
                     if (!hasText && _display != null && _display.JournalShown) return "Right";
                     if (_arrowKeysMovement && !hasText)
                         return TryReadChordArrow(80, ConsoleKey.RightArrow) switch {
@@ -221,13 +221,13 @@ public class InputBox
                 case ConsoleKey.Escape:
                     if (_needClear)
                         Clear(startTop, lines.Count);
-                    // Выход в меню — как переключение вкладки: набранное дождётся возвращения в игру.
+                    // Exiting to the menu works like a tab switch: typed text waits until you return to the game.
                     if (_display != null) _display.PendingInputText = string.Join("\n", lines);
                     PlayInputClick();
                     return "Esc";
 
-                // F1-F4 — звук только если реально переключает экран (как у мыши: клик по уже
-                // активному верхнеуровневому табу не кликабелен и звука не даёт).
+                // F1-F4 play a sound only if they actually switch the screen (like the mouse: clicking an already
+                // active top-level tab isn't clickable and makes no sound).
                 case ConsoleKey.F1:
                 case ConsoleKey.F2:
                 case ConsoleKey.F3:
@@ -237,15 +237,15 @@ public class InputBox
                     if (_display != null) _display.PendingInputText = string.Join("\n", lines);
                     return key.Key.ToString();
 
-                case ConsoleKey.F12: // карта мира — темп пути
-                case ConsoleKey.F10: // карта мира — в путь (на местности — DEBUG)
+                case ConsoleKey.F12: // world map: travel pace
+                case ConsoleKey.F10: // world map: set off (on the local map: DEBUG)
                     PlayInputClick();
                     if (_display != null) _display.PendingInputText = string.Join("\n", lines);
                     return key.Key.ToString();
 
-                // Звук только если реально переключает вкладку (как у мыши — клик по уже активной
-                // вкладке ничего не меняет и звука не даёт). На карте F6–F8 — подвкладки масштаба
-                // карты, их звук даёт MapScreenLoop.SetMapLevel.
+                // Sound only if it actually switches the tab (like the mouse: clicking an already active
+                // tab changes nothing and makes no sound). On the map F6–F8 are the map zoom
+                // sub-tabs; their sound comes from MapScreenLoop.SetMapLevel.
                 case ConsoleKey.F6:
                     if (_display != null && !_arrowKeysMovement && (_display.JournalShown || _display.CharacterSubTab != CharacterSubTab.Inventory)) PlayInputClick();
                     if (_display != null) _display.PendingInputText = string.Join("\n", lines);
@@ -398,9 +398,9 @@ public class InputBox
         Console.CursorVisible = true;
     }
 
-    // Окно консоли чуть выше целого числа строк (см. ConsoleSetup.SetConsoleConfig): полоску пикселей под последней
-    // строкой conhost красит ТЕКУЩИМ фоном. Перерисовки (карта мира, картинки, подсветки) могли оставить свой
-    // (вода) — снизу появлялась цветная полоса. Пока ждём ввод, текущий фон — основной.
+    // The console window is slightly taller than a whole number of rows (see ConsoleSetup.SetConsoleConfig): conhost paints
+    // the strip of pixels under the last row with the CURRENT background. Redraws (world map, images, highlights) could leave theirs
+    // (water), and a colored stripe appeared at the bottom. While waiting for input, the current background is the main one.
     private long _bgResetAt;
 
     private bool _fromMouseCommand;
@@ -443,16 +443,16 @@ public class InputBox
                     _     => throw new InvalidOperationException($"Unknown pending command: {cmd}")
                 };
             }
-            // Не Console.KeyAvailable: он выбрасывает из очереди события мыши — нажатие, пришедшее между опросами,
-            // терялось, и перетаскивание карты через раз не начиналось. TryReadKey мышь оставляет PollAction.
+            // Not Console.KeyAvailable: it throws mouse events out of the queue, so a press arriving between polls
+            // was lost and map dragging only started every other time. TryReadKey leaves the mouse to PollAction.
             if (ConsoleMouseReader.TryReadKey() is { } key)
                 return key;
             Thread.Sleep(10);
         }
     }
 
-    // Вторая стрелка в течение timeoutMs: другая ось — диагональ (аккорд); та же стрелка — не аккорд, а
-    // отдельное нажатие: возвращается в буфер (двойное нажатие — протиснуться мимо мирного существа).
+    // A second arrow within timeoutMs: a different axis makes a diagonal (chord); the same arrow is not a chord but
+    // a separate press: it goes back into the buffer (double press means squeezing past a peaceful creature).
     private ConsoleKey? TryReadChordArrow(int timeoutMs, ConsoleKey self)
     {
         var deadline = Environment.TickCount64 + timeoutMs;

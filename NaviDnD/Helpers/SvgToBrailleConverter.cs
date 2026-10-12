@@ -133,7 +133,7 @@ public static class SvgToBrailleConverter
     private static string[] AppendName(string[] brailleLines, string name, int widthChars)
     {
         if (string.IsNullOrEmpty(name)) return brailleLines;
-        // Подпись может быть в несколько строк через '\n' (название + свойства).
+        // The caption may span several lines separated by '\n' (name + properties).
         var parts = name.Split('\n');
         var result = new string[brailleLines.Length + 1 + parts.Length];
         brailleLines.CopyTo(result, 0);
@@ -143,16 +143,16 @@ public static class SvgToBrailleConverter
         return result;
     }
 
-    // Свои картинки игрока (анкета новой игры) лежат в Storage/Portraits и хранятся как
-    // "portraits/<файл>" — PNG/JPG/BMP/GIF или SVG. Остальное — слаг game-icons ("author/name").
+    // The player's own pictures (new game character sheet) live in Storage/Portraits and are stored as
+    // "portraits/<file>" — PNG/JPG/BMP/GIF or SVG. Anything else is a game-icons slug ("author/name").
     public const string PortraitsPrefix = "portraits/";
     public static string PortraitsDir => Path.Combine(AppConfig.ProjectRoot, "Storage", "Portraits");
 
     public static bool IsSupportedImageFile(string path) =>
         Path.GetExtension(path).ToLowerInvariant() is ".svg" or ".png" or ".jpg" or ".jpeg" or ".bmp" or ".gif";
 
-    // Растровая картинка → браиль: вписываем в квадрат с белым фоном, точки — где темнее среднего
-    // (порог по средней яркости — фото и рисунки с любым фоном дают читаемый силуэт).
+    // Raster image → braille: fit it into a square on a white background, dots where darker than average
+    // (threshold at mean brightness — photos and drawings on any background give a readable silhouette).
     private static string[]? ConvertRaster(string fullPath, int widthChars)
     {
         try

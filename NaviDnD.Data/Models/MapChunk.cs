@@ -2,10 +2,10 @@ using System.Text.Json.Serialization;
 
 namespace NaviDnD.Data.Models;
 
-// Блок локации 20×15 в сетке поля MapConfig.MaxSize×MaxSize (MapConfig.Chunks). Геометрию блока
-// генерирует код (ChunkGenerator), нейронка только наполняет его существами и объектами (PopulateChunk).
-// Набор блоков локации задаёт нейронка планом в начале игры (plan_location → LocationGrower.CreatePlanned):
-// геометрия всех блоков строится сразу, наполнение — когда герой подходит к блоку.
+// A 20×15 location chunk in the MapConfig.MaxSize×MaxSize field grid (MapConfig.Chunks). Code generates the chunk's
+// geometry (ChunkGenerator); the AI only fills it with creatures and objects (PopulateChunk).
+// The AI sets the location's chunks with a plan at the start of the game (plan_location → LocationGrower.CreatePlanned):
+// the geometry of all chunks is built at once, the contents when the hero approaches a chunk.
 public class MapChunk
 {
     public const int Cols = 20;
@@ -13,45 +13,45 @@ public class MapChunk
     public const int GridCols = MapConfig.MaxSize / Cols; // 5
     public const int GridRows = MapConfig.MaxSize / Rows; // 6
 
-    public int X { get; set; }               // индекс блока по горизонтали, 0..GridCols-1
-    public int Y { get; set; }               // индекс блока по вертикали (строки карты растут вверх), 0..GridRows-1
+    public int X { get; set; }               // horizontal chunk index, 0..GridCols-1
+    public int Y { get; set; }               // vertical chunk index (map rows grow upward), 0..GridRows-1
     public int Seed { get; set; }
     public string Theme { get; set; } = "dungeon";
     public List<ChunkExit> Exits { get; set; } = [];
-    public bool Populated { get; set; }      // нейронка уже расставила существ/объекты
-    public string? Purpose { get; set; }     // назначение блока по плану локации (что здесь по сюжету)
+    public bool Populated { get; set; }      // the AI has already placed creatures/objects
+    public string? Purpose { get; set; }     // the chunk's purpose in the location plan (what's here story-wise)
 
-    // Рельеф открытой местности (OutdoorGenerator): Rows строк по Cols кодов TerrainCatalog, строка 0 —
-    // нижняя (OriginRow+1). null — блок из комнат (подземелье). Пробел — пустота.
+    // Open-ground terrain (OutdoorGenerator): Rows rows of Cols TerrainCatalog codes, row 0 is
+    // the bottom one (OriginRow+1). null — a chunk of rooms (dungeon). A space is void.
     public List<string>? Terrain { get; set; }
 
-    // Этаж: 0 — земля, 1+ — верхние этажи, −1… — подвалы. Этажи одного здания стоят в плане друг над
-    // другом, а на поле лежат в разных местах сетки; на экране виден только этаж героя.
+    // Floor: 0 — ground, 1+ — upper floors, −1… — basements. The floors of one building are stacked in the plan,
+    // but on the field they lie in different places of the grid; only the hero's floor is visible on screen.
     public int Z { get; set; }
 
-    // Верхний этаж здания: клетка сетки блока первого этажа под ним — вид из окон наружу (двор, улица)
-    // рисуется по карте первого этажа (MapObjectsProvider.ApplyOutsideView).
+    // An upper floor of a building: the grid cell of the ground-floor chunk below it — the view out of the windows (yard, street)
+    // is drawn from the ground-floor map (MapObjectsProvider.ApplyOutsideView).
     public int? GroundX { get; set; }
     public int? GroundY { get; set; }
 
     public static bool IsOutdoorTheme(string? theme) => theme is "forest" or "plains" or "hills" or "mountain" or "swamp" or "desert" or "snow" or "taiga";
 
-    // Здание: комнаты вплотную с общими стенами, двери между ними, мебель (BuildingGenerator).
+    // Building: rooms packed together with shared walls, doors between them, furniture (BuildingGenerator).
     public const string Building = "building";
 
-    // Поселение: несколько домов, улицы, площадь с колодцем, огороды (BuildingGenerator.GenerateVillage).
+    // Settlement: several houses, streets, a square with a well, vegetable gardens (BuildingGenerator.GenerateVillage).
     public const string Village = "village";
 
-    // Земля под открытым небом с проходом по краю без преград: местность, двор здания, поселение.
+    // Ground under the open sky with an unobstructed edge passage: terrain, a building's yard, a settlement.
     public static bool IsOpenGround(string? theme) => IsOutdoorTheme(theme) || theme is Building or Village;
 
-    // Тип здания (building): tavern, house, shop, temple, manor, barracks, tower… — по нему планировка и мебель.
+    // Building type (building): tavern, house, shop, temple, manor, barracks, tower… — sets the layout and furniture.
     public string? Style { get; set; }
 
-    // Природная пещера: комнаты-залы без плитки и дверей (dungeon — рукотворное: склеп, руины, крепость).
+    // Natural cave: hall-like rooms without flagstones or doors (dungeon is man-made: crypt, ruins, fortress).
     public const string Cave = "cave";
 
-    // Клетка (OriginCol+1, OriginRow+1) — левая нижняя клетка блока.
+    // Cell (OriginCol+1, OriginRow+1) is the chunk's bottom-left cell.
     [JsonIgnore] public int OriginCol => X * Cols;
     [JsonIgnore] public int OriginRow => Y * Rows;
 
@@ -61,9 +61,9 @@ public class MapChunk
 
 public enum ChunkSide { Left, Right, Bottom, Top }
 
-// Выход на краю блока: шов в клетке Offset вдоль стороны (1..Rows для Left/Right, 1..Cols для Bottom/Top).
-// Соседний блок получает вход на противоположной стороне в том же Offset — коридоры сходятся через границу.
-// External — вход снаружи (откуда пришёл герой в начале игры): за ним блоков нет.
+// An exit on a chunk edge: a seam at cell Offset along the side (1..Rows for Left/Right, 1..Cols for Bottom/Top).
+// The neighboring chunk gets an entrance on the opposite side at the same Offset — corridors meet across the border.
+// External — the entrance from outside (where the hero came from at the start of the game): no chunks beyond it.
 public class ChunkExit
 {
     public ChunkSide Side { get; set; }
@@ -86,7 +86,7 @@ public class ChunkExit
         _ => (0, 1),
     };
 
-    // Последняя клетка коридора выхода внутри блока (в координатах поля).
+    // The last cell of the exit corridor inside the chunk (in field coordinates).
     public (int col, int row) AnchorCell(MapChunk chunk) => Side switch
     {
         ChunkSide.Left => (chunk.OriginCol + 1, chunk.OriginRow + Offset),

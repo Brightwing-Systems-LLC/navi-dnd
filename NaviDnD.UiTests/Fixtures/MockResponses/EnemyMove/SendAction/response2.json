@@ -1,11 +1,11 @@
 {
   "history": [
     {
-      "text": "Гоблин перемещается ближе, готовясь к атаке.",
+      "text": "The goblin moves closer, getting ready to attack.",
       "patch": { "map": { "entities": [ { "id": 0, "position": [3, 3], "movePath": [[4, 3], [3, 3]] } ] } }
     },
     {
-      "text": "Ход переходит к тебе.",
+      "text": "Your turn.",
       "patch": {
         "combat": { "currentTurn": "HRO" },
         "time": { "totalRounds": 2 },

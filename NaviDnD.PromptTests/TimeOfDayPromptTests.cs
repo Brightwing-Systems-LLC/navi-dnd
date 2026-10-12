@@ -3,111 +3,111 @@ using Xunit.Abstractions;
 
 namespace NaviDnD.PromptTests;
 
-// РЕАЛЬНЫЕ вызовы Claude — см. класс SendActionPromptTests для общих правил (платно, медленно,
-// запускать редко и осознанно). Проверяет § Время/Отдых systemPrompt.md: ИИ сам сбрасывает
-// time.totalRounds на 1 и двигает time.day при смене partOfDay (движок это не отслеживает —
-// см. Storage.ApplyTimeUpdate, там просто присваивание без какой-либо автоматики), а также
-// отказывает в отдыхе, пока активен периодический урон.
+// REAL Claude calls — see the SendActionPromptTests class for the general rules (costly, slow,
+// run rarely and deliberately). Checks § Time/Rest in systemPrompt.md: the AI itself resets
+// time.totalRounds to 1 and advances time.day when partOfDay changes (the engine doesn't track this —
+// see Storage.ApplyTimeUpdate, it's a plain assignment with no automation at all), and also
+// refuses a rest while periodic damage is active.
 public class TimeOfDayPromptTests
 {
     private readonly ITestOutputHelper _output;
 
     public TimeOfDayPromptTests(ITestOutputHelper output) => _output = output;
 
-    // Долгий отдых через полночь (Вечер + 2 шага = Ночь → Утро) — цикл проходит через "Ночь", значит
-    // day должен вырасти на 1, а totalRounds сброситься на 1 независимо от того, каким большим было
-    // значение до отдыха (519 — реалистичное "старое" значение, как в разборе продакшен-лога, из-за
-    // которого и появилось это правило).
+    // A long rest through midnight (Evening + 2 steps = Night → Morning) — the cycle passes through "Night", so
+    // day must go up by 1 and totalRounds must reset to 1 no matter how large the value was
+    // before the rest (519 is a realistic "stale" value, as in the production-log analysis that
+    // gave rise to this rule).
     [Fact]
     public async Task LongRest_ResetsTotalRounds_AndIncrementsDay_WhenCycleCrossesNight()
     {
         var storage = PromptScenario.LoadUiTestFixture("burning_effect_game.json");
-        // id:0 — предзаданный в фикстуре "Горящий", этому сценарию не нужен (горящего героя ИИ
-        // обоснованно не даст спокойно уснуть, см. аналогичную заметку в EffectsPromptTests).
+        // id:0 is the fixture's preset "Burning", not needed for this scenario (the AI would reasonably not
+        // let a burning hero fall asleep peacefully, see the similar note in EffectsPromptTests).
         storage.ApplyUpdateWorldState("""
             {"hero":{"hp":"4/10","effects":[{"id":0,"deleted":true}]},
-             "time":{"totalRounds":519,"partOfDay":"Вечер","day":3}}
+             "time":{"totalRounds":519,"partOfDay":"Evening","day":3}}
             """);
 
         var ctx = new AiContextBuilder(storage.WorldState);
-        string restMessage = ctx.MinimalState("останавливаюсь на долгий привал, разбиваю лагерь и отдыхаю до утра");
+        string restMessage = ctx.MinimalState("I stop for a long rest, make camp and rest until morning");
         var result = await PromptScenario.CallRealAiWithAutoAnswersAsync("Dnd5e", "SendAction", storage, restMessage);
-        _output.WriteLine("Ответ модели (долгий отдых через полночь):\n" + result.RawResponse);
+        _output.WriteLine("Model response (long rest through midnight):\n" + result.RawResponse);
 
         var parsed = PromptScenario.ApplyAndParse(storage, result.RawResponse);
-        Assert.True(parsed.HistoryTexts.Count > 0, "Долгий отдых должен быть описан в history.");
+        Assert.True(parsed.HistoryTexts.Count > 0, "The long rest must be described in history.");
 
-        _output.WriteLine($"После отдыха: totalRounds={storage.WorldState.Time.TotalRounds} day={storage.WorldState.Time.Day} partOfDay={storage.WorldState.Time.PartOfDay}");
-        Assert.Equal("Утро", storage.WorldState.Time.PartOfDay);
+        _output.WriteLine($"After the rest: totalRounds={storage.WorldState.Time.TotalRounds} day={storage.WorldState.Time.Day} partOfDay={storage.WorldState.Time.PartOfDay}");
+        Assert.Equal("Morning", storage.WorldState.Time.PartOfDay);
         Assert.Equal(1, storage.WorldState.Time.TotalRounds);
         Assert.Equal(4, storage.WorldState.Time.Day);
 
         PromptScenario.RecordAsMock(result.RawResponse, mockResponsesFolder: "LongRestRoundReset", action: "SendAction");
     }
 
-    // Короткий отдых (Утро + 1 шаг = День, "Ночь" не пересекается — day не меняется). Заодно
-    // проверяет асимметрию finite/untilLongRest эффектов при коротком отдыхе (см. § Отдых): "Ушиб"
-    // с expiresAtRound должен сняться (отдых по длительности перекрывает 2 раунда), "Истощение"
-    // untilLongRest — только на долгом, короткий его не трогает.
+    // A short rest (Morning + 1 step = Day, "Night" isn't crossed — day doesn't change). It also
+    // checks the asymmetry between finite and untilLongRest effects on a short rest (see § Rest): "Bruised"
+    // with expiresAtRound must be removed (the rest's duration covers 2 rounds), while "Exhaustion"
+    // (untilLongRest) goes only on a long rest — the short one doesn't touch it.
     [Fact]
     public async Task ShortRest_AdvancesOneStep_ResetsRound_KeepsUntilLongRestEffect_RemovesFiniteEffect()
     {
         var storage = PromptScenario.LoadUiTestFixture("burning_effect_game.json");
         storage.ApplyUpdateWorldState("""
             {"hero":{"hp":"8/10","effects":[{"id":0,"deleted":true},
-              {"name":"Ушиб","description":"Побаливает от удара.","color":[160,160,160],"expiresAtRound":3},
-              {"name":"Истощение","description":"Ты вымотан долгим переходом.","color":[160,160,160],"untilLongRest":true}]},
-             "time":{"totalRounds":45,"partOfDay":"Утро","day":1}}
+              {"name":"Bruised","description":"Still aching from the blow.","color":[160,160,160],"expiresAtRound":3},
+              {"name":"Exhaustion","description":"You're worn out from the long march.","color":[160,160,160],"untilLongRest":true}]},
+             "time":{"totalRounds":45,"partOfDay":"Morning","day":1}}
             """);
 
         var ctx = new AiContextBuilder(storage.WorldState);
-        string restMessage = ctx.MinimalState("устраиваю короткий привал на час, отдыхаю у стены");
+        string restMessage = ctx.MinimalState("I take a short rest for an hour, resting against the wall");
         var result = await PromptScenario.CallRealAiWithAutoAnswersAsync("Dnd5e", "SendAction", storage, restMessage);
-        _output.WriteLine("Ответ модели (короткий отдых):\n" + result.RawResponse);
+        _output.WriteLine("Model response (short rest):\n" + result.RawResponse);
 
         var parsed = PromptScenario.ApplyAndParse(storage, result.RawResponse);
-        Assert.True(parsed.HistoryTexts.Count > 0, "Короткий отдых должен быть описан в history.");
+        Assert.True(parsed.HistoryTexts.Count > 0, "The short rest must be described in history.");
 
-        _output.WriteLine($"После отдыха: totalRounds={storage.WorldState.Time.TotalRounds} day={storage.WorldState.Time.Day} partOfDay={storage.WorldState.Time.PartOfDay}");
-        Assert.Equal("День", storage.WorldState.Time.PartOfDay);
+        _output.WriteLine($"After the rest: totalRounds={storage.WorldState.Time.TotalRounds} day={storage.WorldState.Time.Day} partOfDay={storage.WorldState.Time.PartOfDay}");
+        Assert.Equal("Day", storage.WorldState.Time.PartOfDay);
         Assert.Equal(1, storage.WorldState.Time.TotalRounds);
         Assert.Equal(1, storage.WorldState.Time.Day);
 
         var stillActive = storage.WorldState.Hero!.Effects?.Where(e => e.Deleted != true).Select(e => e.Name).ToList() ?? [];
-        Assert.DoesNotContain("Ушиб", stillActive);
-        Assert.Contains("Истощение", stillActive);
+        Assert.DoesNotContain("Bruised", stillActive);
+        Assert.Contains("Exhaustion", stillActive);
 
         PromptScenario.RecordAsMock(result.RawResponse, mockResponsesFolder: "ShortRest", action: "SendAction");
     }
 
-    // Активный периодический урон ("Отравлен", без expiresAtRound — бессрочный, худший случай) — по
-    // явному дизайн-решению отдых должен быть ЗАПРЕЩЁН целиком, а не разрешён с "додумыванием" урона
-    // за пропущенные часы: partOfDay/totalRounds не должны сдвинуться, а сам эффект — остаться.
+    // Active periodic damage ("Poisoned", no expiresAtRound — indefinite, the worst case) — by an
+    // explicit design decision the rest must be REFUSED outright, not allowed with damage "made up"
+    // for the skipped hours: partOfDay/totalRounds must not move, and the effect itself must stay.
     [Fact]
     public async Task Rest_BlockedByActiveDamagingPeriodicEffect_RefusesRest()
     {
         var storage = PromptScenario.LoadUiTestFixture("burning_effect_game.json");
         storage.ApplyUpdateWorldState("""
             {"hero":{"hp":"8/10","effects":[{"id":0,"deleted":true},
-              {"name":"Отравлен","description":"Яд в крови жжёт вены.","color":[80,180,80],
+              {"name":"Poisoned","description":"Poison in your blood burns your veins.","color":[80,180,80],
                "onRound":{"effect":"1 poison damage to hero"}}]},
-             "time":{"totalRounds":50,"partOfDay":"Вечер","day":2}}
+             "time":{"totalRounds":50,"partOfDay":"Evening","day":2}}
             """);
 
         var ctx = new AiContextBuilder(storage.WorldState);
-        string restMessage = ctx.MinimalState("останавливаюсь на долгий привал, разбиваю лагерь и отдыхаю до утра");
+        string restMessage = ctx.MinimalState("I stop for a long rest, make camp and rest until morning");
         var result = await PromptScenario.CallRealAiWithAutoAnswersAsync("Dnd5e", "SendAction", storage, restMessage);
-        _output.WriteLine("Ответ модели (отдых при активном яде — ожидаем отказ):\n" + result.RawResponse);
+        _output.WriteLine("Model response (rest while poisoned — expecting a refusal):\n" + result.RawResponse);
 
         var parsed = PromptScenario.ApplyAndParse(storage, result.RawResponse);
-        Assert.True(parsed.HistoryTexts.Count > 0, "Отказ в отдыхе должен быть объяснён в history.");
+        Assert.True(parsed.HistoryTexts.Count > 0, "The refusal to rest must be explained in history.");
 
-        _output.WriteLine($"После попытки: totalRounds={storage.WorldState.Time.TotalRounds} partOfDay={storage.WorldState.Time.PartOfDay}");
-        Assert.Equal("Вечер", storage.WorldState.Time.PartOfDay);
+        _output.WriteLine($"After the attempt: totalRounds={storage.WorldState.Time.TotalRounds} partOfDay={storage.WorldState.Time.PartOfDay}");
+        Assert.Equal("Evening", storage.WorldState.Time.PartOfDay);
         Assert.Equal(50, storage.WorldState.Time.TotalRounds);
 
         var stillActive = storage.WorldState.Hero!.Effects?.Where(e => e.Deleted != true).Select(e => e.Name).ToList() ?? [];
-        Assert.Contains("Отравлен", stillActive);
+        Assert.Contains("Poisoned", stillActive);
 
         PromptScenario.RecordAsMock(result.RawResponse, mockResponsesFolder: "RestBlockedByPoison", action: "SendAction");
     }

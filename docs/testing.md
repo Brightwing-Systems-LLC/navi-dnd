@@ -1,27 +1,27 @@
-# Проверки
+# Testing
 
-## Логика
+## Logic
 
 ```powershell
 dotnet test NaviDnD.Tests/NaviDnD.Tests.csproj
 ```
 
-Обычный прогон без реальных запросов к модели. Сборка игры и сервера: `dotnet build NaviDnD.McpServer/NaviDnD.McpServer.csproj`. Перед пересборкой закрой игру: Windows блокирует exe и dll.
+The usual run, with no real requests to the model. Building the game and the server: `dotnet build NaviDnD.McpServer/NaviDnD.McpServer.csproj`. Close the game before rebuilding: Windows locks the exe and dll files.
 
 ## UI
 
-`NaviDnD.UiTests` запускает настоящий Windows-процесс и читает консоль. Предварительно собери игру. Используй существующие фикстуры и моки; некоторые сценарии могут обращаться к модели, поэтому выбирай нужные тесты осознанно.
+`NaviDnD.UiTests` starts a real Windows process and reads the console. Build the game first. Use the existing fixtures and mocks; some scenarios may call the model, so pick the tests you need deliberately.
 
-`GameSession` задаёт `NAVIDND_TEST_WORLDSTATE`, `NAVIDND_TEST_MOCKED_ACTIONS`, `NAVIDND_TEST_MOCK_RESPONSES_DIR`. Моки находятся в `Fixtures/MockResponses`, а не в игровых промптах. Повторные вызовы читают `response2.json`, `response3.json` и далее; если их нет — исходный `response.json`.
+`GameSession` sets `NAVIDND_TEST_WORLDSTATE`, `NAVIDND_TEST_MOCKED_ACTIONS`, `NAVIDND_TEST_MOCK_RESPONSES_DIR`. The mocks live in `Fixtures/MockResponses`, not in the game prompts. Repeated calls read `response2.json`, `response3.json` and so on; if those don't exist, the original `response.json`.
 
-Подмена меняет путь загрузки, но игра может сохранять состояние в своей папке. Поэтому `GameSession` резервирует файлы каждой сессии и восстанавливает их в `Dispose`. После остановки процесса обязателен `WaitForExit` перед восстановлением. Не ослабляй защиту и не запускай UI-тесты параллельно: подключение к консоли работает на уровне процесса.
+The override changes the load path, but the game may save state in its own folder. That's why `GameSession` backs up each session's files and restores them in `Dispose`. After stopping the process, `WaitForExit` is required before restoring. Don't weaken this protection and don't run UI tests in parallel: attaching to the console works at the process level.
 
-`ConsoleHandles` открывает `CONOUT$`/`CONIN$`: `GetStdHandle` у testhost может оставаться перенаправленным в пайп. `NAVIDND_TEST_STEP_DELAY_MS` добавляет паузы между шагами; задержка моков позволяет проверить спиннер.
+`ConsoleHandles` opens `CONOUT$`/`CONIN$`: testhost's `GetStdHandle` may stay redirected to a pipe. `NAVIDND_TEST_STEP_DELAY_MS` adds pauses between steps; a mock delay lets you check the spinner.
 
-## Настоящие модели
+## Real models
 
-`NaviDnD.PromptTests` использует отдельное хранилище и реальные CLI-провайдеры. Запросы расходуют лимиты или средства, результаты недетерминированы. Не запускай тесты всего решения для обычной проверки кода.
+`NaviDnD.PromptTests` uses separate storage and the real CLI providers. Requests spend quota or money, and the results are nondeterministic. Don't run the tests for the whole solution for a routine code check.
 
-Выбирай сценарий через `--filter`. Для Codex задай `NAVIDND_PROMPT_PROVIDER=codex`, `NAVIDND_CODEX_MODEL` и при необходимости `NAVIDND_CODEX_REASONING`; по умолчанию используется Claude. Пример: [codex.md](codex.md).
+Pick a scenario with `--filter`. For Codex set `NAVIDND_PROMPT_PROVIDER=codex`, `NAVIDND_CODEX_MODEL` and, if needed, `NAVIDND_CODEX_REASONING`; Claude is the default. Example: [codex.md](codex.md).
 
-`PromptScenario.ApplyAndParse` применяет ответ по протоколу движка. Проверяются игровые последствия: экипировка, хиты, цели и вызовы инструментов. Автоответчик имитирует броски и выбор игрока. `NAVIDND_RECORD_PROMPTS=1` обновляет моки — включай намеренно и проверяй ответ перед коммитом.
+`PromptScenario.ApplyAndParse` applies the response using the engine's protocol. The tests check game consequences: equipment, hit points, targets and tool calls. An auto-responder simulates the player's rolls and choices. `NAVIDND_RECORD_PROMPTS=1` updates the mocks — enable it deliberately and review the response before committing.

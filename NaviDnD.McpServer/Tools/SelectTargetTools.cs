@@ -23,30 +23,30 @@ public sealed class SelectTargetTools(McpServerConfig config)
 
     [McpServerTool]
     [Description("""
-        Выбор цели или места мышью на карте. Любой эффект по области (сфера/куб/конус/линия) — вызывай
-        всегда, с shape и sizeFt, даже если место названо словами: игрок должен увидеть и выбрать зону.
-        Одиночная цель — только если неясно, кого именно (несколько подходящих существ); однозначна — не вызывай.
-        Игрок видит подсветку допустимых клеток и превью области; ждёт ответа до 50 секунд.
-        Поля:
-        - history[]: записи перед выбором, как у use_reaction. Последняя запись = что выбрать («Куда направить Огненный шар?»).
-        - mode: "creature" — выбрать существо (только видимые герою; сам герой тоже можно), "point" — выбрать клетку (исследованную, в прямой видимости).
-        - rangeFt: максимальная дистанция от героя в футах. Не указывать — без ограничения.
-        - count: сколько целей выбрать (по умолчанию 1). allowRepeat: можно ли выбрать одну цель несколько раз.
-        - shape: форма области вокруг выбранной точки — "sphere" (радиус sizeFt), "cube" (сторона sizeFt), или от героя в сторону выбранной клетки — "cone" (длина sizeFt), "line" (длина sizeFt, ширина 5 фт). Без области — не указывать.
-        - sizeFt: размер области в футах.
-        Возвращает { "targets": [{ "id", "symbol", "name", "position", "distanceFt" }] }; для области ещё
-        "areaCells" (все клетки [col,row]), "inArea" (существа, включая героя), "objectsInArea" (объекты карты).
-        id — индекс в map.entities / map.objects для патча (у героя нет).
-        Игрок отменил — { "cancelled": true }; не ответил за 50 секунд — { "timedOut": true }: действие не выполняется, опиши это коротко.
+        Pick a target or a place with the mouse on the map. Any area effect (sphere/cube/cone/line) — always call
+        it, with shape and sizeFt, even if the place is named in words: the player must see and choose the area.
+        A single target — only if it's unclear exactly who (several fitting creatures); if unambiguous, don't call it.
+        The player sees the valid cells highlighted and a preview of the area; waits up to 50 seconds for an answer.
+        Fields:
+        - history[]: entries before the choice, as in use_reaction. The last entry = what to choose ("Where do you aim the Fireball?").
+        - mode: "creature" — choose a creature (only those visible to the hero; the hero themselves is allowed), "point" — choose a cell (explored, in line of sight).
+        - rangeFt: maximum distance from the hero in feet. Omit for no limit.
+        - count: how many targets to choose (default 1). allowRepeat: whether the same target can be chosen several times.
+        - shape: the area's shape around the chosen point — "sphere" (radius sizeFt), "cube" (side sizeFt), or from the hero toward the chosen cell — "cone" (length sizeFt), "line" (length sizeFt, width 5 ft). No area — omit.
+        - sizeFt: the area's size in feet.
+        Returns { "targets": [{ "id", "symbol", "name", "position", "distanceFt" }] }; for an area also
+        "areaCells" (all cells [col,row]), "inArea" (creatures, including the hero), "objectsInArea" (map objects).
+        id — the index in map.entities / map.objects for a patch (the hero has none).
+        Player cancelled — { "cancelled": true }; no answer within 50 seconds — { "timedOut": true }: the action doesn't happen, describe that briefly.
         """)]
     public string SelectTarget(
-        [Description("Записи диалога перед выбором. У каждой text, text может быть SSML <speak> для озвучки; опционально author, patch.")] RequestHistoryEntry[] history,
-        [Description("\"creature\" или \"point\".")] string mode,
-        [Description("Максимальная дистанция от героя в футах.")] int? rangeFt = null,
-        [Description("Сколько целей выбрать.")] int count = 1,
-        [Description("Можно ли выбрать одну цель несколько раз.")] bool allowRepeat = false,
-        [Description("\"sphere\", \"cube\", \"cone\" или \"line\".")] string? shape = null,
-        [Description("Размер области в футах.")] int? sizeFt = null)
+        [Description("Dialog entries before the choice. Each has text; text may be SSML <speak> for voice-over; optional author, patch.")] RequestHistoryEntry[] history,
+        [Description("\"creature\" or \"point\".")] string mode,
+        [Description("Maximum distance from the hero in feet.")] int? rangeFt = null,
+        [Description("How many targets to choose.")] int count = 1,
+        [Description("Whether the same target can be chosen several times.")] bool allowRepeat = false,
+        [Description("\"sphere\", \"cube\", \"cone\" or \"line\".")] string? shape = null,
+        [Description("Area size in feet.")] int? sizeFt = null)
     {
         var request = new TargetSelectionRequest
         {

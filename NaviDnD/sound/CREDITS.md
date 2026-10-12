@@ -1,10 +1,10 @@
-# Музыка и звуки окружения
+# Music and ambient sounds
 
-Всё — CC0 (общественное достояние), с opengameart.org. Указание авторов не обязательно, но пусть будет.
-Папки = настроения `MusicDirector`: положи в папку свои wav/mp3/ogg — они попадут в ротацию.
+Everything is CC0 (public domain), from opengameart.org. Attribution isn't required, but here it is anyway.
+Folders = `MusicDirector` moods: drop your own wav/mp3/ogg into a folder and they join the rotation.
 
 ## music/
-| Папка | Трек | Автор | Источник |
+| Folder | Track | Author | Source |
 |---|---|---|---|
 | menu | The Ancient Legend | — | https://opengameart.org/content/the-ancient-legend |
 | wild | Medieval: Exploration | RandomMind | https://opengameart.org/content/medieval-exploration |
@@ -24,10 +24,10 @@
 | combat | Medieval: Battle | RandomMind | https://opengameart.org/content/medieval-battle |
 
 ## ambience/
-| Папка | Звук | Источник |
+| Folder | Sound | Source |
 |---|---|---|
 | day | Ambient Bird Sounds (isaiah658) | https://opengameart.org/content/ambient-bird-sounds |
 | night | Crickets Ambient Noise | https://opengameart.org/content/crickets-ambient-noise-loopable |
-| hearth | Fireplace Sound loop (моно 22 кГц) | https://opengameart.org/content/fireplace-sound-loop |
+| hearth | Fireplace Sound loop (mono 22 kHz) | https://opengameart.org/content/fireplace-sound-loop |
 | dungeon | Loopable Dungeon Ambience | https://opengameart.org/content/loopable-dungeon-ambience |
 | wind | wind whoosh loop | https://opengameart.org/content/wind-whoosh-loop |

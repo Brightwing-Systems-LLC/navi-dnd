@@ -14,15 +14,15 @@ public class DialogDisplay
         public List<int> PrefixColor { get; set; }
         public string Text { get; set; }
         public bool IsSystem { get; set; }
-        public bool Highlight { get; set; }           // не системная строка — подсвечивается (DialogHighlighter)
-        public List<int>? BaseColor { get; set; }     // оттенок автора для обычного текста (герой/NPC); у ДМ — null
-        public int BracketDepthAtStart { get; set; }  // открыта ли [...] с прошлой строки того же сообщения
+        public bool Highlight { get; set; }           // not a system line: gets highlighted (DialogHighlighter)
+        public List<int>? BaseColor { get; set; }     // the author's tint for plain text (hero/NPC); null for the DM
+        public int BracketDepthAtStart { get; set; }  // whether a [...] is still open from the previous line of the same message
     }
 
     private DialogHighlighter? _highlighter;
     private string? _highlighterKey;
 
-    // Имена с карты и цвета как на карте; подсвечиватель пересобирается, только когда меняется набор имён.
+    // Names from the map, colored as on the map; the highlighter is rebuilt only when the set of names changes.
     private void RefreshHighlighter()
     {
         var names = (_setting.Map.Entities ?? []).Where(e => e.Deleted != true).Cast<CellEntity>()
@@ -32,7 +32,7 @@ public class DialogDisplay
             .Where(n => !string.IsNullOrWhiteSpace(n.name) && n.color is { Count: 3 })
             .ToList();
 
-        // Символы только у существ (у объектов это «(F)»/«[C]» — в тексте их не пишут).
+        // Symbols only for creatures (objects use «(F)»/«[C]», which aren't written in the text).
         var symbols = (_setting.Map.Entities ?? []).Where(e => e.Deleted != true)
             .Select(e => (symbol: e.Symbol, color: ColorHelper.Saturate(e.Color)))
             .Append((symbol: _setting.Hero?.Symbol ?? "", color: _setting.Hero?.Color ?? _display.MainForeground))
@@ -74,7 +74,7 @@ public class DialogDisplay
     private int _diceHighlightStart = -1;
     private int _diceHighlightEnd = -1;
     private List<int>? _diceHighlightColor;
-    private int _diceHighlightOccurrence; // при паре костей — индекс (0/1) подсвечиваемого числа
+    private int _diceHighlightOccurrence; // with a pair of dice, the index (0/1) of the number to highlight
 
     // Arrow hover state for visual highlight
     private bool _upArrowHovered;
@@ -135,7 +135,7 @@ public class DialogDisplay
             input = inputBox.GetInput();
         }
 
-        if (string.IsNullOrWhiteSpace(input))   // пустой ввод (и одни пробелы) мастеру не уходит
+        if (string.IsNullOrWhiteSpace(input))   // empty input (or just spaces) isn't sent to the DM
             return null;
 
         return input;
@@ -230,11 +230,11 @@ public class DialogDisplay
         await Animations.DelayAsync(TimeSpan.FromMilliseconds(ms), PollDuringStreaming);
     }
 
-    // Как PollingDelay, но до АБСОЛЮТНОГО момента времени, а не на фиксированную длительность —
-    // время самого рендера (RebuildCache/RerenderDialogBlock) между шагами НЕ бесплатное, и при
-    // фиксированных задержках на каждый шаг сумма реально прошедшего времени накапливается и
-    // перерастает бюджет. Считая от одной общей точки отсчёта, каждый следующий шаг сам
-    // "укорачивает" свою паузу на то время, что уже съел рендер — сумма не убегает от бюджета.
+    // Like PollingDelay, but until an ABSOLUTE moment in time rather than for a fixed duration:
+    // the render time itself (RebuildCache/RerenderDialogBlock) between steps is NOT free, and with
+    // fixed delays per step the actual elapsed time adds up and
+    // outgrows the budget. Counting from one shared starting point, each next step
+    // "shortens" its own pause by the time the render already ate, so the total doesn't run past the budget.
     private async Task DelayUntil(DateTime target)
     {
         int ms = (int)Math.Max(0, (target - DateTime.UtcNow).TotalMilliseconds);
@@ -266,13 +266,13 @@ public class DialogDisplay
     {
         var allLines = new List<DisplayLine>();
         var messageSizes = new List<int>();
-        // -1: отступ слева перед текстом строки (Console.Write(" ") в DrawDialogLine).
+        // -1: left padding before the line's text (Console.Write(" ") in DrawDialogLine).
         int innerWidth = DialogTextWidth - 1;
 
         var allMessages = _setting.History?.Concat(_streamingMessages) ?? _streamingMessages;
 
-        // Новое сообщение (в т.ч. без ИИ — «Путь преграждён» при шаге в стену) → последняя страница,
-        // иначе, пролистав диалог вверх, игрок не видел появившийся текст.
+        // A new message (including ones without AI, like «The way is blocked» when stepping into a wall) → the last page,
+        // otherwise, having scrolled the dialog up, the player wouldn't see the new text.
         int messageCount = (_setting.History?.Count ?? 0) + _streamingMessages.Count;
         if (messageCount > _display.DialogSeenMessageCount && _display.DialogSeenMessageCount >= 0)
             _display.DialogScrollOffset = 0;
@@ -305,8 +305,8 @@ public class DialogDisplay
 
             int messageLineCount = wrappedLines.Count;
             bool highlight = !isSystem;
-            // Реплики героя/NPC — обычный текст с оттенком цвета автора: видно, где чья реплика.
-            // ДМ — основной голос, его текст остаётся цветом по умолчанию.
+            // Hero/NPC lines are plain text tinted with the author's color, so you can see who is speaking.
+            // The DM is the main voice; its text keeps the default color.
             List<int>? baseColor = !isSystem && authorColor != null && !author.Equals("DM", StringComparison.OrdinalIgnoreCase)
                 ? ColorHelper.MixWith(_display.MainForeground, ColorHelper.Saturate(authorColor), 0.35)
                 : null;
@@ -338,15 +338,15 @@ public class DialogDisplay
         RefreshHighlighter();
         var pages = CalculatePages(messageSizes, _display.MaxHistoryLines);
         _cachedPages = pages;
-        // Прокрутка — по строкам (DialogScrollOffset — строк от конца истории): колесо — по 2 строки, стрелки ▲ ▼ —
-        // по странице. Окно — последние MaxHistoryLines строк до смещения.
+        // Scrolling is by lines (DialogScrollOffset is lines from the end of the history): the wheel moves 2 lines, the ▲ ▼ arrows
+        // a page. The window is the last MaxHistoryLines lines up to the offset.
         _cachedMaxPage = Math.Max(0, allLines.Count - _display.MaxHistoryLines);
     }
 
-    private static string TitleBase => L.T("ДИАЛОГОВОЕ ОКНО ");
+    private static string TitleBase => L.T("DIALOG ");
 
-    // Текст "текущая/всего" между стрелками — одно место, чтобы формула здесь и в ArrowPositions
-    // (позиции ▲/▼ зависят от длины этого текста) не разъехались.
+    // The "current/total" text between the arrows lives in one place so the formula here and in ArrowPositions
+    // (the ▲/▼ positions depend on this text's length) don't drift apart.
     private string DialogPageText()
     {
         int page = Math.Max(1, _display.MaxHistoryLines);
@@ -617,8 +617,8 @@ public class DialogDisplay
         }
     }
 
-    // Текст индикатора страниц записки — одно место, чтобы формула здесь и в NotePageArrowPositions
-    // (централизация ◄/► по строке) не разъехались.
+    // The note page indicator text lives in one place so the formula here and in NotePageArrowPositions
+    // (centering ◄/► on the line) don't drift apart.
     internal static string NotePageIndicatorText(int page, int count) => $"◄ {page + 1}/{count} ►";
 
     /// Screen positions of ◄ and ► for note pagination in the right (image) panel — only valid when
@@ -662,11 +662,11 @@ public class DialogDisplay
             RerenderDialogBlock();
     }
 
-    // Стрелки ▲ ▼ и клавиши — на страницу; колесо — ScrollLines по строкам.
+    // The ▲ ▼ arrows and keys move by a page; the wheel moves by lines with ScrollLines.
     public bool TryScrollUp() => ScrollLines(_display.MaxHistoryLines);
     public bool TryScrollDown() => ScrollLines(-_display.MaxHistoryLines);
 
-    // Сдвиг на lines строк: > 0 — к более ранним, < 0 — к новым. false — сдвигать некуда.
+    // Shift by lines rows: > 0 toward earlier ones, < 0 toward newer ones. false if there's nowhere to shift.
     public bool ScrollLines(int lines)
     {
         if (_isStreaming || _cachedAllLines == null) return false;
@@ -820,13 +820,13 @@ public class DialogDisplay
                     playerTriggered = true;
                     break;
                 }
-                // все остальные клавиши игнорируются
+                // all other keys are ignored
             }
             await Animations.DelayAsync(TimeSpan.FromMilliseconds(16));
         }
 
-        // Determine rolls. Таймер истёк — бросок за игрока, честный: раньше засчитывалась 1 (критический провал), и
-        // нажатие, которое не дошло (Enter, пока мастер ещё печатал), превращалось в провал.
+        // Determine rolls. If the timer ran out, the roll is made for the player, fairly: it used to count as a 1 (critical failure), and
+        // a key press that didn't get through (Enter while the DM was still typing) turned into a failure.
         int roll1, roll2, usedRoll;
         roll1 = rng.Next(1, 21);
         roll2 = isPair ? rng.Next(1, 21) : roll1;
@@ -869,19 +869,19 @@ public class DialogDisplay
             RerenderDialogBlock(MakeTimerAction(-1));
         })), PollDuringStreaming, catchUp: false);
 
-        // Кубик докрутился — сперва сырое значение без модификаторов. При преимуществе/помехе
-        // модификаторы применяются только к ИСПОЛЬЗУЕМОЙ кости (roll1 при equal/обычном броске);
-        // вторая кость остаётся как выпала — её саму не модифицируют по правилам.
+        // The die has stopped spinning: first the raw value without modifiers. With advantage/disadvantage
+        // modifiers apply only to the die that is USED (roll1 for equal/a normal roll);
+        // the second die stays as rolled; the rules don't modify it.
         bool usedIsFirst = !isPair || (request.Advantage ? roll1 >= roll2 : roll1 <= roll2);
         string[] DiceArtFor(int total) => isPair
             ? DiceArt.GetD20PairLines(usedIsFirst ? total : roll1, usedIsFirst ? roll2 : total)
             : DiceArt.GetD20RollLines(total);
 
-        // Натуральные 1/20 — число на кубике не меняется модификаторами (крит определяется
-        // сырым броском), но подсветка модификаторов всё равно идёт синхронно с цифрой.
-        // Актуально только когда есть сложность (крит имеет смысл против СЛ/КД) — например у
-        // инициативы (Difficulty == null) нат.1/20 ничего не значит, модификатор должен применяться
-        // как обычно.
+        // Natural 1/20: the number on the die isn't changed by modifiers (the crit is determined
+        // by the raw roll), but the modifier highlight still runs in sync with the number.
+        // This only matters when there's a difficulty (a crit means something against a DC/AC); for example, for
+        // initiative (Difficulty == null) a nat 1/20 means nothing and the modifier must apply
+        // as usual.
         bool isCrit = request.Difficulty.HasValue && usedRoll is 1 or 20;
         int DisplayValue(int total) => isCrit ? usedRoll : total;
 
@@ -891,11 +891,11 @@ public class DialogDisplay
         RerenderDialogBlock(DrawSpinner);
         await PollingDelay(500);
 
-        // Модификаторы добавляются по одному: подсветить → прибавить к значению на кубике.
-        // Суммарно на все модификаторы — ровно 2.8 секунды, поровну между ними: чем больше
-        // модификаторов, тем короче задержка на каждый (а не дольше). Отсчёт — от ОДНОЙ общей
-        // точки старта (DelayUntil с абсолютным временем), а не суммой фиксированных пауз: время
-        // самого рендера между шагами не бесплатное и иначе накапливалось бы поверх бюджета.
+        // Modifiers are added one at a time: highlight → add to the value on the die.
+        // All modifiers together take exactly 2.8 seconds, split evenly: the more
+        // modifiers, the shorter the delay for each (not longer). Timing is from ONE shared
+        // start point (DelayUntil with absolute time), not a sum of fixed pauses: the render time
+        // itself between steps isn't free and would otherwise pile up on top of the budget.
         if (request.Modifiers.Count > 0)
         {
             const int totalMs = 2800;
@@ -905,20 +905,20 @@ public class DialogDisplay
             {
                 long baseMs = (long)perModifierMs * mi;
 
-                // ON: модификатор и число на кубике подсвечиваются строго одновременно.
+                // ON: the modifier and the number on the die are highlighted at exactly the same time.
                 _animationRightLines = BuildRollPanel(request, DiceArtFor(DisplayValue(runningTotal)), rolled: false, highlightModifierIndex: mi, highlightDiceOccurrence: usedIsFirst ? 0 : 1);
                 RebuildCache();
                 RerenderDialogBlock(DrawSpinner);
                 await DelayUntil(modsStart.AddMilliseconds(baseMs + perModifierMs / 3));
 
-                // Применяем модификатор — число на кубике обновляется, подсветка остаётся.
+                // Apply the modifier: the number on the die updates, the highlight stays.
                 runningTotal += request.Modifiers[mi].Value;
                 _animationRightLines = BuildRollPanel(request, DiceArtFor(DisplayValue(runningTotal)), rolled: false, highlightModifierIndex: mi, highlightDiceOccurrence: usedIsFirst ? 0 : 1);
                 RebuildCache();
                 RerenderDialogBlock(DrawSpinner);
                 await DelayUntil(modsStart.AddMilliseconds(baseMs + 2 * perModifierMs / 3));
 
-                // OFF: пауза без подсветки перед следующим модификатором.
+                // OFF: a pause without highlight before the next modifier.
                 _animationRightLines = BuildRollPanel(request, DiceArtFor(DisplayValue(runningTotal)), rolled: false);
                 RebuildCache();
                 RerenderDialogBlock(DrawSpinner);
@@ -926,7 +926,7 @@ public class DialogDisplay
             }
         }
 
-        // Все модификаторы применены — показать итог (успех/провал/крит).
+        // All modifiers applied: show the result (success/failure/crit).
         _animationRightLines = BuildRollPanel(request, DiceArtFor(DisplayValue(runningTotal)), rolled: true, usedRoll);
         RebuildCache();
         RerenderDialogBlock(DrawSpinner);
@@ -949,12 +949,12 @@ public class DialogDisplay
         {
             string frame = Spinner.Frames[_spinnerFrame % Spinner.Frames.Length];
             _cachedBorderDrawer.DrawContentLine(() =>
-                ColorHelper.WriteColored($" {frame} " + L.T("Бросок..."), _display.SystemCommandHistory));
+                ColorHelper.WriteColored($" {frame} " + L.T("Rolling..."), _display.SystemCommandHistory));
         }
         else
         {
-            string line = secondsLeft == 0 ? " " + L.T("Авто-бросок (1)")
-                : " " + L.F("[Пробел/Enter] бросить ⏱ {0,2}с", secondsLeft);
+            string line = secondsLeft == 0 ? " " + L.T("Auto-roll (1)")
+                : " " + L.F("[Space/Enter] roll ⏱ {0,2}s", secondsLeft);
             _cachedBorderDrawer.DrawContentLine(() => Console.Write(line));
         }
 
@@ -968,10 +968,10 @@ public class DialogDisplay
 
         var header = new List<string>();
         if (request.Difficulty.HasValue)
-            header.Add(Fit("  " + L.F("СЛ: {0}", request.Difficulty), w));
+            header.Add(Fit("  " + L.F("DC: {0}", request.Difficulty), w));
         if (isPair)
         {
-            string label = "  " + (request.Advantage ? L.T("ПРЕИМУЩЕСТВО") : L.T("ПОМЕХА"));
+            string label = "  " + (request.Advantage ? L.T("ADVANTAGE") : L.T("DISADVANTAGE"));
             header.Add(Fit(label, w));
         }
 
@@ -983,10 +983,10 @@ public class DialogDisplay
         if (rolled && usedRoll.HasValue)
         {
             int modSum = request.Modifiers.Sum(m => m.Value);
-            string? outcome = request.Critical == "critical_success" ? "  " + L.T("КРИТИЧЕСКИЙ УСПЕХ!")
-                            : request.Critical == "critical_failure" ? "  " + L.T("КРИТИЧЕСКИЙ ПРОВАЛ!")
+            string? outcome = request.Critical == "critical_success" ? "  " + L.T("CRITICAL SUCCESS!")
+                            : request.Critical == "critical_failure" ? "  " + L.T("CRITICAL FAILURE!")
                             : request.Difficulty.HasValue
-                                ? "  " + ((usedRoll.Value + modSum) >= request.Difficulty.Value ? L.T("УСПЕХ") : L.T("ПРОВАЛ"))
+                                ? "  " + ((usedRoll.Value + modSum) >= request.Difficulty.Value ? L.T("SUCCESS") : L.T("FAILURE"))
                                 : null;
             if (outcome != null)
                 footer.Add(Fit(outcome, w));
@@ -1013,9 +1013,9 @@ public class DialogDisplay
         var panel = new string[_display.MaxHistoryLines];
         for (int i = 0; i < panel.Length; i++) panel[i] = "";
 
-        // Три независимые друг от друга группы: header прижат к верху (contentStart, растёт вниз),
-        // footer прижат к низу (contentEnd-1, растёт вверх), кубик всегда строго по центру —
-        // ни размер header, ни размер footer никак не двигают позицию кубика.
+        // Three groups independent of each other: the header is pinned to the top (contentStart, grows down),
+        // the footer is pinned to the bottom (contentEnd-1, grows up), the die is always exactly centered;
+        // neither header size nor footer size moves the die at all.
         int diceStart = contentStart + Math.Max(0, (contentSlots - dice.Length) / 2);
 
         int row = contentStart;
@@ -1053,7 +1053,7 @@ public class DialogDisplay
                 if (isOutcome)
                 {
                     _outcomeRow = row;
-                    bool isSuccess = f.Contains(L.T("УСПЕХ"), StringComparison.OrdinalIgnoreCase);
+                    bool isSuccess = f.Contains(L.T("SUCCESS"), StringComparison.OrdinalIgnoreCase);
                     _outcomeColor = isSuccess ? [80, 220, 80] : [220, 80, 80];
                 }
                 if (fi == highlightFooterIndex)
@@ -1071,8 +1071,8 @@ public class DialogDisplay
     private static string Fit(string s, int width) =>
         s.Length > width ? s[..width] : s;
 
-    // N-й по счёту непрерывный прогон цифр в строке — там, где DiceArt.GetD20*Lines подставил число
-    // кубика внутрь брайль-рисунка (occurrence=0 — первая/единственная кость, 1 — вторая при паре).
+    // The N-th continuous run of digits in a line: where DiceArt.GetD20*Lines put the die's number
+    // inside the braille drawing (occurrence=0 is the first/only die, 1 is the second in a pair).
     private static bool TryFindDigitRun(string text, int occurrence, out int start, out int length)
     {
         int found = 0;
@@ -1209,7 +1209,7 @@ public class DialogDisplay
 
     private bool SwitchTab(string tabKey)
     {
-        // Зажатая F-клавиша — переключаем один раз, повторы не перерисовывают экран.
+        // Held F-key: switch once; repeats don't redraw the screen.
         if (Enum.TryParse<ConsoleKey>(tabKey, out var fKey) && InputBox.IsFKeyRepeat(fKey)) return false;
         if (_display.TabSwitchProvider == null) return false;
         var (draw, title) = _display.TabSwitchProvider(tabKey);
@@ -1228,8 +1228,8 @@ public class DialogDisplay
         draw();
         _dialogBlockStartTop = Console.CursorTop;
 
-        // Set RedrawCurrentContent for the new tab (F6/F7 use F3's pure draw — карточка персонажа — to avoid re-applying state)
-        // F6–F9 — подвкладки персонажа (или закладки журнала, если на экране журнал): чистая отрисовка — их экрана.
+        // Set RedrawCurrentContent for the new tab (F6/F7 use F3's pure draw — the character sheet — to avoid re-applying state)
+        // F6–F9 are character sub-tabs (or journal bookmarks if the journal is on screen): a pure redraw of their screen.
         bool journalSub = _display.JournalShown && tabKey is "F6" or "F7" or "F8" or "F9" or "F10";
         var pureDrawKey = tabKey is "F6" or "F7" or "F8" or "F9" or "F10" ? (journalSub ? "F3" : "F4") : tabKey;
         var (pureDraw, _) = _display.TabSwitchProvider(pureDrawKey);
@@ -1291,7 +1291,7 @@ public class DialogDisplay
         // Drain keyboard events so they don't block DrainMouseEvents (which stops at the first
         // non-mouse record). KeyAvailable check makes this non-blocking.
         // claude.exe uses RedirectStandardInput=true, so it has its own pipe stdin — no conflict.
-        // Не Console.KeyAvailable: он выбрасывает из очереди события мыши (клики терялись).
+        // Not Console.KeyAvailable: it throws mouse events out of the queue (clicks were lost).
         if (ConsoleMouseReader.TryReadKey() is not { } key) return;
         switch (key.Key)
         {
@@ -1342,7 +1342,7 @@ public class DialogDisplay
         else
             _cachedBorderDrawer.DrawSeparator();
         _cachedBorderDrawer.DrawContentLine(() =>
-            ColorHelper.WriteColored($" {frame} " + L.T("Ожидание..."), _display.SystemCommandHistory));
+            ColorHelper.WriteColored($" {frame} " + L.T("Waiting..."), _display.SystemCommandHistory));
         _cachedBorderDrawer.DrawBottomBorder();
     }
 
@@ -1365,12 +1365,12 @@ public class DialogDisplay
         if (answer != null)
         {
             _setting.History ??= [];
-            _setting.History.Add(new DialogMessage { Author = _setting.Hero?.Name ?? "Герой", Text = answer });
+            _setting.History.Add(new DialogMessage { Author = _setting.Hero?.Name ?? "Hero", Text = answer });
 
-            // Показываем ответ игрока сразу, а не ждём следующей перерисовки извне (которая
-            // наступит только когда весь запрос — SendAction/FixHeroForNewGame — завершится,
-            // то есть после ответа нейронки). Тот же приём, что и PrepareStreaming() для
-            // исходного действия игрока: перестроить кэш и перерисовать блок диалога немедленно.
+            // Show the player's answer right away rather than waiting for the next redraw from outside (which
+            // only happens when the whole request, SendAction/FixHeroForNewGame, finishes,
+            // i.e. after the model answers). Same trick as PrepareStreaming() for
+            // the player's original action: rebuild the cache and redraw the dialog block immediately.
             _display.DialogScrollOffset = 0;
             RebuildCache();
             RerenderDialogBlock(DrawSpinner);
@@ -1379,8 +1379,8 @@ public class DialogDisplay
         return answer;
     }
 
-    // select_target: выбор существ/клеток мышью на карте. Подсветка — через _display.TargetSelection
-    // (MapObjectsProvider.ApplyTargetTint), превью области пересчитывается при смене клетки под курсором.
+    // select_target: picking creatures/cells with the mouse on the map. Highlighting goes through _display.TargetSelection
+    // (MapObjectsProvider.ApplyTargetTint); the area preview is recomputed when the cell under the cursor changes.
     public async Task<TargetSelectionResult> PlayTargetSelectionRequest(TargetSelectionRequest request)
     {
         if (_cachedBorderDrawer == null) return new TargetSelectionResult { Cancelled = true };
@@ -1392,12 +1392,12 @@ public class DialogDisplay
 
         bool onMap = _display.StreamingTabTitle == null ? _display.ActiveTabKey == "F1" : _display.MapHoverEnabled;
         if (!onMap) SwitchTab("F1");
-        _display.MapLevel = MapLevel.Location; // выбор цели — только на карте локации
+        _display.MapLevel = MapLevel.Location; // picking a target only on the location map
 
         var ws = _setting;
         var heroPos = ws.Hero?.Position;
-        // Как MapObjectsProvider.IsCellVisible: в комнате или на открытой местности — только то, что герой видит
-        // (раньше на местности можно было целиться сквозь лес); вне комнат на старых картах — всё.
+        // Like MapObjectsProvider.IsCellVisible: in a room or on open terrain, only what the hero sees
+        // (you used to be able to aim through a forest on open terrain); outside rooms on old maps, everything.
         bool limited = heroPos is { Count: >= 2 } && (MovementCalculator.GetRoom(ws, heroPos[0], heroPos[1]) != null
                                                       || ws.Map.TerrainAt(heroPos[0], heroPos[1]) is { Indoor: false });
         bool IsVisible(int c, int r) => !limited || _storage.VisibleCells.Contains((c, r));
@@ -1518,7 +1518,7 @@ public class DialogDisplay
         _setting.History ??= [];
         _setting.History.Add(new DialogMessage
         {
-            Author = _setting.Hero?.Name ?? "Герой",
+            Author = _setting.Hero?.Name ?? "Hero",
             Text = DescribeTargetSelection(result)
         });
         _display.DialogScrollOffset = 0;
@@ -1530,13 +1530,13 @@ public class DialogDisplay
 
     private static string DescribeTargetSelection(TargetSelectionResult result)
     {
-        if (result.TimedOut) return L.W("Цель не выбрана (время вышло)");
-        if (result.Cancelled) return L.W("Отмена выбора цели");
-        return L.W("Цель: ") + string.Join(", ", result.Targets.Select(t =>
+        if (result.TimedOut) return L.W("No target selected (time ran out)");
+        if (result.Cancelled) return L.W("Target selection cancelled");
+        return L.W("Target: ") + string.Join(", ", result.Targets.Select(t =>
         {
             string label = t.Name != null ? $"{t.Name} [{t.Position[0]},{t.Position[1]}]" : $"[{t.Position[0]},{t.Position[1]}]";
             var inArea = (t.InArea ?? []).Concat(t.ObjectsInArea ?? []).Select(a => a.Name).ToList();
-            if (inArea.Count > 0) label += " " + L.WF("(в области: {0})", string.Join(", ", inArea));
+            if (inArea.Count > 0) label += " " + L.WF("(in the area: {0})", string.Join(", ", inArea));
             return label;
         }));
     }
@@ -1550,8 +1550,8 @@ public class DialogDisplay
 
         _cachedBorderDrawer.DrawContentLine(() =>
         {
-            string counter = total > 1 ? $" {picked}/{total} · " + L.T("Enter — готово") : "";
-            Console.Write(" " + L.F("Выберите на карте ({0,2}с)", secondsLeft) + counter + " · " + L.T("Bksp — назад · Esc — отмена"));
+            string counter = total > 1 ? $" {picked}/{total} · " + L.T("Enter — done") : "";
+            Console.Write(" " + L.F("Pick on the map ({0,2}s)", secondsLeft) + counter + " · " + L.T("Bksp — back · Esc — cancel"));
         });
 
         _cachedBorderDrawer.DrawBottomBorder();
@@ -1643,8 +1643,8 @@ public class DialogDisplay
         _cachedBorderDrawer.DrawContentLine(() =>
         {
             string prefix = secondsLeft > 0
-                ? " " + L.F("Выберите ({0,2}с): ", secondsLeft)
-                : " " + L.T("Авто-выбор: ");
+                ? " " + L.F("Choose ({0,2}s): ", secondsLeft)
+                : " " + L.T("Auto-choice: ");
             Console.Write(prefix);
             int curX = 1 + prefix.Length;
 
@@ -1694,8 +1694,8 @@ public class DialogDisplay
             int secondsLeft = (int)Math.Ceiling((deadline - DateTime.UtcNow).TotalSeconds);
             if (secondsLeft < 0) secondsLeft = 0;
 
-            string timerPart = secondsLeft > 0 ? L.F("({0,2}с)", secondsLeft) : L.T("(истёк)");
-            string prompt = " " + L.F("Ввод {0}: ", timerPart);
+            string timerPart = secondsLeft > 0 ? L.F("({0,2}s)", secondsLeft) : L.T("(expired)");
+            string prompt = " " + L.F("Input {0}: ", timerPart);
             int maxTextWidth = DialogTextWidth - prompt.Length;
 
             // Keep cursor inside the visible window with a small right margin

@@ -80,7 +80,7 @@ public class CalculateMovementTests
         var result = MovementCalculator.Calculate(ws,
             Req(id, ("approach", "hero", null, null, null), ("stay", null, null, null, null)));
 
-        // Не стоит на месте: идёт к герою, сколько хватает скорости (вторая диагональ — 10 фт, в 10 фт влезает одна).
+        // Doesn't stand still: moves toward the hero as far as its speed allows (the second diagonal costs 10 ft; only one fits in 10 ft).
         Assert.Equal("approach", result.UsedIntent);
         Assert.Equal([9, 9], result.Steps[^1]);
         Assert.True(result.RemainingSpeedFt >= 0);
@@ -136,10 +136,10 @@ public class CalculateMovementTests
         SetHero(ws, 5, 5);
         int id = AddEntity(ws, 6, 5, speedMax: 30); // dist=1 cell=5ft, want 15-30ft
 
-        // Начиная позиция в пределах досягаемости героя (5ft) — уход из неё честно провоцирует
-        // атаку по возможности (см. OA_TriggeredWhenLeavingHeroReach) и обрезает путь по границе
-        // досягаемости. Здесь проверяется именно выбор целевой клетки Dijkstra, поэтому провокацию
-        // отключаем явно, а не полагаемся на дефолт.
+        // The starting position is within the hero's reach (5ft) — leaving it legitimately provokes
+        // an opportunity attack (see OA_TriggeredWhenLeavingHeroReach) and cuts the path at the reach
+        // boundary. This test checks specifically Dijkstra's choice of the target cell, so we disable
+        // the provocation explicitly rather than rely on the default.
         var req = Req(id, ("maintain_distance", "hero", 15, 30, null));
         req.SkipOpportunityAttack = true;
         var result = MovementCalculator.Calculate(ws, req);
@@ -187,9 +187,9 @@ public class CalculateMovementTests
         SetHero(ws, 5, 5);
         int id = AddEntity(ws, 6, 5, speedMax: 30);
 
-        // Начиная позиция в пределах досягаемости героя — см. комментарий в
-        // MaintainDistance_TooClose_MovesAway: провокацию атаки по возможности отключаем явно,
-        // чтобы проверить именно выбор целевой клетки, а не обрезку пути (это отдельно покрыто
+        // The starting position is within the hero's reach — see the comment in
+        // MaintainDistance_TooClose_MovesAway: we disable the opportunity attack explicitly
+        // to check specifically the choice of the target cell, not the path cut (that is covered separately by
         // OA_TriggeredWhenLeavingHeroReach).
         var req = Req(id, ("flee", null, null, null, "hero"));
         req.SkipOpportunityAttack = true;
@@ -292,7 +292,7 @@ public class CalculateMovementTests
         // 1-row map forces straight path; cols 2-9 are difficult terrain (10ft per step)
         ws.Map.Area = [new Area
         {
-            Name       = "Болото",
+            Name       = "Swamp",
             StepCostFt = 10,
             Positions  = Enumerable.Range(2, 8).Select(c => new List<int> { c, 1 }).ToList()
         }];
@@ -420,9 +420,9 @@ public class CalculateMovementTests
         SetHero(ws, 1, 1);
         ws.Map.Objects = [new CellEntity
         {
-            Name     = "Капкан",
+            Name     = "Bear Trap",
             Position = [4, 1],
-            Triggers = new CellTriggers { OnStep = new TriggerEffect { Effect = "2d6 урон" } }
+            Triggers = new CellTriggers { OnStep = new TriggerEffect { Effect = "2d6 damage" } }
         }];
         int id = AddEntity(ws, 7, 1, speedMax: 30);
 
@@ -430,8 +430,8 @@ public class CalculateMovementTests
 
         var trap = result.Triggers.FirstOrDefault(t => t.Type == "onStep");
         Assert.NotNull(trap);
-        Assert.Equal("Капкан", trap.ObjectName);
-        Assert.Equal("2d6 урон", trap.Effect);
+        Assert.Equal("Bear Trap", trap.ObjectName);
+        Assert.Equal("2d6 damage", trap.Effect);
     }
 
     [Fact]
@@ -441,9 +441,9 @@ public class CalculateMovementTests
         SetHero(ws, 1, 5);
         ws.Map.Area = [new Area
         {
-            Name      = "Паутина",
+            Name      = "Web",
             Positions = Enumerable.Range(4, 3).Select(c => new List<int> { c, 5 }).ToList(),
-            Triggers  = new AreaTriggers { OnRound = new TriggerEffect { Effect = "Обездвижен" } }
+            Triggers  = new AreaTriggers { OnRound = new TriggerEffect { Effect = "Restrained" } }
         }];
         int id = AddEntity(ws, 8, 5, speedMax: 30);
 
@@ -451,7 +451,7 @@ public class CalculateMovementTests
 
         var enter = result.Triggers.FirstOrDefault(t => t.Type == "area_enter");
         Assert.NotNull(enter);
-        Assert.Equal("Паутина", enter.ObjectName);
+        Assert.Equal("Web", enter.ObjectName);
     }
 
     [Fact]
@@ -461,9 +461,9 @@ public class CalculateMovementTests
         SetHero(ws, 1, 5);
         ws.Map.Area = [new Area
         {
-            Name      = "Паутина",
+            Name      = "Web",
             Positions = [[3, 5], [4, 5], [5, 5], [6, 5], [7, 5]],
-            Triggers  = new AreaTriggers { OnRound = new TriggerEffect { Effect = "Обездвижен" } }
+            Triggers  = new AreaTriggers { OnRound = new TriggerEffect { Effect = "Restrained" } }
         }];
         int id = AddEntity(ws, 5, 5, speedMax: 30); // already inside area
 

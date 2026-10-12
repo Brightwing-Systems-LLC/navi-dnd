@@ -2,13 +2,13 @@ using NaviDnD.Helpers;
 
 namespace NaviDnD.Display;
 
-// Многострочное поле (описание мира, описание героя): перенос по словам, курсор в тексте, прокрутка.
-// Строки — отрезки исходного текста (начало, длина), курсор — индекс в тексте, scroll — первая видимая строка.
-// Рисует вызывающий: View даёт видимые строки и где курсор, Bar — полосу прокрутки справа.
+// Multi-line field (world description, hero description): word wrap, a cursor in the text, scrolling.
+// Lines are slices of the source text (start, length), the cursor is an index into the text, scroll is the first visible line.
+// The caller draws it: View gives the visible lines and where the cursor is, Bar gives the scrollbar on the right.
 internal static class TextArea
 {
-    // Перенос по словам: строка — до width символов, рвётся на последнем пробеле (пробел остаётся концом строки);
-    // слово длиннее строки — режется по ширине.
+    // Word wrap: a line holds up to width characters and breaks at the last space (the space stays at the end of the line);
+    // a word longer than the line is cut at the width.
     public static List<(int start, int len)> Layout(string text, int width)
     {
         var lines = new List<(int, int)>();
@@ -31,8 +31,8 @@ internal static class TextArea
         return 0;
     }
 
-    // Видимые строки (rows) и место курсора в них (curRow -1 — курсор не виден). follow — подвинуть прокрутку
-    // так, чтобы курсор был виден (после правки/движения курсора); иначе прокрутка — как задал игрок (колесо).
+    // Visible lines (rows) and where the cursor sits in them (curRow -1 means the cursor is not visible). follow: move the scroll
+    // so the cursor is visible (after an edit or cursor move); otherwise the scroll stays where the player left it (wheel).
     public static List<string> View(string text, int cursor, ref int scroll, int width, int rows, bool follow,
         out int curRow, out int curCol, out int total)
     {
@@ -52,8 +52,8 @@ internal static class TextArea
         return shown;
     }
 
-    // Клавиши поля: ←→ Home End (по строке), ↑↓ (по строкам; у верхней/нижней строки — false: фокус уходит
-    // дальше), PgUp/PgDn, Backspace/Delete, печать и вставка — в место курсора. true — клавиша обработана.
+    // Field keys: ←→ Home End (within a line), ↑↓ (between lines; on the top/bottom line returns false so focus moves
+    // on), PgUp/PgDn, Backspace/Delete, typing and paste at the cursor. true means the key was handled.
     public static bool Edit(ref string text, ref int cursor, ConsoleKeyInfo key, int max, int width, int rows)
     {
         cursor = Math.Clamp(cursor, 0, text.Length);
@@ -100,7 +100,7 @@ internal static class TextArea
         return false;
     }
 
-    // Клик по видимой строке row, колонке col — курсор туда.
+    // Click on visible line row, column col: put the cursor there.
     public static int CursorAt(string text, int scroll, int width, int row, int col)
     {
         var lines = Layout(text, width);
@@ -108,7 +108,7 @@ internal static class TextArea
         return lines[l].start + Math.Clamp(col, 0, lines[l].len);
     }
 
-    // Полоса прокрутки на rows строк: null — текст влезает; иначе для каждой строки — ползунок (true) или дорожка.
+    // Scrollbar for rows lines: null if the text fits; otherwise, for each line, the thumb (true) or the track.
     public static bool[]? Bar(int rows, int total, int scroll)
     {
         if (total <= rows) return null;

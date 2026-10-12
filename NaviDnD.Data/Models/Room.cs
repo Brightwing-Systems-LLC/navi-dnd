@@ -2,7 +2,7 @@ namespace NaviDnD.Data.Models;
 
 public class Room : Area
 {
-    // Проход (коридор, лаз, галерея) — ставит генератор; название — на языке мира и может меняться.
-    // Проходы не подписываются в легенде, в них не ставят двери-перегородки и не выбирают их для старта.
+    // A passage (corridor, crawlway, gallery) — placed by the generator; the name is in the world language and may change.
+    // Passages get no legend label, no partition doors are placed in them, and they aren't picked as the start.
     public bool? Passage { get; set; }
 }

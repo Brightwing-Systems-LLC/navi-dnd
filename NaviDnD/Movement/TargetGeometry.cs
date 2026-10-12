@@ -2,11 +2,11 @@ using NaviDnD.Data.Models;
 
 namespace NaviDnD;
 
-// Геометрия select_target: какие клетки можно выбрать и какие клетки накрывает область.
-// Дистанция — как у зрения героя (5-10-5 по диагонали), область-круг — по центрам клеток.
+// select_target geometry: which cells can be chosen and which cells an area covers.
+// Distance works like the hero's sight (5-10-5 diagonally); a circular area is measured by cell centres.
 public static class TargetGeometry
 {
-    // Половина угла конуса: ширина конуса в любой точке равна расстоянию от вершины → atan(1/2).
+    // Half the cone angle: the cone's width at any point equals its distance from the apex → atan(1/2).
     private static readonly double ConeHalfAngleCos = Math.Cos(Math.Atan(0.5)) - 1e-6;
 
     public static int DistanceFt(int c1, int r1, int c2, int r2)
@@ -17,10 +17,10 @@ public static class TargetGeometry
         return straight * 5 + (diag > 0 ? 5 + (diag - 1) * 10 : 0);
     }
 
-    // Конус и линия идут от героя — выбранная клетка задаёт только направление.
+    // Cones and lines start at the hero — the chosen cell only sets the direction.
     public static bool IsDirectional(string? shape) => shape is "cone" or "line";
 
-    // isVisible — клетку герой видит сейчас; isExplored — клетка исследована.
+    // isVisible: the hero sees the cell now; isExplored: the cell has been explored.
     public static HashSet<(int col, int row)> SelectableCells(
         WorldState ws, TargetSelectionRequest req, Func<int, int, bool> isVisible, Func<int, int, bool> isExplored)
     {
@@ -41,13 +41,13 @@ public static class TargetGeometry
             return result;
         }
 
-        // Поле локации до 100×100 — перебираем только рамку содержимого карты, не всё поле.
+        // A location grid is up to 100×100 — iterate only over the map content's bounding box, not the whole grid.
         var (c0, c1, r0, r1) = ScanBounds(ws);
         for (int c = c0; c <= c1; c++)
         for (int r = r0; r <= r1; r++)
         {
-            // Конус/линия: клетка задаёт направление — допустимы клетки, которые фигура может накрыть
-            // (в пределах её длины, по центрам клеток, как в AreaCells).
+            // Cone/line: the cell sets the direction — valid cells are those the shape can cover
+            // (within its length, by cell centres, as in AreaCells).
             bool directional = IsDirectional(req.Shape);
             if (directional && c == hc && r == hr) continue;
             if (directional && !WithinLength(c - hc, r - hr, req.SizeFt)) continue;
@@ -58,7 +58,7 @@ public static class TargetGeometry
         return result;
     }
 
-    // Клетки области. Без формы — только сама точка. Стены режут область (нужна прямая видимость от её начала).
+    // Cells of the area. Without a shape, just the point itself. Walls cut the area (line of sight from its origin is required).
     public static HashSet<(int col, int row)> AreaCells(WorldState ws, int pointCol, int pointRow, string? shape, int? sizeFt)
     {
         var result = new HashSet<(int, int)>();
@@ -109,7 +109,7 @@ public static class TargetGeometry
             return result;
         }
 
-        // sphere (и всё неизвестное) — круг по центрам клеток
+        // sphere (and anything unknown) — a circle by cell centres
         int radius = (int)Math.Ceiling(lengthCells);
         for (int c = pointCol - radius; c <= pointCol + radius; c++)
         for (int r = pointRow - radius; r <= pointRow + radius; r++)

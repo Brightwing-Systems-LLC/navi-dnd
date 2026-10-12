@@ -1,73 +1,73 @@
 {
   "history": [
-    { "text": "Персонаж создан: Test Hero — тестовый герой для e2e-проверки.", "author": null }
+    { "text": "Character created: Test Hero — a test hero for the e2e check.", "author": null }
   ],
   "hero": {
     "hp": "10/10",
     "visionFt": 60,
     "stats": [
-      { "name": "Сила", "value": "+2 (14)" },
-      { "name": "Ловкость", "value": "+2 (14)" },
-      { "name": "Телосложение", "value": "+1 (12)" },
-      { "name": "Интеллект", "value": "+0 (10)" },
-      { "name": "Мудрость", "value": "+0 (10)" },
-      { "name": "Харизма", "value": "+0 (10)" },
-      { "name": "Класс Доспеха", "value": "14" },
-      { "name": "Инициатива", "value": "+2" },
-      { "name": "Скорость", "value": "30 фт" },
-      { "name": "Бонус Мастерства", "value": "+2" },
-      { "name": "Спасброски", "value": "Тел +3, Мдр +2" },
-      { "name": "Уровень", "value": "1" },
-      { "name": "Размер", "value": "Средний" },
-      { "name": "Тип существа", "value": "Гуманоид (тестовый)" },
-      { "name": "Тёмное зрение", "value": "60 фт" }
+      { "name": "Strength", "value": "+2 (14)" },
+      { "name": "Dexterity", "value": "+2 (14)" },
+      { "name": "Constitution", "value": "+1 (12)" },
+      { "name": "Intelligence", "value": "+0 (10)" },
+      { "name": "Wisdom", "value": "+0 (10)" },
+      { "name": "Charisma", "value": "+0 (10)" },
+      { "name": "Armor Class", "value": "14" },
+      { "name": "Initiative", "value": "+2" },
+      { "name": "Speed", "value": "30 ft" },
+      { "name": "Proficiency Bonus", "value": "+2" },
+      { "name": "Saving Throws", "value": "Con +3, Wis +2" },
+      { "name": "Level", "value": "1" },
+      { "name": "Size", "value": "Medium" },
+      { "name": "Creature Type", "value": "Humanoid (test)" },
+      { "name": "Darkvision", "value": "60 ft" }
     ],
     "skills": [
-      { "name": "Атлетика", "value": "+2" },
-      { "name": "Акробатика", "value": "+2" },
-      { "name": "Ловкость рук", "value": "+2" },
-      { "name": "Скрытность", "value": "+2" },
-      { "name": "История", "value": "+0" },
-      { "name": "Магия", "value": "+0" },
-      { "name": "Природа", "value": "+0" },
-      { "name": "Расследование", "value": "+0" },
-      { "name": "Религия", "value": "+0" },
-      { "name": "Восприятие", "value": "+2" },
-      { "name": "Выживание", "value": "+2" },
-      { "name": "Медицина", "value": "+2" },
-      { "name": "Проницательность", "value": "+2" },
-      { "name": "Уход за животными", "value": "+2" },
-      { "name": "Выступление", "value": "+0" },
-      { "name": "Запугивание", "value": "+0" },
-      { "name": "Обман", "value": "+0" },
-      { "name": "Убеждение", "value": "+0" }
+      { "name": "Athletics", "value": "+2" },
+      { "name": "Acrobatics", "value": "+2" },
+      { "name": "Sleight of Hand", "value": "+2" },
+      { "name": "Stealth", "value": "+2" },
+      { "name": "History", "value": "+0" },
+      { "name": "Arcana", "value": "+0" },
+      { "name": "Nature", "value": "+0" },
+      { "name": "Investigation", "value": "+0" },
+      { "name": "Religion", "value": "+0" },
+      { "name": "Perception", "value": "+2" },
+      { "name": "Survival", "value": "+2" },
+      { "name": "Medicine", "value": "+2" },
+      { "name": "Insight", "value": "+2" },
+      { "name": "Animal Handling", "value": "+2" },
+      { "name": "Performance", "value": "+0" },
+      { "name": "Intimidation", "value": "+0" },
+      { "name": "Deception", "value": "+0" },
+      { "name": "Persuasion", "value": "+0" }
     ],
     "inventory": [
       {
-        "name": "Тестовый меч",
-        "description": "Мок-предмет для e2e-теста создания игры.",
+        "name": "Test Sword",
+        "description": "Mock item for the game creation e2e test.",
         "quantity": 1,
-        "equipmentedSlot": ["П Рука"],
+        "equipmentedSlot": ["R Hand"],
         "color": [160, 160, 160],
         "image": "lorc/broadsword"
       },
       {
-        "name": "Тестовый факел",
-        "description": "Мок-предмет для e2e-теста создания игры.",
+        "name": "Test Torch",
+        "description": "Mock item for the game creation e2e test.",
         "quantity": 3,
         "equipmentedSlot": [],
         "color": [160, 160, 160]
       }
     ],
-    "equipmentSlots": ["Голова", "Шея", "Тело", "Плащ", "Л Рука", "П Рука", "Пояс", "Ноги", "Обувь", "Кольцо 1", "Кольцо 2"],
+    "equipmentSlots": ["Head", "Neck", "Body", "Cloak", "L Hand", "R Hand", "Belt", "Legs", "Feet", "Ring 1", "Ring 2"],
     "abilities": [
-      { "name": "Тестовая способность 1", "description": "Мок-способность для e2e-теста.", "color": [50, 100, 200] },
-      { "name": "Тестовая способность 2", "description": "Мок-способность для e2e-теста.", "color": [220, 220, 220] },
-      { "name": "Тестовая способность 3", "description": "Мок-способность для e2e-теста.", "color": [220, 220, 220] }
+      { "name": "Test Ability 1", "description": "Mock ability for the e2e test.", "color": [50, 100, 200] },
+      { "name": "Test Ability 2", "description": "Mock ability for the e2e test.", "color": [220, 220, 220] },
+      { "name": "Test Ability 3", "description": "Mock ability for the e2e test.", "color": [220, 220, 220] }
     ],
     "resources": [
-      { "name": "Тестовый ресурс 1", "value": "1/1" },
-      { "name": "Тестовый ресурс 2", "value": "2/2" }
+      { "name": "Test Resource 1", "value": "1/1" },
+      { "name": "Test Resource 2", "value": "2/2" }
     ],
     "symbol": "TST",
     "position": [3, 3],

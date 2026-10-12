@@ -6,7 +6,7 @@ using NaviDnD.Installer;
 
 namespace NaviDnD.Tests;
 
-// Обновление патчами: база → цепочка патчей с проверкой исходных файлов, SHA256 и откатом.
+// Patch updates: base → patch chain with source-file checks, SHA256 and rollback.
 public class PatchUpdateTests
 {
     private static readonly Dictionary<string, string> Base = new()
@@ -28,7 +28,7 @@ public class PatchUpdateTests
             Assert.Equal("new", Read(root, "Speech/new.py"));
             Assert.Equal("prompt", Read(root, "Prompts/x.md"));
             Assert.False(File.Exists(Path.Combine(root, "old", "legacy.txt")));
-            Assert.False(Directory.Exists(Path.Combine(root, "old")));   // опустевшая папка убрана
+            Assert.False(Directory.Exists(Path.Combine(root, "old")));   // the emptied folder is removed
             Assert.Equal("private", Read(root, "Storage/settings.json"));
             Assert.Empty(Directory.GetDirectories(root, ".update-*"));
         });
@@ -53,7 +53,7 @@ public class PatchUpdateTests
         var installed = new Dictionary<string, string>(Base) { ["Prompts/x.md"] = "edited" };
         WithGame(installed, (root, temp) =>
         {
-            // Патч не трогает Prompts/x.md, но полная проверка базы ловит повреждённую установку.
+            // The patch doesn't touch Prompts/x.md, but the full base check catches the damaged install.
             string zip = MakePatch(temp, "1.0.0", "1.0.1", Base, [("release-version.txt", "1.0.1"), ("NaviDnD.dll", "a2")], []);
             var error = Assert.Throws<InvalidDataException>(() => PatchInstaller.ApplyChain(root, [zip]));
             Assert.Contains("Prompts/x.md", error.Message);
@@ -100,7 +100,7 @@ public class PatchUpdateTests
     {
         WithGame(Base, (root, temp) =>
         {
-            Directory.CreateDirectory(Path.Combine(root, "blocked"));   // на месте нового файла — папка: замена невозможна
+            Directory.CreateDirectory(Path.Combine(root, "blocked"));   // a folder sits where the new file goes: replacement is impossible
             File.WriteAllText(Path.Combine(root, "blocked", "keep.txt"), "keep");
             string first = MakePatch(temp, "1.0.0", "1.0.1", Base, [("release-version.txt", "1.0.1"), ("NaviDnD.dll", "a2")], ["old/legacy.txt"]);
             var mid = new Dictionary<string, string>(Base) { ["release-version.txt"] = "1.0.1", ["NaviDnD.dll"] = "a2" };
@@ -138,7 +138,7 @@ public class PatchUpdateTests
         Assert.Equal(2, manifest.PatchesFrom("1.1.4")!.Length);
         Assert.Equal("1.1.6", manifest.PatchesFrom("1.1.5")!.Single().To);
         Assert.Empty(manifest.PatchesFrom("1.1.6")!);
-        Assert.Null(manifest.PatchesFrom("1.1.3"));   // старше базы — полная установка
+        Assert.Null(manifest.PatchesFrom("1.1.3"));   // older than the base — full install
         Assert.Throws<InvalidDataException>(() => UpdateManifest.Parse(Manifest("1.1.6", ("1.1.4", "1.1.5"), ("1.1.4", "1.1.6"))));
         Assert.Throws<InvalidDataException>(() => UpdateManifest.Parse(Manifest("1.1.7", ("1.1.4", "1.1.5"))));
         Assert.Throws<InvalidDataException>(() => UpdateManifest.Parse(
@@ -188,7 +188,7 @@ public class PatchUpdateTests
         {
             string path = Path.Combine(root, name.Replace('/', Path.DirectorySeparatorChar));
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            File.WriteAllText(path, text);   // UTF-8 без BOM — те же байты, что и Hash(text)
+            File.WriteAllText(path, text);   // UTF-8 without BOM — the same bytes as Hash(text)
         }
         try { action(root, work); } finally { Directory.Delete(temp, true); }
     }

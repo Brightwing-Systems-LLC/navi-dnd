@@ -1,73 +1,73 @@
-# План: английский язык и выбор языка
+# Localization: English and Russian
 
-Цель — выбор языка в настройках (русский/английский) для интерфейса, ответов мастера, справочников и озвучки. Русский остаётся языком по умолчанию; существующие сохранения продолжают работать.
+The language is chosen in Settings (English/Russian) and covers the interface, the DM's responses, the reference data and the voice-over. **English is the source and default language**: every string in the code, every prompt and every service instruction to the DM is English. Russian is an optional translation kept in `ru.json` files. Existing saves keep working.
 
-## Исходное состояние
+## Current state
 
-- Около 1100 строковых литералов с кириллицей в ~60 файлах. Больше всего — `SettingsDisplay`, `NewGameDisplay`, `NewGameWizard`, `AiContextBuilder`, `HeroDisplay`, `TravelService`, `GameAiClient`, `JournalDisplay`, `MonsterCard`; также установщик (`NaviDnD.Installer`) и MCP-сервер.
-- Промпты `Prompts/Dnd5e/*` написаны по-русски; ответы мастера и генерация мира — на русском.
-- Русские строки используются как идентификаторы: имена характеристик (`"Класс Доспеха"`, `"Раса"`, `"Класс"`), автор `"Герой"`, расы и классы в `heroOptions.json`, метки в контексте ИИ (`да`, `ур.`, `фт`).
-- Справочники `GameData/DnD5e_*_BD.dtn` уже содержат `en` и `ru`; поиск идёт по русскому имени.
-- `DialogHighlighter` подсвечивает урон, лечение и исход броска русскими регулярными выражениями и учитывает падежи.
-- Озвучка — русская модель Silero `v5_5_ru.pt` с русскими голосами.
+- `L` (`NaviDnD.Data/L.cs`): the translation key is the English string in the code — `L.T("SETTINGS")`, templates `L.F("Day {0}", day)`, numbers `L.Plural(n, "day", "days")`. The Russian translation lives in `NaviDnD.Data/Localization/ru.json` (embedded in the assembly); with no translation, or in an English game, the English string is shown.
+- Plurals: English takes two forms in the call; Russian takes three (1, 2–4, 5+) from `ru.json` under the key `"one|many"`, e.g. `"day|days": "день|дня|дней"`.
+- Context suffix: when one English word needs several Russian translations, the key carries a suffix after `##` (`"north##to"`, `"EXIT##verb"`, `"NAME##person"`). The suffix is never shown — `L` strips it for English display.
+- The installer has its own `NaviDnD.Installer/ru.json` (only its strings; a test checks it against the game's).
+- Service instructions to the DM (summaries, MCP tool rules) are English and don't go through `L`; the DM replies to the player in the game's language.
 
-## Ключевое решение: язык интерфейса и язык мира
+## Key decision: interface language and world language
 
-- **Язык интерфейса** — настройка `Language` в `AppConfig`, переключается в любой момент.
-- **Язык мира** записывается в мир при создании и не меняется: имена, описания, журнал и история уже сгенерированы на нём. Новый мир по умолчанию берёт язык интерфейса. Старые сохранения без поля считаются русскими.
+- **Interface language** — the `Language` setting in `AppConfig`, can be switched at any time. Default: English.
+- **World language** is written into the world when it is created and never changes: names, descriptions, journal and history are already generated in it. A new world takes the interface language by default. Old saves without the field are treated as Russian — they really are.
 
-Так не придётся переводить сохранённый текст, а смена языка не ломает идущую игру.
+This way saved text never needs translating, and changing the language doesn't break a game in progress.
 
-## Этапы
+## Stages
 
-### 1. Инфраструктура и настройка — сделано
+The work was done in stages while Russian was still the source language (Russian strings were the keys, English lived in `en.json`). The final step flipped the contract: English became the keys and the default, and the dictionary became `ru.json`.
 
-- `L` (`NaviDnD.Data/L.cs`): ключ перевода — русская строка из кода, `L.T("НАСТРОЙКИ")`, шаблоны — `L.F("День {0}", day)`, числа — `L.Plural(n, "день", "дня", "дней")`. Английский — `NaviDnD.Data/Localization/en.json` (встроен в сборку); нет перевода — русская строка. Отдельный `ru.json` и искусственные ключи не нужны: русский текст остаётся в коде на месте.
-- `AppConfig.Language` (`"ru"`/`"en"`, в `settings.json`), пункт **ЯЗЫК** в настройках — пункты и заголовок перестраиваются сразу, остальные экраны — со следующей отрисовки.
-- `WorldMap.Language` — язык интерфейса при создании мира; язык игры — язык её мира (этап 4).
-- `LocalizationTests`: у каждой строки из `L.T/L.F/L.Plural` есть перевод, подстановки `{0}` совпадают, ключи — обычные литералы (не `$"…"`), справочные названия (биомы, типы мест, рельеф, мебель, стороны света, части суток) переведены.
+### 1. Infrastructure and setting — done
 
-### 2. Перевод интерфейса — сделано
+- `L` with interface and world languages, an embedded dictionary, and a fallback to the key.
+- `AppConfig.Language` (`"en"`/`"ru"`, in `settings.json`), a **LANGUAGE** item in Settings — the items and title rebuild immediately, other screens from the next redraw.
+- `WorldMap.Language` — the interface language at world creation; the game's language is its world's language (stage 4).
+- `LocalizationTests`: every string from `L.T/L.F/L.Plural` and `L.W/L.WF/L.WPlural` has a Russian translation, `{0}` placeholders match, keys are plain literals (not `$"…"`), reference names (biomes, place types, terrain, furniture, directions, parts of day) are translated.
 
-- Переведены меню, настройки, обновления, «Мои игры», мастер новой игры, анкета героя, лист персонажа, журнал, карточки монстров и заклинаний, легенда и подсказки карты, диалог и броски, сообщения об ошибках ИИ и озвучки, установщик.
-- **Граница:** переводится только то, что видно на экране и не сохраняется, плюс системные подсказки в диалоге («Путь преграждён», «Идёт бой — уйти в путь нельзя»). Текст, который уходит мастеру или хранится как часть истории, — на языке мира (этап 4). Для общих функций — пары: `MapConfig.FloorName` (мастеру) и `FloorLabel` (экран), `TravelService.PaceName` и `L.T(...)` при показе, `DaysLabel`.
-- Данные героя и мира (раса, класс, характеристики, навыки, названия мест) показываются как есть — они на языке мира.
-- Установщик: язык — из `Storage/settings.json` установленной игры, иначе из языка Windows. Свой словарь `NaviDnD.Installer/en.json` (только его строки, тест сверяет с игрой) — чтобы правки текста игры не пересобирали установщик; `NaviDnD.Data/L.cs` входит в отпечаток исходников установщика (`build-release.ps1`).
+### 2. Interface translation — done
 
-### 3. Ключи вместо русских строк и миграция сохранений — сделано
+- Menus, settings, updates, "My games", the new-game wizard, the hero questionnaire, the character sheet, journal, monster and spell cards, map legend and hints, dialog and rolls, AI and voice-over error messages, and the installer are all translatable.
+- **Boundary:** the interface language covers only what is shown on screen and not saved, plus system hints in the dialog ("The way is blocked", "Combat is on — you can't set off"). Text that goes to the DM or is saved as part of the story is in the world's language (stage 4). Shared functions come in pairs: `MapConfig.FloorName` (for the DM) and `FloorLabel` (for the screen), `TravelService.PaceName` and `L.T(...)` when shown, `DaysLabel`.
+- Hero and world data (race, class, stats, skills, place names) are shown as is — they are in the world's language.
+- Installer: language from `Storage/settings.json` of the installed game, otherwise from the Windows language. Its own dictionary `NaviDnD.Installer/ru.json` (only its strings, a test checks it against the game) — so edits to game text don't rebuild the installer; `NaviDnD.Data/L.cs` is part of the installer's source fingerprint (`build-release.ps1`).
 
-- Постоянные ключи (`NaviDnD.Data/Models/Keys.cs`): часть суток `night/morning/day/evening` (`PartsOfDay`), особые статы героя (`HeroStat.Key`: `race`, `class`, `alignment`, `background`, `armorClass`, `darkvision`, заклинательные — `StatKeys`), категории ресурсов `abilities/spells`, проходы-комнаты — флаг `Room.Passage`. Код сравнивает только ключи; слова модели на любом языке `Storage` приводит к ключам после каждого патча (и при загрузке — тот же путь).
-- Метки контекста ИИ — нейтральные: `inspiration:true`, `disengaged:true`, `dead:true`, `light:20ft`, `(lvl 3)`; промпты — `partOfDay` и `category` ключами.
-- **Миграции** (`NaviDnD/Migrations`): у файлов данных поле `formatVersion` (`StorageFormat.Current`). Старые файлы переписывает `NaviDnD.exe --migrate <папка игры>` — его запускает помощник обновления после патчей (и установщик поверх прежней установки), только если поставленная версия не старше помощника. Запасной путь — при старте игры (сборка из исходников, сбой обновления). До записи — копия в `Storage/Backup/format-<N>-<время>`, запись — через временный файл; файл, который не перевёлся, остаётся как был, ошибка — в `logs/migrations.log` и `Storage/update-error.txt` (видна в «ОБНОВЛЕНИЯ»). Повторный запуск ничего не меняет.
-- Миграция 0→1: ключи статов и категорий, часть суток (сохранения, заметки, герой внутри карточек библиотеки), `passage` у коридоров/лазов/галерей (сохранения и локации миров), `language: "ru"` у игр и миров, заметки — объект `{formatVersion, notes}` вместо массива.
-- Варианты анкеты (`heroOptions.json`) и шага «Приключение» (`adventureOptions.json`) — русские ключи перевода, в анкете и мастеру — на языке мира; английские случайные имена — `namesEn`.
+### 3. Keys instead of words and save migration — done
 
-### 4. Язык рассказа мастера — сделано
+- Persistent keys (`NaviDnD.Data/Models/Keys.cs`): part of day `night/morning/day/evening` (`PartsOfDay`), special hero stats (`HeroStat.Key`: `race`, `class`, `alignment`, `background`, `armorClass`, `darkvision`, spellcasting — `StatKeys`), resource categories `abilities/spells`, passage rooms — the `Room.Passage` flag. Code compares only keys; `Storage` normalizes the model's words in either language to keys after every patch (and on load — the same path).
+- AI context labels are neutral: `inspiration:true`, `disengaged:true`, `dead:true`, `light:20ft`, `(lvl 3)`; prompts use `partOfDay` and `category` as keys.
+- **Migrations** (`NaviDnD/Migrations`): data files carry a `formatVersion` field (`StorageFormat.Current`). Old files are rewritten by `NaviDnD.exe --migrate <game folder>` — the update helper runs it after patches (and the installer over an existing install), only if the installed version is not older than the helper. Fallback — on game start (build from source, failed update). Before writing — a copy in `Storage/Backup/format-<N>-<time>`; writing goes through a temporary file; a file that fails to convert stays as it was, the error goes to `logs/migrations.log` and `Storage/update-error.txt` (visible in "UPDATES"). Running again changes nothing.
+- Migration 0→1: stat and category keys, part of day (saves, notes, the hero inside library cards), `passage` on corridors/crawlways/galleries (saves and world locations), `language: "ru"` on games and worlds, notes become an object `{formatVersion, notes}` instead of an array.
+- Questionnaire options (`heroOptions.json`) and "Adventure" step options (`adventureOptions.json`) are translation keys, shown in the questionnaire and sent to the DM in the world's language; random names have separate lists (`names` for Russian, `namesEn` for English).
 
-- Язык игры — `WorldState.Language` (из мира при старте новой игры) → `L.World`; мастер новой игры ставит язык выбранного мира. Первая строка каждого запроса — `lang:ru|en`; в каждом системном промпте — правило языка; ударения `+` в SSML — только при `lang:ru`.
-- На языке мира (`L.W`/`L.WF`): названия генератора мира (`WorldGenerator`: имена, места, области, острова — свои слоги для английского), комнаты (`BuildingGenerator`, `ChunkGenerator`), этажи (`MapConfig.FloorName`), тексты движка в истории («Ты спускаешься по лестнице», «Завершаю ход» / «I end my turn», выбор цели, «Тело: …» / «Body: …»).
-- Инструкции мастеру в контексте (сводки, правила MCP-инструментов) остаются русскими — это служебный текст; на них модель не отвечает игроку.
+### 4. The DM's narration language — done
 
-### 5. Справочники — сделано
+- The game's language is `WorldState.Language` (from the world when a new game starts) → `L.World`; the new-game wizard sets the chosen world's language. The first line of every request is `lang:en|ru`; every system prompt has a language rule; `+` stress marks in SSML only with `lang:ru`.
+- In the world's language (`L.W`/`L.WF`): world generator names (`WorldGenerator`: names, places, regions, islands — separate syllables per language), rooms (`BuildingGenerator`, `ChunkGenerator`), floors (`MapConfig.FloorName`), engine text in the story ("You go down the stairs", "I end my turn", target selection, "Body: …").
+- Instructions to the DM in the context (summaries, MCP tool rules) are English service text; the model doesn't reply to the player with them.
 
-- Поиск по русскому и английскому имени; MCP `find_spell/find_monster/find_item` возвращают название на языке игры (MCP-сервер берёт язык из сохранения). Карточка заклинания — на языке игры (в справочнике оба языка).
-- **Ограничение:** у монстров в справочнике по-английски только имя — в английской игре статья бестиария (особенности, действия) остаётся русской.
+### 5. Reference data — done
 
-### 6. Подсветка диалога — сделано
+- Lookup by English and Russian name; MCP `find_spell/find_monster/find_item` return the name in the game's language (the MCP server takes the language from the save). The spell card is in the game's language (the reference has both languages).
+- **Limitation:** monsters in the reference have only an English name — the bestiary entry (traits, actions) in `GameData/DnD5e_monsters_BD.dtn` stays Russian even in an English game.
 
-- `DialogHighlighter`: урон, лечение, hit/miss, success/failure — на обоих языках; английские имена существ — без падежей (`Goblins`, `goblin's`).
+### 6. Dialog highlighting — done
 
-### 7. Озвучка — сделано
+- `DialogHighlighter`: damage, healing, hit/miss, success/failure — in both languages; English creature names without grammatical cases (`Goblins`, `goblin's`), Russian ones with case endings.
 
-- Голос — языка игры. Английская модель Silero `v3_en` (57 МБ) — файл игры `NaviDnD/Speech/models/v3_en.pt` (в репозитории; к игрокам приходит патчем один раз, проверка файлов — как у остальных). Голоса выбраны по высоте тона синтеза (мужские `en_57/en_31/en_20`, женские `en_21/en_11`; персонажи — `en_23`, `en_6`); настройка **АНГЛИЙСКИЙ ГОЛОС**.
+### 7. Voice-over — done
 
-### 8. Документация и релиз
+- The voice follows the game's language. The English Silero model `v3_en` (57 MB) is a game file, `NaviDnD/Speech/models/v3_en.pt` (in the repository; reaches players once via a patch, file checks as for the rest); the Russian model is `v5_5_ru.pt`. English voices were picked by synthesized pitch (male `en_57/en_31/en_20`, female `en_21/en_11`; characters `en_23`, `en_6`); setting **ENGLISH VOICE**.
 
-- `README.en.md` — сделано. При выпуске: английский раздел в `RELEASE_NOTES.md`, убрать «Russian only» из описания релиза на GitHub.
-- Выпуск — обычным патчем; установщик пересоберётся (изменились его исходники и `L.cs`) — помощник обновления скачается заново и выполнит миграцию.
+### 8. Documentation and release
 
-## Проверки
+- `README.md` is English. Shipping is a regular patch; the installer is rebuilt (its sources and `L.cs` changed), so the update helper is downloaded again and runs the migration.
 
-- `dotnet test NaviDnD.Tests/NaviDnD.Tests.csproj`: словари, миграции (`StorageMigrationTests`), язык генератора (`WorldLanguageTests`), подсветка (`DialogHighlighterTests`), строка `lang:` (`SpeechTests`).
-- Миграция проверена на копии реальной папки `Storage` (197 файлов): ошибок нет, повторный запуск ничего не меняет.
-- Ещё не проверено: живая английская игра с моделью (`PromptTests` с `lang:en` тратят лимиты — запускать выборочно), установка обновления на реальной сборке.
+## Checks
+
+- `dotnet test NaviDnD.Tests/NaviDnD.Tests.csproj`: dictionaries (`LocalizationTests`), migrations (`StorageMigrationTests`), generator language (`WorldLanguageTests`), highlighting (`DialogHighlighterTests`), the `lang:` line (`SpeechTests`).
+- The migration was checked on a copy of a real `Storage` folder (197 files): no errors, running again changes nothing.
+- Not yet checked: a live game with the model in each language (`PromptTests` spend usage limits — run selectively), installing an update on a real build.

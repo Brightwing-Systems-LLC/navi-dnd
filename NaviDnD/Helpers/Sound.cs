@@ -4,11 +4,11 @@ namespace NaviDnD.Helpers;
 
 internal static class Sound
 {
-    // Выставляется один раз из AppConfig.SoundEnabled при старте игры (Program.cs).
+    // Set once from AppConfig.SoundEnabled at game start (Program.cs).
     public static bool Enabled { get; set; } = true;
     public static volatile bool Suspended;
 
-    // Общая громкость 0..1 (AppConfig.SoundVolume, экран «НАСТРОЙКИ») — множитель для всех звуков.
+    // Master volume 0..1 (AppConfig.SoundVolume, the "SETTINGS" screen) — a multiplier for all sounds.
     public static float Volume { get; set; } = 1f;
 
     private static readonly OneShotSound Click = new("click.wav");
@@ -18,15 +18,15 @@ internal static class Sound
         if (Enabled && !Suspended) Click.Trigger();
     }
 
-    // Выставляется из AppConfig.TypingSoundEnabled (Program.cs).
+    // Set from AppConfig.TypingSoundEnabled (Program.cs).
     public static bool TypingEnabled { get; set; } = true;
 
     private static readonly TypingBlipProvider? Typing = TypingBlipProvider.Create();
     private const int TypingMinIntervalMs = 55;
     private static DateTime _lastTypingBlip = DateTime.MinValue;
 
-    // Звук печати текста в диалоге (как в RPG): блип только на буквах/цифрах и не чаще раза в
-    // TypingMinIntervalMs — на каждый символ при ~40 симв/с получается трещотка, а не «голос».
+    // Dialogue typing sound (as in RPGs): a blip only on letters/digits and no more than once per
+    // TypingMinIntervalMs — one per character at ~40 chars/s sounds like a rattle, not a "voice".
     public static void PlayTyping(char c)
     {
         if (!Enabled || Suspended || !TypingEnabled || !char.IsLetterOrDigit(c)) return;
@@ -38,10 +38,10 @@ internal static class Sound
 
     private static readonly string DiceRollPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sound", "dice-roll.mp3");
 
-    // Без предзагрузки в память — играем mp3 напрямую с диска через свежий Mp3FileReader на каждый
-    // бросок. Предзагрузка (чтение всего файла в плоский массив заранее) стабильно портила именно
-    // этот сжатый клип; бросок редкий и не такой чувствительный к задержке, как клик, так что
-    // открытие устройства каждый раз — приемлемая цена за корректный звук.
+    // No preloading into memory — play the mp3 straight from disk with a fresh Mp3FileReader on every
+    // roll. Preloading (reading the whole file into a flat array up front) consistently corrupted
+    // this particular compressed clip; rolls are rare and less latency-sensitive than clicks, so
+    // opening the device each time is an acceptable price for correct sound.
     public static Task PlayDiceRoll()
     {
         if (!Enabled || Suspended || !File.Exists(DiceRollPath)) return Task.CompletedTask;
@@ -63,16 +63,16 @@ internal static class Sound
                     Thread.Sleep(50);
                 }
             }
-            catch { /* звук — не критичная функция */ }
+            catch { /* sound is not a critical feature */ }
             finally { started.TrySetResult(); }
         });
         return started.Task;
     }
 
-    // Устройство открывается ОДИН раз на старте игры и играет непрерывно (тишину, когда звук не
-    // запущен) — иначе каждый Play() заново открывает аудио-устройство, что даёт заметную задержку.
-    // Клип декодируется в плоский массив семплов заранее, целиком, один раз — для клика (честный PCM
-    // wav) это надёжно работает.
+    // The device is opened ONCE at game start and plays continuously (silence when no sound is
+    // playing) — otherwise every Play() reopens the audio device, which causes a noticeable delay.
+    // The clip is decoded into a flat sample array up front, whole, once — for the click (a genuine PCM
+    // wav) this works reliably.
     private sealed class OneShotSound
     {
         private readonly OneShotSampleProvider? _provider;
@@ -97,16 +97,16 @@ internal static class Sound
                 _output.Init(_provider);
                 _output.Play();
             }
-            catch { /* звук — не критичная функция */ }
+            catch { /* sound is not a critical feature */ }
         }
 
         public void Trigger() => _provider?.Trigger();
     }
 
-    // Синтезированный звук печати (без файла): тихий затухающий чистый синус — ноутбучные динамики
-    // хрипят на низах и обертонах, поэтому без них. Нота каждый раз случайная из ре-минора (D4–C5),
-    // поэтому текст звучит как тихий минорный перебор, а не метроном.
-    // Устройство, как у клика, открыто постоянно и играет тишину между звуками.
+    // Synthesised typing sound (no file): a quiet decaying pure sine — laptop speakers
+    // rasp on lows and overtones, so it has none. Each note is random from D minor (D4–C5),
+    // so text sounds like a quiet minor arpeggio rather than a metronome.
+    // Like the click, the device stays open and plays silence between sounds.
     private sealed class TypingBlipProvider : ISampleProvider
     {
         private const int SampleRate = 44100;
@@ -117,7 +117,7 @@ internal static class Sound
 
         private readonly object _lock = new();
         private readonly Random _rnd = new();
-        private int _pos = -1; // -1 = тишина
+        private int _pos = -1; // -1 = silence
         private double _freq = Notes[0];
 
         public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(SampleRate, 1);
@@ -132,7 +132,7 @@ internal static class Sound
                 output.Play();
                 return provider;
             }
-            catch { return null; /* звук — не критичная функция */ }
+            catch { return null; /* sound is not a critical feature */ }
         }
 
         public void Trigger()
@@ -159,7 +159,7 @@ internal static class Sound
                     }
                     double t = (double)_pos / SampleRate;
                     double attack = Math.Min(1.0, t / 0.005);
-                    double fadeOut = Math.Min(1.0, (length - _pos) / (SampleRate * 0.01)); // без щелчка в конце
+                    double fadeOut = Math.Min(1.0, (length - _pos) / (SampleRate * 0.01)); // no click at the end
                     buffer[offset + i] = Suspended ? 0 : (float)(Math.Sin(2 * Math.PI * _freq * t) * attack * Math.Exp(-t / DecaySec) * fadeOut * Volume * Sound.Volume);
                     _pos++;
                 }
@@ -170,7 +170,7 @@ internal static class Sound
 
     private sealed class OneShotSampleProvider(float[] clip, WaveFormat format) : ISampleProvider
     {
-        private int _pos = -1; // -1 = тишина
+        private int _pos = -1; // -1 = silence
         private readonly object _lock = new();
 
         public WaveFormat WaveFormat { get; } = format;

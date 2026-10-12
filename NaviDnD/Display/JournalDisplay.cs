@@ -4,28 +4,28 @@ using NaviDnD.Helpers;
 
 namespace NaviDnD.Display;
 
-// Журнал героя ([F3]) — как экран персонажа: сразу под заголовком подвкладки слева (Задания / Персонажи /
-// Бестиарий, F6–F8), под ними две колонки: слева список записей (выбор — Tab/наведение, маркер «←»,
-// страницы — ▲ ▼ у края), справа подробности выбранной (страницы — «◄ 1/2 ►» внизу, ←→). Блок картинок — только картинка записи. Данные — narrative
-// (currentArc, plotThreads со steps, npcs, knownMonsters), их ведёт ИИ.
+// The hero's journal ([F3]), laid out like the character screen: right under the title, subtabs on the left (Quests / People /
+// Bestiary, F6–F8); below them two columns: the entry list on the left (select with Tab/hover, "←" marker,
+// pages via ▲ ▼ at the edge), details of the selected entry on the right (pages via "◄ 1/2 ►" at the bottom, ←→). The image block shows only the entry's picture. Data comes from narrative
+// (currentArc, plotThreads with steps, npcs, knownMonsters), maintained by the AI.
 public class JournalDisplay(WorldState settings, DisplayConfig display)
 {
     public enum Section { Quests, People, Locations, Bestiary, Notes }
 
     private static (Section section, string label, string key)[] Sections =>
-        [(Section.Quests, L.T("ЗАДАНИЯ"), "F6"), (Section.People, L.T("ПЕРСОНАЖИ"), "F7"), (Section.Locations, L.T("ЛОКАЦИИ"), "F8"),
-         (Section.Bestiary, L.T("БЕСТИАРИЙ"), "F9"), (Section.Notes, L.T("ЗАМЕТКИ"), "F10")];
+        [(Section.Quests, L.T("QUESTS"), "F6"), (Section.People, L.T("PEOPLE"), "F7"), (Section.Locations, L.T("LOCATIONS"), "F8"),
+         (Section.Bestiary, L.T("BESTIARY"), "F9"), (Section.Notes, L.T("NOTES"), "F10")];
 
-    private static string NotesHint => L.T("Текст внизу + Enter — заметка");
+    private static string NotesHint => L.T("Text below + Enter — add a note");
 
-    // Раздел «Заметки»: запись списка → индекс в PlayerNotes.All (новые сверху).
+    // "Notes" section: list entry → index into PlayerNotes.All (newest first).
     private List<int> _noteIndex = [];
 
     public Section Current { get; private set; } = Section.Quests;
     private readonly Dictionary<Section, int> _page = [];
     private readonly Dictionary<Section, int> _selected = [];
-    // Закреплённая запись (клик мышью / Tab, как у предметов инвентаря): наведение показывает другую
-    // временно, курсор ушёл с записи — снова закреплённая.
+    // Pinned entry (mouse click / Tab, like inventory items): hovering shows another one
+    // temporarily; once the cursor leaves the entries, the pinned one is back.
     private readonly Dictionary<Section, int> _pinned = [];
 
     private sealed record Entry(string Title, string Marker, List<int> Color, List<(string text, List<int> color)> Details, string? Image, List<int>? ImageColor);
@@ -35,16 +35,16 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
     private readonly List<(int x0, int x1, Section section)> _tabSpans = [];
     private int _barRow;
     private int _hoveredTab = -1;
-    // Листание списка — ▲ (первая строка) / ▼ (последняя) у правого края колонки списка.
+    // List paging: ▲ (first row) / ▼ (last row) at the right edge of the list column.
     private int _listArrowX = -1, _hoveredListArrow;
-    // Страницы подробностей — «◄ 1/2 ►» внизу по центру правой колонки.
+    // Detail pages: "◄ 1/2 ►" at the bottom center of the right column.
     private int _detailPage, _detailPageCount = 1, _detailLeftX = -1, _detailRightX = -1, _hoveredDetailArrow;
 
     private List<int> Fg => display.MainForeground;
     private List<int> Bright => ColorHelper.Pale(display.MainForeground, 0.75);
     private List<int> Dim => ColorHelper.Darker(display.MainForeground, 0.45);
 
-    // ── Записи раздела ──
+    // ── Section entries ──
     private List<Entry> BuildEntries(Section section)
     {
         var list = new List<Entry>();
@@ -52,48 +52,48 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
         switch (section)
         {
             case Section.Quests:
-                // Текущая цель — первой записью.
+                // The current goal comes first.
                 if (n?.CurrentArc is { Length: > 0 } arc)
-                    list.Add(new Entry(L.T("Текущая цель"), "»", Bright, [(L.T("Текущая цель"), Bright), ("", Fg), (arc, Fg)], "lorc/scroll-unfurled", null));
-                // Только то, что знает герой: скрытые нити и заметки мастера (dmNotes) в журнал не попадают.
+                    list.Add(new Entry(L.T("Current goal"), "»", Bright, [(L.T("Current goal"), Bright), ("", Fg), (arc, Fg)], "lorc/scroll-unfurled", null));
+                // Only what the hero knows: hidden threads and the DM's notes (dmNotes) stay out of the journal.
                 var threads = (n?.PlotThreads ?? []).Where(t => t.Deleted != true && t.Hidden != true).ToList();
                 foreach (var t in threads.Where(IsActive).Concat(threads.Where(t => !IsActive(t))))
                 {
                     bool active = IsActive(t);
                     bool failed = IsFailed(t);
-                    var details = new List<(string, List<int>)> { (t.Name ?? L.T("Задание"), Bright), (L.T("Статус: ") + (t.Status ?? L.T("активна")), Dim), ("", Fg) };
+                    var details = new List<(string, List<int>)> { (t.Name ?? L.T("Quest"), Bright), (L.T("Status: ") + (t.Status ?? L.T("active")), Dim), ("", Fg) };
                     if (!string.IsNullOrWhiteSpace(t.Description)) details.Add((t.Description, Fg));
                     if (t.Steps is { Count: > 0 } steps)
                     {
                         details.Add(("", Fg));
-                        details.Add((L.T("Ход задания:"), Dim));
+                        details.Add((L.T("Progress:"), Dim));
                         details.AddRange(steps.Select(s => ("· " + s, Fg)));
                     }
-                    list.Add(new Entry(t.Name ?? L.T("Задание"), active ? "▸" : failed ? "✗" : "✓", active ? Fg : Dim, details, "lorc/scroll-unfurled", null));
+                    list.Add(new Entry(t.Name ?? L.T("Quest"), active ? "▸" : failed ? "✗" : "✓", active ? Fg : Dim, details, "lorc/scroll-unfurled", null));
                 }
                 break;
 
             case Section.People:
-                // Только встреченные героем (met или есть память разговоров).
+                // Only those the hero has met (met, or there is conversation memory).
                 foreach (var p in (n?.Npcs ?? []).Where(p => p.Deleted != true && (p.Met == true || p.Memory is { Count: > 0 })))
                 {
                     var color = AttitudeColor(p.Attitude);
                     var onMap = (settings.Map.Entities ?? []).FirstOrDefault(e => e.Deleted != true && string.Equals(e.Name, p.Name, StringComparison.OrdinalIgnoreCase));
                     var details = new List<(string, List<int>)> { (p.Name ?? "?", color) };
-                    if (!string.IsNullOrWhiteSpace(p.Attitude)) details.Add((L.T("Отношение: ") + p.Attitude, Dim));
+                    if (!string.IsNullOrWhiteSpace(p.Attitude)) details.Add((L.T("Attitude: ") + p.Attitude, Dim));
                     details.Add(("", Fg));
                     if (!string.IsNullOrWhiteSpace(p.Notes)) details.Add((p.Notes, Fg));
                     if (p.Memory is { Count: > 0 } memory)
                     {
                         details.Add(("", Fg));
-                        details.Add((L.T("Запомнилось:"), Dim));
+                        details.Add((L.T("Remembered:"), Dim));
                         details.AddRange(memory.Select(m => ("· " + m, Fg)));
                     }
                     list.Add(new Entry(p.Name ?? "?", "●", color, details, onMap?.Image ?? "delapouite/person", onMap?.Color ?? color));
                 }
                 break;
 
-            // Места карты мира, известные герою: где он сейчас — первым, потом где бывал, потом о каких слышал.
+            // World map places known to the hero: where he is now first, then places visited, then places heard of.
             case Section.Locations:
                 if (GameWorld.ForDisplay(settings) is { } world && settings.World is { } link)
                 {
@@ -105,19 +105,19 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
                     {
                         bool here = p.Name == link.Place, visited = link.Visited.Contains(p.Name);
                         var (icon, iconColor) = WorldMapView.Icon(p.Type);
-                        string kingdom = p.Kingdom >= 0 && p.Kingdom < world.Kingdoms.Count ? L.F("королевство {0}", world.Kingdoms[p.Kingdom].Name) : L.T("ничья земля");
+                        string kingdom = p.Kingdom >= 0 && p.Kingdom < world.Kingdoms.Count ? L.F("kingdom of {0}", world.Kingdoms[p.Kingdom].Name) : L.T("no man's land##sg");
                         var details = new List<(string, List<int>)>
                         {
                             (p.Name, Bright),
                             ($"{L.T(WorldPlaceTypes.Label(p.Type))} · {kingdom} · {L.T(MapGen.Generators.WorldAtlas.Compass(world, p.X, p.Y))}", Dim),
-                            (here ? L.T("Вы здесь") : visited ? L.T("Бывали здесь") : L.T("Знаете понаслышке"), Dim),
+                            (here ? L.T("You are here") : visited ? L.T("You've been here") : L.T("Known by hearsay"), Dim),
                             ("", Fg),
                         };
                         if (!string.IsNullOrWhiteSpace(p.Description)) details.Add((p.Description, Fg));
                         if (!here && hero is { } h && MapGen.Generators.WorldAtlas.Route(world, h, (p.X, p.Y)) is { } r)
                         {
                             details.Add(("", Fg));
-                            details.Add((L.T("Отсюда: ") + $"{L.T(MapGen.Generators.WorldAtlas.Direction(p.X - h.x, p.Y - h.y))}, {r.Summary}", Dim));
+                            details.Add((L.T("From here: ") + $"{L.T(MapGen.Generators.WorldAtlas.Direction(p.X - h.x, p.Y - h.y))}, {r.Summary}", Dim));
                         }
                         list.Add(new Entry(p.Name, here ? "@" : visited ? icon.ToString() : "·", here || visited ? Fg : Dim, details,
                             WorldMapView.PlaceImage(p.Type), iconColor));
@@ -136,26 +136,26 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
                         string kind = string.Join(", ", new[] { info.Size, info.Type, info.Alignment }.Where(s => !string.IsNullOrWhiteSpace(s)));
                         if (kind.Length > 0) details.Add((kind, Dim));
                         details.Add(("", Fg));
-                        details.Add((L.F("КД {0} · ХП {1} · скорость {2}", info.Ac, info.Hp, info.Speed), Fg));
-                        details.Add((L.F("СИЛ {0}  ЛОВ {1}  ТЕЛ {2}  ИНТ {3}  МДР {4}  ХАР {5}", info.Str, info.Dex, info.Con, info.Int, info.Wis, info.Cha), Fg));
-                        if (!string.IsNullOrWhiteSpace(info.Senses)) details.Add((L.T("Чувства: ") + info.Senses, Dim));
-                        if (!string.IsNullOrWhiteSpace(info.Languages)) details.Add((L.T("Языки: ") + info.Languages, Dim));
+                        details.Add((L.F("AC {0} · HP {1} · speed {2}", info.Ac, info.Hp, info.Speed), Fg));
+                        details.Add((L.F("STR {0}  DEX {1}  CON {2}  INT {3}  WIS {4}  CHA {5}", info.Str, info.Dex, info.Con, info.Int, info.Wis, info.Cha), Fg));
+                        if (!string.IsNullOrWhiteSpace(info.Senses)) details.Add((L.T("Senses: ") + info.Senses, Dim));
+                        if (!string.IsNullOrWhiteSpace(info.Languages)) details.Add((L.T("Languages: ") + info.Languages, Dim));
                     }
                     list.Add(new Entry(info?.LocalizedName ?? key, "♦", Fg, details, onMap?.Image, onMap?.Color));
                 }
                 break;
 
-            // Свои заметки игрока — из отдельного файла (PlayerNotes), мастеру не передаются.
+            // The player's own notes: from a separate file (PlayerNotes), never sent to the DM.
             case Section.Notes:
                 var notes = PlayerNotes.All;
                 _noteIndex = Enumerable.Range(0, notes.Count).Reverse().ToList();
                 foreach (int ni in _noteIndex)
                 {
                     var note = notes[ni];
-                    string when = L.F("День {0}", note.Day) + (string.IsNullOrEmpty(note.PartOfDay) ? "" : " · " + GameTime.PartOfDayText(note.PartOfDay));
+                    string when = L.F("Day {0}", note.Day) + (string.IsNullOrEmpty(note.PartOfDay) ? "" : " · " + GameTime.PartOfDayText(note.PartOfDay));
                     string firstLine = note.Text.Split('\n')[0];
-                    if (note.ByMaster) when += " · " + L.T("записал мастер");
-                    var details = new List<(string, List<int>)> { (when, Dim), ("", Fg), (note.Text, Fg), ("", Fg), (L.T("[Del] — удалить заметку"), Dim) };
+                    if (note.ByMaster) when += " · " + L.T("written by the DM");
+                    var details = new List<(string, List<int>)> { (when, Dim), ("", Fg), (note.Text, Fg), ("", Fg), (L.T("[Del] — delete the note"), Dim) };
                     list.Add(new Entry(firstLine, note.ByMaster ? "✦" : "✎", Fg, details, "lorc/quill-ink", null));
                 }
                 break;
@@ -163,7 +163,7 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
         return list;
     }
 
-    // Статус задания мастер пишет словом на языке игры: «завершено», «провалено», «completed», «failed».
+    // The DM writes the quest status as a word in the game's language: "завершено", "провалено", "completed", "failed".
     private static bool StatusIs(PlotThread t, params string[] prefixes) =>
         t.Status is { } s && prefixes.Any(p => s.StartsWith(p, StringComparison.OrdinalIgnoreCase));
 
@@ -180,19 +180,19 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
         return Bright;
     }
 
-    // Записей на странице списка: в «Заметках» последняя строка — подсказка, как добавить заметку.
+    // Entries per list page: in "Notes" the last row is the hint on how to add a note.
     private int PerPage => Current == Section.Notes ? Math.Max(1, _rows - 1) : _rows;
 
     private string EmptyText => Current switch
     {
-        Section.Quests => L.T("Заданий пока нет."),
-        Section.People => L.T("Знакомств пока нет."),
-        Section.Notes => L.T("Заметок пока нет."),
-        Section.Locations => L.T("Известных мест пока нет."),
-        _ => L.T("Опознанных существ пока нет."),
+        Section.Quests => L.T("No quests yet."),
+        Section.People => L.T("No acquaintances yet."),
+        Section.Notes => L.T("No notes yet."),
+        Section.Locations => L.T("No known places yet."),
+        _ => L.T("No identified creatures yet."),
     };
 
-    // ── Отрисовка ──
+    // ── Drawing ──
     private readonly ConsoleRegionBuffer _listRegion = new();
     private readonly ConsoleRegionBuffer _detailRegion = new();
 
@@ -223,7 +223,7 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
         _listTop = Console.CursorTop;
         _listArrowX = DisplayConfig.LeftMargin + 1 + _leftW - 2;
 
-        // Подробности по страницам: не влезли — последняя строка колонки под «◄ 1/2 ►».
+        // Details split into pages: if they don't fit, the column's last row holds "◄ 1/2 ►".
         var all = BuildDetailLines(sel, _rightW - 4);
         int perPage = all.Count > _rows ? _rows - 1 : _rows;
         _detailPageCount = Math.Max(1, (all.Count + perPage - 1) / perPage);
@@ -276,7 +276,7 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
             return;
         }
         if (Current == Section.Notes && row >= PerPage) idx = int.MaxValue;
-        // ▲ / ▼ — в первой и последней строке у правого края, если записей больше страницы.
+        // ▲ / ▼ in the first and last rows at the right edge, if there are more entries than one page.
         string arrow = _pageCount <= 1 ? " " : row == 0 ? "▲" : row == _rows - 1 ? "▼" : " ";
         bool canGo = row == 0 ? page > 0 : page < _pageCount - 1;
         var arrowColor = !canGo ? ColorHelper.Darker(Fg, 0.5) : _hoveredListArrow == (row == 0 ? -1 : 1) ? Bright : Fg;
@@ -302,7 +302,7 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
         Console.Write(" ");
     }
 
-    // «◄ 1/2 ►» по центру правой колонки.
+    // "◄ 1/2 ►" centered in the right column.
     private void WriteDetailArrows()
     {
         string pageText = $" {_detailPage + 1}/{_detailPageCount} ";
@@ -329,21 +329,21 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
         return lines;
     }
 
-    // Подвкладки — слева с отступом, как у персонажа: «  → ЗАДАНИЯ ←    [F7]ПЕРСОНАЖИ    [F8]БЕСТИАРИЙ».
+    // Subtabs: on the left with an indent, as on the character screen: "  → QUESTS ←    [F7]PEOPLE    [F8]LOCATIONS".
     private void DrawTabBar()
     {
-        // Отступ и промежутки — как у вкладок заголовка ("   " перед каждой): [F6] стоит ровно под [F1].
+        // Indent and gaps match the title tabs ("   " before each): [F6] sits exactly under [F1].
         const int gap = 3;
         _tabSpans.Clear();
         var stamps = SectionStamps(settings);
         var seen = SeenSections(stamps);
-        seen[(int)Current] = stamps[(int)Current];   // открытую подвкладку видим
+        seen[(int)Current] = stamps[(int)Current];   // the open subtab counts as seen
         Console.Write(new string(' ', gap));
         for (int i = 0; i < Sections.Length; i++)
         {
             var (section, label, key) = Sections[i];
             bool active = section == Current;
-            int x0 = Console.CursorLeft + 4; // без «[Fn]» — наведение на подсказку клавиши ничего не подсвечивает
+            int x0 = Console.CursorLeft + 4; // without "[Fn]": hovering the key hint highlights nothing
             var color = active || _hoveredTab == i ? Bright : Fg;
             if (active) ColorHelper.WriteColored($"  → {label} ←", color);
             else
@@ -356,7 +356,7 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
         }
     }
 
-    // Блок картинок — только картинка выбранной записи (без подписи: подробности — в правой колонке).
+    // Image block: only the selected entry's picture (no caption: the details are in the right column).
     private void ShowImage(int sel)
     {
         display.NotePage = 0;
@@ -380,8 +380,8 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
         Console.CursorVisible = vis;
     }
 
-    // ── Управление ──
-    // Страница списка (▲ ▼): выбор — первая запись новой страницы.
+    // ── Input ──
+    // List page (▲ ▼): selection moves to the first entry of the new page.
     public void FlipList(int delta)
     {
         int page = _page.GetValueOrDefault(Current), to = Math.Clamp(page + delta, 0, _pageCount - 1);
@@ -394,7 +394,7 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
         Redraw();
     }
 
-    // Страница подробностей (←→, ◄ ►).
+    // Detail page (←→, ◄ ►).
     public void Flip(int delta)
     {
         int to = Math.Clamp(_detailPage + delta, 0, _detailPageCount - 1);
@@ -412,7 +412,7 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
         Redraw();
     }
 
-    // Заметки: текст из поля ввода (Enter на разделе «Заметки») — сюда, а не мастеру.
+    // Notes: text from the input box (Enter in the "Notes" section) goes here, not to the DM.
     public bool TryAddNote(string text)
     {
         if (Current != Section.Notes || string.IsNullOrWhiteSpace(text)) return false;
@@ -426,7 +426,7 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
         return true;
     }
 
-    // [Del] при пустом вводе — удалить выбранную заметку.
+    // [Del] with empty input deletes the selected note.
     public void DeleteSelectedNote()
     {
         if (Current != Section.Notes) return;
@@ -440,7 +440,7 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
 
     public void SetSectionSilently(Section section) { Current = section; _detailPage = 0; }
 
-    // Tab/Shift+Tab — следующая/предыдущая запись (страница списка листается к ней).
+    // Tab/Shift+Tab: next/previous entry (the list page scrolls to it).
     public void SelectNext(int delta)
     {
         if (_entries.Count == 0) return;
@@ -453,7 +453,7 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
         Redraw();
     }
 
-    // Мышь: подвкладки, ▲ ▼ списка, ◄ ► подробностей, наведение на запись. true — сменилась картинка.
+    // Mouse: subtabs, list ▲ ▼, detail ◄ ►, hovering an entry. true means the picture changed.
     public bool HandleMouse((short x, short y)? move, (short x, short y)? click)
     {
         if (_startTop < 0) return false;
@@ -469,7 +469,7 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
             if (c.x == _listArrowX && c.y == lastRow) { FlipList(1); return true; }
             if (_detailPageCount > 1 && c.y == lastRow && c.x == _detailLeftX) { Flip(-1); return false; }
             if (_detailPageCount > 1 && c.y == lastRow && c.x == _detailRightX) { Flip(1); return false; }
-            // Клик по записи — закрепить её.
+            // Clicking an entry pins it.
             int crow = c.y - _listTop, cx0 = DisplayConfig.LeftMargin + 1;
             int cidx = _page.GetValueOrDefault(Current) * PerPage + crow;
             if (crow >= 0 && crow < PerPage && c.x >= cx0 && c.x < cx0 + _leftW - 3 && cidx < _entries.Count)
@@ -490,11 +490,11 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
             _hoveredTab = ht; _hoveredListArrow = hl; _hoveredDetailArrow = hd;
             Redraw(false);
         }
-        // Запись под курсором (левая колонка, кроме стрелок).
+        // Entry under the cursor (left column, excluding the arrows).
         int row = m.y - _listTop, leftX0 = DisplayConfig.LeftMargin + 1;
         int idx = _page.GetValueOrDefault(Current) * PerPage + row;
         bool overEntry = hl == 0 && row >= 0 && row < PerPage && m.x >= leftX0 && m.x < leftX0 + _leftW - 3 && idx < _entries.Count;
-        // Наведение — показать запись под курсором; ушли с записей — вернуть закреплённую.
+        // Hover shows the entry under the cursor; leaving the entries brings back the pinned one.
         int want = overEntry ? idx : _pinned.GetValueOrDefault(Current, -1);
         if (want >= 0 && want < _entries.Count && want != _selected.GetValueOrDefault(Current, -1))
         {
@@ -508,10 +508,10 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
         return changed;
     }
 
-    // ── Новое в журнале (метка «ЖУРНАЛ•» во вкладке и «•» у подвкладки) ──
+    // ── New in the journal ("JOURNAL•" mark on the tab and "•" on a subtab) ──
     public static string Stamp(WorldState ws) => string.Join("|", SectionStamps(ws).Take(4));
 
-    // Отпечаток содержимого каждой подвкладки (порядок Sections): изменился — там новое.
+    // A fingerprint of each subtab's contents (in Sections order): if it changed, there is something new.
     private static string[] SectionStamps(WorldState ws)
     {
         var n = ws.Narrative;
@@ -521,11 +521,12 @@ public class JournalDisplay(WorldState settings, DisplayConfig display)
             n == null ? "" : string.Join(";", (n.Npcs ?? []).Where(p => p.Deleted != true && (p.Met == true || p.Memory is { Count: > 0 })).Select(p => $"{p.Name}:{p.Memory?.Count ?? 0}")),
             string.Join(";", ws.World?.Known ?? []) + "#" + string.Join(";", ws.World?.Visited ?? []),
             n == null ? "" : string.Join(";", n.KnownMonsters ?? []),
-            PlayerNotes.All.Count(x => x.ByMaster).ToString(),   // заметку дописал мастер
+            PlayerNotes.All.Count(x => x.ByMaster).ToString(),   // a note added by the DM
         ];
     }
 
-    // Что в подвкладках уже видели — по игре (место сохранения); первый показ журнала — всё «видено».
+    // What has already been seen in the subtabs, per game (save slot); the first time the journal opens, everything counts as "seen".
+
     private static readonly Dictionary<int, string[]> _seenBySlot = [];
 
     private string[] SeenSections(string[] now)

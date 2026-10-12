@@ -9,10 +9,10 @@ using NaviDnD.MapGen.Generators;
 
 namespace NaviDnD.McpServer;
 
-// Карта мира для мастера: world_query — сведения о месте, что рядом, путь; add_place — новое место на карте
-// (клетку подбирает код). Мир игры = геометрия (Storage/Worlds/<world.id>/world.json рядом с файлом состояния)
-// + слой игры (world в файле состояния: концепция, места, тропы). Инструменты ничего не пишут сами —
-// add_place возвращает патч, который мастер кладёт в ответ (как advance_round).
+// The world map for the DM: world_query — info about a place, what's nearby, a route; add_place — a new place on the map
+// (the code picks the cell). The game's world = geometry (Storage/Worlds/<world.id>/world.json next to the state file)
+// + the game layer (world in the state file: concept, places, trails). The tools write nothing themselves —
+// add_place returns a patch that the DM puts in its response (like advance_round).
 [McpServerToolType]
 public sealed class WorldQueryTools(McpServerConfig config)
 {
@@ -28,13 +28,13 @@ public sealed class WorldQueryTools(McpServerConfig config)
 
     [McpServerTool]
     [Description("""
-        Карта мира: места игры (известные герою и скрытые замыслы мастера), королевства, дороги, расстояния.
-        query — одна из форм:
-          "place:Имя" — что за место, чьё, где, описание, окружение (+ тайна мастера);
-          "near:Имя" — места в ~6 днях пути: направление и время в пути;
-          "route:Откуда;Куда" — путь пешком: сколько дней, по дороге ли, через какие королевства;
-          "overview" — весь мир: концепция, королевства, места.
-        Клетка мира ≈ четверть дня пути по дороге. Имя можно неточно (часть имени).
+        World map: the game's places (known to the hero and the DM's hidden plans), kingdoms, roads, distances.
+        query is one of:
+          "place:Name" — what the place is, whose, where, description, surroundings (+ the DM's secret);
+          "near:Name" — places within ~6 days' travel: direction and travel time;
+          "route:From;To" — the route on foot: how many days, whether by road, through which kingdoms;
+          "overview" — the whole world: concept, kingdoms, places.
+        One world cell ≈ a quarter day's travel by road. The name can be inexact (part of the name).
         """)]
     public string WorldQuery(string query)
     {
@@ -42,7 +42,7 @@ public sealed class WorldQueryTools(McpServerConfig config)
         try
         {
             var (world, _, _) = LoadWorld();
-            if (world == null) return "Мира нет.";
+            if (world == null) return "There is no world.";
             string q = query.Trim();
             int colon = q.IndexOf(':');
             string mode = (colon >= 0 ? q[..colon] : q).Trim().ToLowerInvariant();
@@ -50,16 +50,16 @@ public sealed class WorldQueryTools(McpServerConfig config)
             switch (mode)
             {
                 case "place" or "место":
-                    return WorldAtlas.FindPlace(world, arg) is { } p ? WorldAtlas.PlaceInfo(world, p, withDmNotes: true) : $"Места «{arg}» нет.";
+                    return WorldAtlas.FindPlace(world, arg) is { } p ? WorldAtlas.PlaceInfo(world, p, withDmNotes: true) : $"No place \"{arg}\".";
                 case "near" or "рядом":
-                    return WorldAtlas.FindPlace(world, arg) is { } n ? WorldAtlas.Near(world, n) : $"Места «{arg}» нет.";
+                    return WorldAtlas.FindPlace(world, arg) is { } n ? WorldAtlas.Near(world, n) : $"No place \"{arg}\".";
                 case "route" or "путь":
                     var parts = arg.Split(';', 2);
-                    if (parts.Length < 2) return "Формат: route:Откуда;Куда";
+                    if (parts.Length < 2) return "Format: route:From;To";
                     var a = WorldAtlas.FindPlace(world, parts[0]);
                     var b = WorldAtlas.FindPlace(world, parts[1]);
-                    if (a == null || b == null) return $"Места «{(a == null ? parts[0] : parts[1]).Trim()}» нет.";
-                    return WorldAtlas.Route(world, a, b) is { } r ? $"{a.Name} → {b.Name}: {r.Summary}" : $"Пешком из «{a.Name}» в «{b.Name}» не дойти (вода).";
+                    if (a == null || b == null) return $"No place \"{(a == null ? parts[0] : parts[1]).Trim()}\".";
+                    return WorldAtlas.Route(world, a, b) is { } r ? $"{a.Name} → {b.Name}: {r.Summary}" : $"\"{b.Name}\" can't be reached on foot from \"{a.Name}\" (water).";
                 default:
                     return WorldAtlas.Overview(world, withDmNotes: true);
             }
@@ -67,25 +67,25 @@ public sealed class WorldQueryTools(McpServerConfig config)
         catch (Exception ex)
         {
             Log($"world_query error: {ex.Message}");
-            return $"Ошибка: {ex.Message}";
+            return $"Error: {ex.Message}";
         }
     }
 
     [McpServerTool]
     [Description("""
-        Добавляет место на карту мира: город/деревню, о которых узнал герой, или место, куда его отправили
-        (руины, логово, святилище…). Клетку подбирает код по рельефу (поселение — у воды и дорог, логово — в
-        глуши); к новой деревне/логову сама проложится тропа. Возвращает патч — положи его в ответ как есть
-        (корневой "world"; можно слить с другими полями world).
+        Adds a place to the world map: a city/village the hero has learned about, or a place they've been sent to
+        (ruins, a lair, a shrine…). The code picks the cell by terrain (a settlement near water and roads, a lair in the
+        wilds); a trail to a new village/lair is laid automatically. Returns a patch — put it in your response as is
+        (the root "world"; it can be merged with other world fields).
         type: city | town | port | village | castle | ruins | dungeon | cave | shrine.
-        near — от какого места (по умолчанию — где герой); direction — север/северо-восток/…; days — примерно
-        сколько дней пути; terrain — слова: лес, чаща, горы, холмы, болото, пустыня, снег, у реки, у моря,
-        у озера, у дороги, в глуши; kingdom — имя королевства или K-номер.
-        hidden=true — замысел мастера, герой о месте не знает (на карте не видно; откроешь патчем hidden:false).
+        near — from which place (default: where the hero is); direction — north/northeast/…; days — roughly
+        how many days' travel; terrain — words: forest, thicket, mountains, hills, swamp, desert, snow, by a river, by the sea,
+        by a lake, by a road, in the wilds; kingdom — a kingdom name or K-number.
+        hidden=true — the DM's plan, the hero doesn't know about the place (not shown on the map; reveal it with a hidden:false patch).
         """)]
     public string AddPlace(
         string name, string type, string description,
-        [Description("Тайна/план мастера, герою не видна")] string? dmNotes = null,
+        [Description("The DM's secret/plan, hidden from the hero")] string? dmNotes = null,
         string? near = null, string? direction = null, double? days = null, string? terrain = null,
         string? kingdom = null, bool hidden = false)
     {
@@ -93,14 +93,14 @@ public sealed class WorldQueryTools(McpServerConfig config)
         try
         {
             var (all, geo, link) = LoadWorld();
-            if (all == null || geo == null) return "Мира нет.";
+            if (all == null || geo == null) return "There is no world.";
             if (all.Places.Any(p => p.Name.Equals(name.Trim(), StringComparison.OrdinalIgnoreCase)))
-                return $"Место «{name}» уже есть: {WorldAtlas.PlaceInfo(all, WorldAtlas.FindPlace(all, name)!, true)}";
+                return $"Place \"{name}\" already exists: {WorldAtlas.PlaceInfo(all, WorldAtlas.FindPlace(all, name)!, true)}";
             type = type.Trim().ToLowerInvariant();
-            if (type == WorldPlaceTypes.Capital) return "Столицы уже на карте — выбери другой тип.";
+            if (type == WorldPlaceTypes.Capital) return "Capitals are already on the map — choose another type.";
             var nearPlace = near is { Length: > 0 } nn ? WorldAtlas.FindPlace(all, nn)
                 : link?.Place is { } here ? WorldAtlas.FindPlace(all, here)
-                : link is { X: int hx, Y: int hy } ? new WorldPlace { Name = "герой", X = hx, Y = hy } : null;
+                : link is { X: int hx, Y: int hy } ? new WorldPlace { Name = "the hero", X = hx, Y = hy } : null;
             int k = -1;
             if (kingdom is { Length: > 0 } kg)
                 k = kg.Trim().StartsWith('K') && int.TryParse(kg.Trim()[1..], out int ki) ? ki
@@ -108,32 +108,32 @@ public sealed class WorldQueryTools(McpServerConfig config)
             var used = geo.Chronicle.Places.Select(p => p.Slot).Where(s => s >= 0).ToHashSet();
             var spot = WorldAtlas.FindSpot(geo, new WorldAtlas.SpotRequest(type, nearPlace, direction, days ?? (nearPlace != null ? 2 : null), terrain, k),
                 all.Places.Select(p => (p.X, p.Y)).ToList(), used);
-            if (spot is not { } s) return "Подходящего места не нашлось — смягчи условия.";
+            if (spot is not { } s) return "No suitable spot found — relax the conditions.";
 
             var patch = new { world = new { places = new[] { new { name = name.Trim(), type, x = s.x, y = s.y, slot = s.slot, hidden, description, dmNotes } } } };
             var probe = new WorldPlace { Name = name, Type = type, X = s.x, Y = s.y, Kingdom = geo.OwnerAt(s.x, s.y) };
             var sb = new StringBuilder();
-            sb.AppendLine($"{name}: {WorldPlaceTypes.Label(type)}, {WorldAtlas.KingdomName(all, probe)}, {WorldAtlas.Compass(all, s.x, s.y)}; окружение: {WorldAtlas.Surroundings(all, s.x, s.y, named: true)}");
+            sb.AppendLine($"{name}: {L.Strip(WorldPlaceTypes.Label(type))}, {WorldAtlas.KingdomName(all, probe)}, {L.Strip(WorldAtlas.Compass(all, s.x, s.y))}; surroundings: {WorldAtlas.Surroundings(all, s.x, s.y, named: true)}");
             if (nearPlace != null && WorldAtlas.Route(all, nearPlace, probe) is { } r)
-                sb.AppendLine($"От «{nearPlace.Name}»: {WorldAtlas.Direction(s.x - nearPlace.X, s.y - nearPlace.Y)}, {r.Summary}");
-            sb.AppendLine("Патч для ответа:");
+                sb.AppendLine($"From \"{nearPlace.Name}\": {L.Strip(WorldAtlas.Direction(s.x - nearPlace.X, s.y - nearPlace.Y))}, {r.Summary}");
+            sb.AppendLine("Patch for the response:");
             sb.Append(JsonSerializer.Serialize(patch, _writeOptions));
             return sb.ToString();
         }
         catch (Exception ex)
         {
             Log($"add_place error: {ex.Message}");
-            return $"Ошибка: {ex.Message}";
+            return $"Error: {ex.Message}";
         }
     }
 
-    // Мир игры со скрытыми местами; geo — геометрия, link — слой игры (нет — общий мир как есть).
+    // The game's world with hidden places; geo — the geometry, link — the game layer (none — the shared world as is).
     private (WorldMap? all, WorldMap? geo, GameWorldLink? link) LoadWorld()
     {
         string worlds = Path.Combine(Path.GetDirectoryName(config.WorldStatePath) ?? ".", "Worlds");
         GameWorldLink? link = null;
         try { link = JsonSerializer.Deserialize<WorldState>(File.ReadAllText(config.WorldStatePath, Encoding.UTF8), _readOptions)?.World; }
-        catch { /* нет файла состояния — активный мир */ }
+        catch { /* no state file — the active world */ }
         string? id = link?.Id;
         if (string.IsNullOrEmpty(id) && File.Exists(Path.Combine(worlds, "active.txt")))
             id = File.ReadAllText(Path.Combine(worlds, "active.txt")).Trim();

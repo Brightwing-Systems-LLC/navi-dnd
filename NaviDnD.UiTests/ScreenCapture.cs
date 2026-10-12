@@ -5,11 +5,11 @@ using System.Runtime.Versioning;
 
 namespace NaviDnD.UiTests;
 
-// Снимает клиентскую область окна консоли через PrintWindow и сэмплирует пиксель по
-// символьным координатам (col, row) — так проверяется РЕАЛЬНЫЙ отрендеренный цвет,
-// в обход легаси Windows Console API (ReadConsoleOutputAttribute), который не отражает
-// 24-битный ANSI. Вызывать ТОЛЬКО пока консоль игры активна (внутри GameConsole.WithGameConsole) —
-// GetConsoleWindow()/GetStdHandle() возвращают хендлы текущей подключённой консоли.
+// Captures the client area of the console window via PrintWindow and samples a pixel at
+// character coordinates (col, row) — this checks the REAL rendered color,
+// bypassing the legacy Windows Console API (ReadConsoleOutputAttribute), which doesn't reflect
+// 24-bit ANSI. Call ONLY while the game console is attached (inside GameConsole.WithGameConsole) —
+// GetConsoleWindow()/GetStdHandle() return the handles of the currently attached console.
 [SupportedOSPlatform("windows")]
 internal static class ScreenCapture
 {
@@ -39,41 +39,41 @@ internal static class ScreenCapture
     [StructLayout(LayoutKind.Sequential)]
     private struct CONSOLE_FONT_INFO { public int nFont; public COORD dwFontSize; }
 
-    // Возвращает цвет "чернил" символьной ячейки (col, row), 0-based — те же координаты,
-    // что использует ConsoleBufferReader/GameConsole. Сэмплировать один пиксель в центре
-    // ячейки ненадёжно: тонкие штрихи буквы (особенно кириллицы) часто не попадают ровно
-    // в центр, и получаем фон вместо текста. Вместо этого сканируем ВСЮ ячейку и берём
-    // пиксель, максимально непохожий на background, — это и есть настоящий цвет текста,
-    // устойчиво к неточному попаданию и небольшому рассогласованию координат/DPI.
-    // Бросает исключение с точным описанием, на каком шаге не удалось (а не молча null) —
-    // это единственный способ понять причину в среде, которую нельзя увидеть глазами.
+    // Returns the "ink" color of the character cell (col, row), 0-based — the same coordinates
+    // ConsoleBufferReader/GameConsole use. Sampling a single pixel in the center
+    // of the cell is unreliable: thin letter strokes (especially Cyrillic ones) often don't land exactly
+    // in the center, and we get the background instead of the text. Instead we scan the WHOLE cell and take
+    // the pixel most unlike the background — that is the real text color,
+    // robust to imprecise hits and slight coordinate/DPI mismatch.
+    // Throws an exception describing exactly which step failed (rather than silently returning null) —
+    // the only way to find the cause in an environment you can't see with your own eyes.
     public static (byte r, byte g, byte b) SampleCellColor(int col, int row, (byte r, byte g, byte b) background,
         Action<Bitmap, Rectangle>? inspect = null)
     {
         IntPtr hwnd = GetConsoleWindow();
         if (hwnd == IntPtr.Zero)
-            throw new InvalidOperationException("GetConsoleWindow() вернул NULL — у консоли нет оконного хендла (возможно, безголовая/виртуальная сессия без GDI-окон).");
+            throw new InvalidOperationException("GetConsoleWindow() returned NULL — the console has no window handle (possibly a headless/virtual session without GDI windows).");
 
         if (!GetClientRect(hwnd, out var rect))
-            throw new InvalidOperationException($"GetClientRect провалился (Win32Error={Marshal.GetLastWin32Error()}).");
+            throw new InvalidOperationException($"GetClientRect failed (Win32Error={Marshal.GetLastWin32Error()}).");
 
         int width = rect.Right - rect.Left;
         int height = rect.Bottom - rect.Top;
         if (width <= 0 || height <= 0)
-            throw new InvalidOperationException($"GetClientRect вернул нулевые размеры ({width}x{height}).");
+            throw new InvalidOperationException($"GetClientRect returned zero size ({width}x{height}).");
 
         using var stdOut = ConsoleHandles.OpenOutput();
         if (!GetCurrentConsoleFont(stdOut.DangerousGetHandle(), false, out var fontInfo))
-            throw new InvalidOperationException($"GetCurrentConsoleFont провалился (Win32Error={Marshal.GetLastWin32Error()}).");
+            throw new InvalidOperationException($"GetCurrentConsoleFont failed (Win32Error={Marshal.GetLastWin32Error()}).");
 
         var cellSize = GetConsoleFontSize(stdOut.DangerousGetHandle(), fontInfo.nFont);
         if (cellSize.X <= 0 || cellSize.Y <= 0)
-            throw new InvalidOperationException($"GetConsoleFontSize вернул нулевой размер ячейки ({cellSize.X}x{cellSize.Y}).");
+            throw new InvalidOperationException($"GetConsoleFontSize returned a zero cell size ({cellSize.X}x{cellSize.Y}).");
 
         int cellLeft = col * cellSize.X;
         int cellTop = row * cellSize.Y;
         if (cellLeft < 0 || cellTop < 0 || cellLeft >= width || cellTop >= height)
-            throw new InvalidOperationException($"Ячейка ({cellLeft},{cellTop}) вне клиентской области ({width}x{height}).");
+            throw new InvalidOperationException($"Cell ({cellLeft},{cellTop}) is outside the client area ({width}x{height}).");
         int cellRight = Math.Min(width, cellLeft + cellSize.X);
         int cellBottom = Math.Min(height, cellTop + cellSize.Y);
 
@@ -85,7 +85,7 @@ internal static class ScreenCapture
             try { ok = PrintWindow(hwnd, hdc, PW_CLIENTONLY); }
             finally { graphics.ReleaseHdc(hdc); }
             if (!ok)
-                throw new InvalidOperationException($"PrintWindow вернул false (Win32Error={Marshal.GetLastWin32Error()}).");
+                throw new InvalidOperationException($"PrintWindow returned false (Win32Error={Marshal.GetLastWin32Error()}).");
         }
 
         inspect?.Invoke(bitmap, new Rectangle(cellLeft, cellTop, cellRight - cellLeft, cellBottom - cellTop));
