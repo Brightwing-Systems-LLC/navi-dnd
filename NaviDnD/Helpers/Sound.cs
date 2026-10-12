@@ -38,7 +38,7 @@ internal static class Sound
 
     private static readonly string DiceRollPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sound", "dice-roll.mp3");
 
-    // No preloading into memory — play the mp3 straight from disk with a fresh Mp3FileReader on every
+    // No preloading into memory — play the mp3 straight from disk with a fresh reader on every
     // roll. Preloading (reading the whole file into a flat array up front) consistently corrupted
     // this particular compressed clip; rolls are rare and less latency-sensitive than clicks, so
     // opening the device each time is an acceptable price for correct sound.
@@ -50,8 +50,8 @@ internal static class Sound
         {
             try
             {
-                using var reader = new Mp3FileReader(DiceRollPath);
-                using var output = new WaveOutEvent();
+                using var reader = AudioOutput.OpenMp3(DiceRollPath);
+                using var output = AudioOutput.Create();
                 var volume = new NAudio.Wave.SampleProviders.VolumeSampleProvider(reader.ToSampleProvider())
                     { Volume = Suspended ? 0 : Volume };
                 output.Init(volume);
@@ -63,7 +63,7 @@ internal static class Sound
                     Thread.Sleep(50);
                 }
             }
-            catch { /* sound is not a critical feature */ }
+            catch (Exception ex) { AudioOutput.Log(ex); /* sound is not a critical feature */ }
             finally { started.TrySetResult(); }
         });
         return started.Task;
@@ -85,19 +85,19 @@ internal static class Sound
                 string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "sound", fileName);
                 if (!File.Exists(path)) return;
 
-                using var reader = new AudioFileReader(path);
+                using var reader = AudioOutput.Open(path, out var source);
                 var samples = new List<float>();
-                var buffer = new float[reader.WaveFormat.SampleRate * reader.WaveFormat.Channels];
+                var buffer = new float[source.WaveFormat.SampleRate * source.WaveFormat.Channels];
                 int read;
-                while ((read = reader.Read(buffer, 0, buffer.Length)) > 0)
+                while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
                     samples.AddRange(buffer.Take(read));
 
-                _provider = new OneShotSampleProvider(samples.ToArray(), reader.WaveFormat);
-                _output = new WaveOutEvent { DesiredLatency = 40 };
+                _provider = new OneShotSampleProvider(samples.ToArray(), source.WaveFormat);
+                _output = AudioOutput.Create(40);
                 _output.Init(_provider);
                 _output.Play();
             }
-            catch { /* sound is not a critical feature */ }
+            catch (Exception ex) { AudioOutput.Log(ex); /* sound is not a critical feature */ }
         }
 
         public void Trigger() => _provider?.Trigger();
@@ -127,12 +127,12 @@ internal static class Sound
             try
             {
                 var provider = new TypingBlipProvider();
-                var output = new WaveOutEvent { DesiredLatency = 40 };
+                var output = AudioOutput.Create(40);
                 output.Init(provider);
                 output.Play();
                 return provider;
             }
-            catch { return null; /* sound is not a critical feature */ }
+            catch (Exception ex) { AudioOutput.Log(ex); return null; /* sound is not a critical feature */ }
         }
 
         public void Trigger()
