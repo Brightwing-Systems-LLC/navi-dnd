@@ -188,7 +188,7 @@ public static class AiCliDiscovery
         foreach (string raw in directories.Distinct(StringComparer.Ordinal))
         {
             string directory = NormalizePath(raw);
-            if (!Path.IsPathRooted(directory)) continue;
+            if (!Path.IsPathRooted(directory) || IsTerminalShim(directory)) continue;
             string candidate = Path.Combine(directory, name);
             if (UnixTools.IsExecutable(candidate)) return candidate;
         }
@@ -214,6 +214,11 @@ public static class AiCliDiscovery
         }
         return null;
     }
+
+    // Terminals like cmux put per-session wrapper scripts first on PATH (~/.cmuxterm/cmux-cli-shims/<session>/claude): they
+    // add the terminal's own settings and hooks to every call and vanish with the session — the game wants the real CLI.
+    public static bool IsTerminalShim(string directory) =>
+        directory.Replace('\\', '/').Contains("/.cmuxterm/", StringComparison.Ordinal);
 
     // The npm global prefix without launching npm: the environment, then ~/.npmrc.
     [UnsupportedOSPlatform("windows")]
